@@ -94,6 +94,13 @@ Each release is also published at
   failures now take the same silent cache fallback as the usage call; a
   refresh the endpoint rejects still asks for a new login.
 
+- **Antigravity's custom formats no longer break Waybar's markup.** The
+  documented `{scoped_model}` and `{extra_model}` placeholders carry the
+  third-party pool's name, "Claude & GPT OSS", and the bar text and a custom
+  `--tooltip-format` substituted it unescaped, so any format naming the pool
+  handed Waybar a bare `&` inside its markup. The pool names and the plan
+  label are now escaped in both, as Kiro already does for its plan.
+
 ## [1.30.0] — 2026-10-01
 
 ### Added
