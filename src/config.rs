@@ -1879,10 +1879,12 @@ impl CustomProviderConfig {
             return Err(bad("url has no host".into()));
         }
         if !self.api_key_env.is_empty() && !is_valid_env_var_name(&self.api_key_env) {
-            return Err(bad(format!(
-                "api_key_env {:?} is not a valid environment variable name",
-                self.api_key_env
-            )));
+            // The value is not repeated: one that is not a variable name is
+            // most likely a key pasted into the wrong field, and a config
+            // error reaches every frontend.
+            return Err(bad(
+                "api_key_env is not a valid environment variable name".into()
+            ));
         }
         validate_header_name(&section, "auth_header", &self.auth_header)?;
         if reqwest::header::HeaderValue::from_str(&format!("{} k", self.auth_scheme)).is_err() {
@@ -5147,6 +5149,19 @@ value = "/tier"
             Config::load_from(write_toml(&none).path()).is_ok(),
             "an empty api_key_env means inline-only and is valid"
         );
+    }
+
+    /// A value that is not a variable name is most likely a key pasted into
+    /// the wrong field, and this error fails the whole config load: it names
+    /// the field and never repeats the value.
+    #[test]
+    fn custom_invalid_api_key_env_is_not_repeated() {
+        let msg = custom_error(&custom_with(
+            r#"api_key_env = "MYTOOL_API_KEY""#,
+            r#"api_key_env = "sk-live-pasted-secret""#,
+        ));
+        assert!(msg.contains("api_key_env"), "{msg}");
+        assert!(!msg.contains("sk-live-pasted-secret"), "{msg}");
     }
 
     #[test]
