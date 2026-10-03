@@ -25,7 +25,7 @@ Output modes:
     between ticks. Useful while iterating on `--format` or `--tooltip-format`.
   - --json: force JSON output even when stdout is a TTY (for scripting).
   - --config PATH: read and write an alternate config file instead of the
-    default `%APPDATA%/ai-usagebar/config.toml` (Windows) or
+    default `%APPDATA%/ai-usagebar/config/config.toml` (Windows) or
     `~/.config/ai-usagebar/config.toml`. Accepted in any position, before or
     after the subcommand; the file must already exist, and Settings saves
     write back to it."
