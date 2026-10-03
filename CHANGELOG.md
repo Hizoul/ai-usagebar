@@ -77,6 +77,15 @@ Each release is also published at
   provider instead, as Copilot and keyless providers already did; picking a
   provider explicitly still switches it on.
 
+- **Grok Bot reuses the token pair it refreshed.** After a 401 the widget
+  refreshes the desktop app's session and saves the new pair in its own
+  `oauth.json`, but it saved it under the fingerprint of the rotated refresh
+  token, while the next poll looks it up by the app's sign-in. Once the token
+  rotated the pair was never found again: every poll retried the expired
+  access token and refreshed with the original refresh token, which a server
+  that enforces rotation rejects. The pair is now keyed by the sign-in it was
+  refreshed from, as Kiro and Antigravity already do.
+
 ## [1.30.0] — 2026-10-01
 
 ### Added
