@@ -64,11 +64,19 @@ pub fn resolve_auth_in(
     // `credentials_path` or a relocated `KIMI_CODE_HOME` in play, "log in with
     // the CLI" is useless advice if the user logged in somewhere this build
     // never looked. Sanitized because the path can carry a configured value.
+    // The env var is named only when it is a valid name: anything else is
+    // most likely a key pasted into `api_key_env`, which
+    // `config::resolve_api_key` never repeats either.
+    let env_var: &str = if crate::config::is_valid_env_var_name(&cfg.api_key_env) {
+        &cfg.api_key_env
+    } else {
+        "a valid environment variable (`api_key_env` is not one)"
+    };
     Err(AppError::Credentials(format!(
         "Kimi: no credentials. Either log in with the Kimi Code CLI (`kimi`) — its login is \
          read from {} — or set an API key in {} or `api_key` under [kimi] in {}.",
         crate::display::sanitize_untrusted_path(&kimi_code.credentials_path),
-        cfg.api_key_env,
+        env_var,
         crate::config::config_path_hint()
     )))
 }
