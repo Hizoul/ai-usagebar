@@ -11,6 +11,10 @@ Each release is also published at
 
 ### Added
 
+- **Grok Bot weekly pacing in the widget and macOS menu bar.** Added elapsed
+  aliases and ratio/point pace placeholders using the account's reported period,
+  with configurable tolerance, placeholder colors and tooltip pace markers.
+
 - **Omarchy panel and settings speak English, Russian, and Brazilian Portuguese.**
   A Language dropdown (`uiLocale`: Auto / English / Português (Brasil) / Русский)
   remaps chrome, formatters, known report footnotes, and credential hints through

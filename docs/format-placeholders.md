@@ -233,6 +233,18 @@ These cover the desktop app's weekly included-usage pool from
 `api2.cursor.sh/aiserver.v1.DashboardService/GetSandUsageStatus`
 (Linux and macOS). The default format is `{gbt_weekly_pct}%`. Generic
 aliases are `{plan}` and `{weekly_pct}` / `{weekly_reset}`.
+`{weekly_elapsed}` aliases `{gbt_weekly_elapsed}`, the elapsed percentage of
+the reported period. The period length comes from `currentPeriodStart` and
+`nextResetTimestampUtc`; it is never assumed to be seven days.
+
+`{gbt_weekly_pace}` and `{gbt_weekly_pace_pct}` expose the ratio glyph and
+label, respecting `--pace-tolerance`. `{gbt_weekly_pace_indicator}`,
+`{gbt_weekly_pace_pts}` and `{gbt_weekly_pace_delta}` expose the point-delta
+glyph, label and signed difference. `--format-pace-color` colors these pace
+values; `--tooltip-pace-pts` selects the point glyph and elapsed marker in
+the tooltip. Missing or non-positive periods return empty elapsed aliases,
+neutral pace placeholders and no marker.
+
 `{gbt_on_demand}` renders `on`/`off` for pay-as-you-go past the included
 pool.
 
