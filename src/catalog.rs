@@ -148,14 +148,10 @@ fn credential_present(cfg: &Config, id: VendorId, probes: &Probes) -> bool {
                 cfg.anthropic.credentials_path.is_none() && (probes.keychain_has_claude)();
             default_or_explicit
                 || keychain
-                || cfg
-                    .anthropic
-                    .all_accounts()
-                    .iter()
-                    .any(|account| {
-                        (probes.exists)(&account.credentials_path)
-                            || (probes.keychain_has_claude_for)(&account.config_dir())
-                    })
+                || cfg.anthropic.all_accounts().iter().any(|account| {
+                    (probes.exists)(&account.credentials_path)
+                        || (probes.keychain_has_claude_for)(&account.config_dir())
+                })
         }
         VendorId::Openai => {
             any_exists(probes, [cfg.openai.resolve_auth_path(None)])
@@ -269,7 +265,10 @@ fn keychain_has_claude() -> bool {
 
 #[cfg(target_os = "macos")]
 fn keychain_has_claude_for(config_dir: &Path) -> bool {
-    matches!(crate::anthropic::keychain::read_raw_for(config_dir), Ok(Some(_)))
+    matches!(
+        crate::anthropic::keychain::read_raw_for(config_dir),
+        Ok(Some(_))
+    )
 }
 
 #[cfg(not(target_os = "macos"))]
