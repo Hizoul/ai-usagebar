@@ -2195,6 +2195,28 @@ mod tests {
         assert_eq!(Some(s.primary), cfg.enabled_vendors().first().copied());
     }
 
+    /// Switching off the vendor that is still the primary is a state a save
+    /// can produce. A key vendor that keeps its key stays on offer, so the
+    /// overlay must not reopen with it selected: the next save, whatever it
+    /// changed, would take that as the user's pick and switch it back on.
+    #[test]
+    fn an_unrelated_save_leaves_a_disabled_primary_switched_off() {
+        let (_dir, path) = temp_config(Some(
+            "[ui]\nprimary = \"openrouter\"\n[openrouter]\nenabled = false\napi_key = \"test\"\n",
+        ));
+        let cfg = Config::load_from(&path).unwrap();
+        let mut s = SettingsState::from_config_with(&cfg, |_| false);
+        assert!(s.primary_choices.contains(&VendorId::Openrouter));
+        assert_ne!(s.primary, VendorId::Openrouter);
+
+        s.notify_enabled = !s.notify_enabled;
+        s.notify_enabled_dirty = true;
+        save_to_path(&s, &path).unwrap();
+
+        let saved = Config::load_from(&path).unwrap();
+        assert!(!saved.is_enabled(VendorId::Openrouter));
+    }
+
     #[test]
     fn key_input_insert_backspace_arrow() {
         let mut k = KeyInput::default();
