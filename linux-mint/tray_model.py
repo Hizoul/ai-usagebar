@@ -43,6 +43,14 @@ def metric_display(metric):
     return str(metric.get("value") or tr("Not available", "Não informado"))
 
 
+def summary_metric(entry):
+    """The metric an entry's one-line menu summary shows."""
+    metrics = entry.get("metrics") or []
+    if not metrics:
+        return None
+    return max(metrics, key=lambda item: item.get("percent") or 0)
+
+
 def metric_usage_label(metric, language=None):
     percent = metric.get("percent")
     if not isinstance(percent, (int, float)):
