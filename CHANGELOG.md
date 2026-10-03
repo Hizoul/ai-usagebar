@@ -9,6 +9,17 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Fixed
+
+- **Saving settings no longer switches a disabled primary provider back on.**
+  A key provider that was still `[ui] primary` after being switched off (from
+  the overlay's provider switches or by hand) stayed the selected primary
+  whenever it kept a key, inline or exported, so the next save from the TUI
+  overlay or the Omarchy settings panel wrote its `enabled = true` back,
+  whatever the edit was. A disabled primary now shows the first enabled
+  provider instead, as Copilot and keyless providers already did; picking a
+  provider explicitly still switches it on.
+
 ## [1.30.0] — 2026-10-01
 
 ### Added
