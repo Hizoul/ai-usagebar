@@ -44,11 +44,17 @@ def metric_display(metric):
 
 
 def summary_metric(entry):
-    """The metric an entry's one-line menu summary shows."""
+    """The metric an entry's one-line menu summary shows.
+
+    Grouped rows (the Claude entry's context sessions, SuperGrok's product
+    slices) are not quota windows, so they stand in only when an entry has
+    nothing else.
+    """
     metrics = entry.get("metrics") or []
-    if not metrics:
+    quota = [metric for metric in metrics if not metric.get("group")] or metrics
+    if not quota:
         return None
-    return max(metrics, key=lambda item: item.get("percent") or 0)
+    return max(quota, key=lambda item: item.get("percent") or 0)
 
 
 def metric_usage_label(metric, language=None):
