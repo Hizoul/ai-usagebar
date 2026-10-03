@@ -283,7 +283,11 @@ async fn fetch_live(
         // the paired refresh token and retry exactly once.
         let refreshed = refresh(client, &endpoints.token, &refresh_token).await?;
         let persisted = PersistedOAuth {
-            fingerprint: super::creds::fingerprint_of(&refreshed.refresh_token),
+            // Scoped to the sign-in the app's file holds, which is what the
+            // next poll looks the pair up by. The app does not rewrite that
+            // file on a refresh, so a rotated token's own fingerprint would
+            // never be asked for again.
+            fingerprint: creds.fingerprint.clone(),
             access_token: refreshed.access_token,
             refresh_token: refreshed.refresh_token,
         };
@@ -569,15 +573,15 @@ mod tests {
         retried.assert_async().await;
         assert_eq!(out.snapshot.weekly_pct, 12);
 
-        // The rotated pair persisted to the vendor cache, scoped by the new
-        // refresh token's fingerprint — never back to the app's file.
+        // The rotated pair persisted to the vendor cache, scoped by the
+        // sign-in it was refreshed from, and never back to the app's file.
         let persisted: serde_json::Value =
             serde_json::from_slice(&std::fs::read(oauth_cache_path(&cache)).unwrap()).unwrap();
         assert_eq!(persisted["access_token"], "at-fresh");
         assert_eq!(persisted["refresh_token"], "rt-rotated");
         assert_eq!(
             persisted["fingerprint"],
-            super::super::creds::fingerprint_of("rt-rotated")
+            super::super::creds::fingerprint_of("rt-stored")
         );
         #[cfg(unix)]
         {
