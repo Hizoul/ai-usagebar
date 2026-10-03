@@ -5285,6 +5285,24 @@ url = "https://example.test/u"
         assert!(after.contains(&renamed), "a renamed api_key_env");
     }
 
+    #[test]
+    fn loading_a_config_registers_openrouter_management_env_vars_for_scrubbing() {
+        let renamed = "AI_USAGEBAR_MGMT_RENAMED_SCRUB_TEST_5D1B";
+        let account = "AI_USAGEBAR_MGMT_ACCOUNT_SCRUB_TEST_8E6C";
+        let before = crate::vendor::vendor_secret_env_vars_to_remove(&[]);
+        assert!(!before.contains(&renamed));
+        assert!(!before.contains(&account));
+        let file = write_toml(&format!(
+            "[openrouter]\nmanagement_api_key_env = \"{renamed}\"\n\
+             [[openrouter.accounts]]\nlabel = \"work\"\napi_key_env = \"OR_WORK_KEY\"\n\
+             management_api_key_env = \"{account}\"\n"
+        ));
+        Config::load_from(file.path()).unwrap();
+        let after = crate::vendor::vendor_secret_env_vars_to_remove(&[]);
+        assert!(after.contains(&renamed), "a renamed management_api_key_env");
+        assert!(after.contains(&account), "an account's management_api_key_env");
+    }
+
     /// `VendorId::config_section` is what every by-name config writer uses;
     /// this proves each section name is one the parser actually recognizes
     /// (the `deny_unknown_fields` on `Config` makes a misspelling fail loudly)
