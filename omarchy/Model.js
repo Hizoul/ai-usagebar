@@ -656,7 +656,12 @@ function cursorPoolPresence(entry) {
     if (section.label === "Cursor Models") models = true
     else if (section.label === "Other Models") other = true
   }
-  return { models: models, other: other, demand: cursorOnDemand(entry) !== null }
+  return {
+    models: models,
+    other: other,
+    demand: cursorOnDemand(entry) !== null,
+    credits: cursorGrantMeters(sections).length > 0
+  }
 }
 
 // Fixed display order. A missing or unknown flag stays on, and turning the
@@ -665,18 +670,25 @@ function cursorPoolVisibility(flags) {
   var models = !(flags && flags.models === false)
   var other = !(flags && flags.other === false)
   var demand = !(flags && flags.demand === false)
-  if (!models && !other && !demand) models = true
-  return { models: models, other: other, demand: demand }
+  var credits = !(flags && flags.credits === false)
+  if (!models && !other && !demand && !credits) models = true
+  return { models: models, other: other, demand: demand, credits: credits }
 }
 
 function toggleCursorPool(flags, id) {
   var current = cursorPoolVisibility(flags)
-  var next = { models: current.models, other: current.other, demand: current.demand }
+  var next = {
+    models: current.models,
+    other: current.other,
+    demand: current.demand,
+    credits: current.credits
+  }
   if (id === "models") next.models = !next.models
   else if (id === "other") next.other = !next.other
   else if (id === "demand") next.demand = !next.demand
+  else if (id === "credits") next.credits = !next.credits
   else return current
-  if (!next.models && !next.other && !next.demand) return current
+  if (!next.models && !next.other && !next.demand && !next.credits) return current
   return next
 }
 
@@ -689,14 +701,39 @@ function cursorBarFlags(entry, flags) {
   var visible = {
     models: show.models && has.models,
     other: show.other && has.other,
-    demand: show.demand && has.demand
+    demand: show.demand && has.demand,
+    credits: show.credits && has.credits
   }
-  if (!visible.models && !visible.other && !visible.demand) {
+  if (!visible.models && !visible.other && !visible.demand && !visible.credits) {
     if (has.models) visible.models = true
     else if (has.other) visible.other = true
     else if (has.demand) visible.demand = true
+    else if (has.credits) visible.credits = true
   }
   return visible
+}
+
+// A spending-page grant is a meter beside the two model pools and On-Demand.
+// Its label is the grant's own name, so it is every Cursor metric that is
+// not one of those two pools.
+function cursorGrantMeters(sections) {
+  var parts = []
+  for (var i = 0; i < sections.length; i++) {
+    var section = sections[i]
+    if (!section || section.type !== "metric") continue
+    if (section.label === "Cursor Models" || section.label === "Other Models") continue
+    var label = section.label ? String(section.label) : "Credits"
+    var money = section.headline === "value" && section.value ? String(section.value) : ""
+    parts.push({
+      text: section.percent + "%",
+      line: money !== ""
+        ? label + " · " + money + " · " + section.percent + "%"
+        : label + " · " + section.percent + "%",
+      percent: section.percent,
+      severity: section.severity
+    })
+  }
+  return parts
 }
 
 // Cursor's included usage is two model pools, not two time windows, so the
@@ -737,6 +774,10 @@ function cursorDualHeadline(entry, flags) {
     percent: demand.usedPct,
     severity: demand.severity
   })
+  if (show.credits) {
+    var grants = cursorGrantMeters(sections)
+    for (var g = 0; g < grants.length; g++) parts.push(grants[g])
+  }
   if (parts.length === 0) {
     parts.push({
       text: auto.percent + "%",

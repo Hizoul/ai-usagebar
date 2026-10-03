@@ -320,18 +320,26 @@ also says that Priority Tier costs are omitted.
 
 `{cursor_plan}`, `{cursor_auto_pct}`, `{cursor_api_pct}`,
 `{cursor_total_pct}`, `{cursor_reset}`, `{cursor_on_demand}`,
-`{cursor_unlimited}`
+`{cursor_unlimited}`, `{cursor_credits}`
 
 - `{cursor_auto_pct}` is the Cursor Models pool (Auto and Composer).
 - `{cursor_api_pct}` is the Other Models pool (named and API models).
 - `{cursor_total_pct}` is the overall included-usage headline.
 - `{cursor_on_demand}` and `{cursor_unlimited}` return `on`/`off` and
   `yes`/`no`.
+- `{cursor_credits}` is the spending-page grant, `$21.00/$25.00 remaining`,
+  with the expiry when the grant has one. Several grants are joined with
+  ` | `. The placeholder is empty when the account has no visible grant.
 - `{session_pct}`, `{weekly_pct}`, and `{plan}` alias Cursor Models, Other
   Models, and `Cursor <Plan>`.
 
 A pool can exceed 100%. The default format is
 `{cursor_auto_pct}·{cursor_api_pct}%` and uses the worse pool's severity color.
+That format string stays the two pools. The Omarchy chip adds the grant's
+used percent after On-Demand, and the panel meters it the same way: remaining
+dollars beside a bar of how much of the grant is spent. The row is titled
+Credits, the spending card's own title. A grant Cursor names as a product
+credit ("Cursor Grok 4.6 Credit", "Cloud Agent Credits") keeps that title.
 
 Cursor's dashboard also reports overage and per-member team spend; ai-usagebar
 does not. Team payloads without `individualUsage.plan` fall back to the

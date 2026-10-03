@@ -248,6 +248,24 @@ impl DeepInfraSnapshot {
     }
 }
 
+/// One promo balance from Cursor's spending page
+/// (`GetClientVisibleCreditGrants`). Amounts are USD cents.
+/// `remaining_cents` is the figure to the left of the slash (`$21/$25`).
+///
+/// The grant may cover only one product (Cloud Agents, Bugbot, a single
+/// model). `display_name` is that product title when Cursor sent one. The
+/// row still says "Credits" when the name is not a title Cursor shows.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CursorCreditGrant {
+    pub remaining_cents: i64,
+    pub total_cents: i64,
+    /// When the grant lapses. `None` when the payload has no expiry — some
+    /// account credits never do.
+    pub expires_at: Option<DateTime<Utc>>,
+    /// Vendor label. Empty when the grant has none.
+    pub display_name: String,
+}
+
 /// Cursor — the two included-usage pools the dashboard shows, from the
 /// undocumented `cursor.com/api/usage-summary` endpoint (the same one the
 /// dashboard's own frontend calls), authenticated with the session token the
@@ -260,6 +278,10 @@ impl DeepInfraSnapshot {
 /// (rounded from the wire floats) to match the dashboard and every other
 /// vendor's integer-percent convention; they can exceed 100 when a pool is over
 /// its included allowance.
+///
+/// [`CursorSnapshot::credits`] is a second, best-effort call
+/// (`GetClientVisibleCreditGrants`). An empty list means the account has no
+/// visible grant, or that call failed; either way the pools above still stand.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CursorSnapshot {
     /// Membership label, title-cased from `membershipType` (e.g. "Ultra").
@@ -287,6 +309,9 @@ pub struct CursorSnapshot {
     /// sends it. With `reset_at` it gives the exact window length the pace
     /// projection needs; absent, no window length is reported at all.
     pub cycle_start: Option<DateTime<Utc>>,
+    /// Spending-page credit grants, soonest expiry first. Empty when the
+    /// account has none or the grant call did not succeed.
+    pub credits: Vec<CursorCreditGrant>,
 }
 
 impl CursorSnapshot {

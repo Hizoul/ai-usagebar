@@ -878,9 +878,9 @@ mod tests {
     use super::*;
     use crate::tui::app::ReadyTab;
     use crate::usage::{
-        CursorSnapshot, DeepseekSnapshot, KimiSnapshot, KiroSnapshot, OpenAiSnapshot, OpenAiSource,
-        OpenRouterSnapshot, ResetCredit, ResetCredits, SuperGrokPeriod, SuperGrokSnapshot,
-        VendorSnapshot,
+        CursorCreditGrant, CursorSnapshot, DeepseekSnapshot, KimiSnapshot, KiroSnapshot,
+        OpenAiSnapshot, OpenAiSource, OpenRouterSnapshot, ResetCredit, ResetCredits,
+        SuperGrokPeriod, SuperGrokSnapshot, VendorSnapshot,
     };
     use crate::vendor::VendorId;
 
@@ -2082,6 +2082,7 @@ mod tests {
                 on_demand_limit_cents: Some(500),
                 reset_at: None,
                 cycle_start: None,
+                credits: Vec::new(),
             }),
             stale: false,
             last_error: None,
@@ -2130,6 +2131,7 @@ mod tests {
                 on_demand_limit_cents: None,
                 reset_at: None,
                 cycle_start: None,
+                credits: Vec::new(),
             }),
             stale: false,
             last_error: None,
@@ -2149,6 +2151,60 @@ mod tests {
         assert_eq!(row["used_cents"], 1785);
         assert!(row.get("limit_cents").is_none());
         assert!(row.get("percent").is_none());
+    }
+
+    /// The spending-page grant is a meter of spend against the grant total.
+    /// The row's value is what remains, the same way On-Demand shows dollars
+    /// left beside a used bar. `used_cents` stays off it: that field means
+    /// On-Demand spend, and remaining cents would be read as spent.
+    #[test]
+    fn cursor_credit_row_is_a_meter_of_remaining_dollars() {
+        let state = TabState::Ready(Box::new(ReadyTab {
+            snapshot: VendorSnapshot::Cursor(CursorSnapshot {
+                plan: "Pro".into(),
+                auto_pct: 10,
+                api_pct: 4,
+                total_pct: 10,
+                unlimited: false,
+                on_demand_enabled: false,
+                on_demand_used_cents: None,
+                on_demand_limit_cents: None,
+                reset_at: Some(Utc::now() + chrono::Duration::days(9)),
+                cycle_start: None,
+                credits: vec![CursorCreditGrant {
+                    remaining_cents: 2100,
+                    total_cents: 2500,
+                    expires_at: Some(Utc::now() + chrono::Duration::days(30)),
+                    display_name: "Power user grant".into(),
+                }],
+            }),
+            stale: false,
+            last_error: None,
+            fetched_at: None,
+            display: Default::default(),
+        }));
+        let projected = entry_from_state(&TabId::vendor(VendorId::Cursor), &state, Utc::now());
+        let rendered = render_json_for_primary(std::slice::from_ref(&projected), None);
+        let value: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+        let row = value["entries"][0]["sections"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|section| section["label"] == "Credits")
+            .expect("credits row");
+        assert_eq!(row["type"], "metric");
+        assert_eq!(row["percent"], 16);
+        assert_eq!(row["value"], "$21.00");
+        assert_eq!(row["headline"], "value");
+        assert!(
+            row["detail"]
+                .as_str()
+                .unwrap()
+                .contains("$4.00 of $25.00 used (16%)"),
+            "{row}"
+        );
+        assert!(row.get("used_cents").is_none());
+        assert!(row.get("limit_cents").is_none());
     }
 
     /// Every metric declares which of its two numbers goes on the bar, in both

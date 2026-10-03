@@ -140,12 +140,14 @@ omarchy bar set akitaonrails.ai-usagebar colorCodeUsage true --json
 # default), session (5-hour), weekly (7-day), or monthly. The default is auto.
 omarchy bar set akitaonrails.ai-usagebar barWindow session
 
-# Cursor's chip lists Cursor Models, Other Models, then on-demand used
-# percent. These three switches hide a figure from the top bar and tooltip
-# only. The open panel still lists every pool. At least one stays on.
+# Cursor's chip lists Cursor Models, Other Models, on-demand used percent,
+# then a credit grant when the account has one. These switches hide a figure
+# from the top bar and tooltip only. The open panel still lists every pool.
+# At least one stays on. Credits is absent when there is no grant.
 omarchy bar set akitaonrails.ai-usagebar showCursorModels false --json
 omarchy bar set akitaonrails.ai-usagebar showCursorOther false --json
 omarchy bar set akitaonrails.ai-usagebar showCursorOnDemand false --json
+omarchy bar set akitaonrails.ai-usagebar showCursorCredits false --json
 ```
 
 The refresh interval is clamped to 30–3600 seconds. The `provider` setting
@@ -156,8 +158,9 @@ also recolors the panel meters and tooltip; `barWindow`
 changes the top-bar value and its tooltip/hero echo; none hide report
 details or change provider fetching. Cursor is the exception to the window
 pin: its two included pools are model categories, so the chip shows Cursor
-Models, Other Models, and prepaid on-demand used percent side by side
-(`35% · 7% · 0%`). The Cursor page's three switches hide those figures from
+Models, Other Models, prepaid on-demand used percent, and a credit grant
+side by side (`35% · 7% · 0% · 15%`). The Cursor page's switches hide those
+figures from
 the top bar and tooltip only. The open panel, including its header, still
 lists every pool, and the last remaining figure cannot be turned off. A pool
 the report does not contain does not count as that last figure. The bar's

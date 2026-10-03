@@ -38,7 +38,7 @@ const barWindowSchema = manifest.barWidget.schema.find(row => row.key === 'barWi
 assert.equal(barWindowSchema.type, 'enum');
 assert.deepEqual(barWindowSchema.options, ['auto', 'session', 'weekly', 'monthly']);
 assert.equal(barWindowSchema.defaultValue, 'auto');
-for (const key of ['showCursorModels', 'showCursorOther', 'showCursorOnDemand']) {
+for (const key of ['showCursorModels', 'showCursorOther', 'showCursorOnDemand', 'showCursorCredits']) {
   assert.equal(manifest.barWidget.defaults[key], true);
   const row = manifest.barWidget.schema.find(item => item.key === key);
   assert.equal(row.type, 'boolean');
@@ -180,6 +180,9 @@ assert.match(panelSource, /Model\.barLabel\(/);
 assert.match(panelSource, /entrySections:\s*entry\s*\?\s*Model\.groupedSections\(entry\.sections\)/);
 assert.doesNotMatch(panelSource, /filterCursorSections/);
 assert.match(panelSource, /cursorDualHeadline\(item,\s*cursorPoolFlags\(\)\)/);
+assert.match(panelSource, /function creditGrantBits\(item\)/);
+assert.match(panelSource, /has\.credits \|\| creditGrantBits\(entry\)\.length > 0/);
+assert.match(panelSource, /return withCreditGrants\(pools, item\)/);
 assert.match(panelSource, /function panelHeadline\(item\) \{[\s\S]*?cursorDualHeadline\(item\)(?!\s*,)/);
 
 const settingsViewSource = fs.readFileSync(new URL('./SettingsView.qml', import.meta.url), 'utf8');
@@ -934,6 +937,25 @@ const cursorNamed = model.parseReport(JSON.stringify({entries: [{
   ]
 }]})).entries[0];
 assert.equal(model.headline(cursorNamed).text, '35% · 7%');
+const cursorGrant = model.parseReport(JSON.stringify({entries: [{
+  id: 'cursor', error: null,
+  sections: [
+    {type: 'metric', label: 'Cursor Models', percent: 35, value: '35%', detail: '', severity: 'low'},
+    {type: 'metric', label: 'Other Models', percent: 7, value: '7%', detail: '', severity: 'low'},
+    {type: 'metric', label: 'Promo', percent: 16, value: '$21.00', detail: '$4.00 of $25.00 used (16%)', severity: 'low', headline: 'value'}
+  ]
+}]})).entries[0];
+assert.equal(model.headline(cursorGrant).text, '35% · 7% · 16%');
+assert.equal(model.headline(cursorGrant).severity, 'low');
+assert.equal(model.headline(cursorGrant).tooltip, 'Cursor Models · 35%\nCursor Other Models · 7%\nPromo · $21.00 · 16%');
+assert.equal(model.headline(cursorGrant).tooltipRows[2].severity, 'low');
+assert.equal(model.cursorPoolPresence(cursorGrant).credits, true);
+assert.equal(model.cursorDualHeadline(cursorGrant, { credits: false }).text, '35% · 7%');
+assert.equal(model.cursorDualHeadline(cursorGrant, { credits: false }).tooltip, 'Cursor Models · 35%\nCursor Other Models · 7%');
+const grantRow = model.groupedSections(cursorGrant.sections).filter(row => row.label === 'Promo')[0];
+assert.equal(grantRow.type, 'metric');
+assert.equal(grantRow.value, '$21.00');
+assert.equal(grantRow.percent, 16);
 const cursorPrepaid = model.parseReport(JSON.stringify({entries: [{
   id: 'cursor', error: null,
   sections: [
@@ -1049,7 +1071,7 @@ assert.equal(viaDemandFirst.models, false);
 assert.equal(viaDemandFirst.other, true);
 assert.equal(viaDemandFirst.demand, false);
 assert.equal(model.cursorDualHeadline(cursorPrepaid, viaDemandFirst).text, '7%');
-const keptLast = model.toggleCursorPool({ models: false, other: false, demand: true }, 'demand');
+const keptLast = model.toggleCursorPool({ models: false, other: false, demand: true, credits: false }, 'demand');
 assert.equal(keptLast.models, false);
 assert.equal(keptLast.other, false);
 assert.equal(keptLast.demand, true);

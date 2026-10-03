@@ -34,7 +34,8 @@
       "barWindow": "auto",
       "showCursorModels": true,
       "showCursorOther": true,
-      "showCursorOnDemand": true
+      "showCursorOnDemand": true,
+      "showCursorCredits": true
     },
     "schema": [
       {
@@ -113,6 +114,13 @@
         "type": "boolean",
         "label": "Show On-Demand",
         "description": "Show prepaid on-demand usage in the top bar and tooltip. The open panel always lists every pool. At least one Cursor pool stays visible.",
+        "defaultValue": true
+      },
+      {
+        "key": "showCursorCredits",
+        "type": "boolean",
+        "label": "Show Credits",
+        "description": "Show a spending-page credit grant in the top bar and tooltip. The open panel always lists it. Hidden when the account has no grant. At least one Cursor figure stays visible.",
         "defaultValue": true
       }
     ]
