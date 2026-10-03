@@ -188,6 +188,14 @@ Each release is also published at
   up from the docs was silently ignored. They now name the real location, as
   `windows/README.md` already did.
 
+- **Provider catalog recognizes Anthropic named accounts backed by Keychain.**
+  On macOS, an Anthropic named account configured via `[[anthropic.accounts]]`
+  or discovered via `accounts_dir` whose credentials exist only in its
+  `CLAUDE_CONFIG_DIR`-scoped Keychain item reported `configured: false` in
+  `ai-usagebar vendors --json`, even though the fetch and `detect` resolved it.
+  The catalog now probes the account's Keychain item when no on-disk credentials
+  file exists (fixes #329).
+
 ### Security
 
 - **A broken `config.toml` no longer has its offending line quoted back.**
