@@ -164,6 +164,15 @@ Each release is also published at
   read as "Claude: 90%" while the 5h and weekly quotas were low. The summary
   now picks among the quota rows; grouped rows only stand in when an entry
   has nothing else.
+
+- **Omarchy: a full Claude Code session no longer stands in for the Claude
+  quota.** With `[context] enabled = true`, each recent session reaches the
+  Claude entry as a grouped "Sessions" row whose percent is how full its
+  context window is. The bar picked the highest percent over every row, so a
+  session at 90%, even one from yesterday, became the Claude chip's value,
+  coloured it critical and turned on the bar's alarm while the 5h and weekly
+  quotas were low. The bar now reads the quota rows; grouped rows only stand
+  in when an entry has nothing else.
 ### Security
 
 - **A broken `config.toml` no longer has its offending line quoted back.**

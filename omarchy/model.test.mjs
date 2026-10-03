@@ -742,6 +742,14 @@ const sessionRow = model.groupedSections(claudeSections).find(row =>
   row.type === 'metric' && row.group === 'Sessions');
 assert.equal(sessionRow.severity, 'critical');
 assert.equal(sessionRow.value, '90%');
+// …and they are not quota windows: a session at 90% of its context window
+// must not become the Claude chip's value, its colour or the bar's alarm.
+const claudeEntry = {id: 'anthropic', sections: claudeSections};
+assert.equal(model.headline(claudeEntry).text, '29%');
+assert.equal(model.headline(claudeEntry).severity, 'low');
+assert.equal(model.isAlarming(claudeEntry), false);
+// A grouped row still stands in when an entry has nothing else.
+assert.equal(model.headline({id: 'x', sections: claudeSections.slice(1)}).text, '90%');
 
 const balance = model.parseReport(JSON.stringify({entries: [{
   id: 'deepseek', error: null,
