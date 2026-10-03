@@ -421,13 +421,13 @@ impl SettingsState {
         // A configured but disabled primary is ineffective. Display the first
         // enabled vendor instead; when none are enabled retain the historical
         // Anthropic fallback in memory without inventing a persisted primary.
+        // Copilot and the key vendors above are offered while disabled, but
+        // only as an explicit pick: shown as the current primary, an untouched
+        // save would write their `enabled = true` back.
         let primary = cfg
             .ui
             .primary
-            .filter(|vendor| {
-                primary_choices.contains(vendor)
-                    && (*vendor != VendorId::Copilot || cfg.copilot.enabled)
-            })
+            .filter(|vendor| primary_choices.contains(vendor) && cfg.is_enabled(*vendor))
             .or_else(|| primary_choices.first().copied())
             .unwrap_or_else(|| cfg.ui.primary.unwrap_or(VendorId::Anthropic));
         Self {
