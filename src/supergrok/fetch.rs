@@ -504,6 +504,42 @@ mod tests {
         assert!(other_scope.is_err());
     }
 
+    /// An auth failure's body can echo the account. The cache keeps a neutral
+    /// message instead, and the outcome shown beside the stale figure must
+    /// carry that same message rather than the body.
+    #[tokio::test]
+    async fn an_auth_failure_body_never_reaches_the_outcome() {
+        let (_td, cache) = fixture();
+        cache.ensure_dir().unwrap();
+        let snapshot = types::to_snapshot(weekly_response(33.0), "scope-a").unwrap();
+        cache
+            .write_payload(
+                &serde_json::to_vec(&CachedEnvelope::from_snapshot("scope-a", &snapshot)).unwrap(),
+            )
+            .unwrap();
+
+        let fallback = fetch_snapshot_with(
+            &cache,
+            Duration::ZERO,
+            now(),
+            || Some("scope-a".into()),
+            || async {
+                Err(AppError::Http {
+                    status: 401,
+                    body: "user@example.test <credential>".into(),
+                })
+            },
+        )
+        .await
+        .unwrap();
+        assert!(fallback.stale);
+        assert_eq!(
+            fallback.last_error,
+            Some((401, crate::error::AUTH_FAILURE_MESSAGE.to_string()))
+        );
+        assert_eq!(cache.read_last_error(), fallback.last_error);
+    }
+
     #[tokio::test]
     async fn malformed_live_billing_preserves_the_last_good_same_scope_cache() {
         let (_td, cache) = fixture();
