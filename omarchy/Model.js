@@ -460,9 +460,17 @@ function maxPercent(sections) {
 function selectMetric(entry, barWindow) {
   var sections = entry && Array.isArray(entry.sections) ? entry.sections : []
   var metrics = []
+  var grouped = []
   for (var i = 0; i < sections.length; i++) {
-    if (sections[i] && sections[i].type === "metric") metrics.push(sections[i])
+    var section = sections[i]
+    if (!section || section.type !== "metric") continue
+    // A grouped row sits under its own heading below the meters (the Claude
+    // entry's context sessions, SuperGrok's product slices). It is not a
+    // quota window, so it stands in only when the entry has nothing else.
+    if (section.group) grouped.push(section)
+    else metrics.push(section)
   }
+  if (metrics.length === 0) metrics = grouped
   if (metrics.length === 0) return null
   var want = normalizeBarWindow(barWindow)
   if (want === "auto") return maxPercent(metrics)
