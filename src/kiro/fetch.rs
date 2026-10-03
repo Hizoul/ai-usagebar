@@ -311,9 +311,16 @@ async fn fetch_live(
             AppError::Transport(format!("kiro token refresh timeout: {}", endpoints.token))
         })?
         .map_err(|e| {
-            AppError::Credentials(format!(
-                "Kiro CLI token refresh failed ({e}). Run `kiro-cli login` again."
-            ))
+            // A refresh that never reached the token endpoint says nothing
+            // about the login: keep it transient, so the cache covers it the
+            // way it covers the usage call's own network failures.
+            if e.is_transient() {
+                e
+            } else {
+                AppError::Credentials(format!(
+                    "Kiro CLI token refresh failed ({e}). Run `kiro-cli login` again."
+                ))
+            }
         })?;
         let expires_in = i64::try_from(refreshed.expires_in)
             .map_err(|_| AppError::Schema("kiro token refresh expiry is out of range".into()))?;
