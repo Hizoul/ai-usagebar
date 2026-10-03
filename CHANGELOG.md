@@ -9,6 +9,16 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Security
+
+- **A broken `config.toml` no longer has its offending line quoted back.**
+  TOML parse errors quote the line the parser stopped on, and the commonest
+  mistake, a missing quote, is often on an inline `api_key` line, so the key
+  itself reached the widget's tooltip, `usage --json` (and with it every
+  desktop frontend), the TUI, the Settings overlay and stderr. Config parse
+  errors now give the line and column with the parser's message, never the
+  line's content.
+
 ## [1.30.0] — 2026-10-01
 
 ### Added
