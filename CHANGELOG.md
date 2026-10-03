@@ -173,6 +173,14 @@ Each release is also published at
   coloured it critical and turned on the bar's alarm while the 5h and weekly
   quotas were low. The bar now reads the quota rows; grouped rows only stand
   in when an entry has nothing else.
+
+- **The documented Windows config file is the one the binary reads.** On
+  Windows the default config is `%APPDATA%\ai-usagebar\config\config.toml`,
+  but `--help`, the README and three docs pages named
+  `%APPDATA%\ai-usagebar\config.toml`, and the PowerShell snippet in
+  `docs/windows-build.md` created that file. Nothing reads it, so a config set
+  up from the docs was silently ignored. They now name the real location, as
+  `windows/README.md` already did.
 ### Security
 
 - **A broken `config.toml` no longer has its offending line quoted back.**

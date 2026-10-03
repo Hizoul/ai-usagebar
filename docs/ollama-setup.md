@@ -31,7 +31,7 @@ from the settings page is also out of scope — see CONTRIBUTING.
 ## Config
 
 Ollama Cloud is opt-in, like DeepSeek. Enable it in
-`~/.config/ai-usagebar/config.toml` (or `%APPDATA%\ai-usagebar\config.toml`):
+`~/.config/ai-usagebar/config.toml` (or `%APPDATA%\ai-usagebar\config\config.toml`):
 
 ```toml
 [ui]
