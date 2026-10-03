@@ -2091,11 +2091,17 @@ impl Config {
         self.supergrok.grok_binary = expand_tilde(&self.supergrok.grok_binary);
         expand_tilde_opt(&mut self.supergrok.auth_path);
         expand_tilde_opt(&mut self.supergrok.config_path);
+        expand_tilde_opt(&mut self.copilot.gh_binary);
         for account in &mut self.anthropic.accounts {
             account.credentials_path = expand_tilde(&account.credentials_path);
         }
         for account in &mut self.openai.accounts {
             account.codex_auth_path = expand_tilde(&account.codex_auth_path);
+        }
+        if let Some(paths) = &mut self.commandcode.auth_paths {
+            for path in paths {
+                *path = expand_tilde(path);
+            }
         }
     }
 
@@ -4648,6 +4654,31 @@ enabled = false
             config.supergrok.config_path,
             Some(home.join(".grok/config.toml"))
         );
+    }
+
+    /// `config.example.toml` documents `auth_paths = ["~/.commandcode/auth.json"]`;
+    /// `gh_binary` is the Copilot counterpart of `grok_binary` above.
+    #[test]
+    fn commandcode_and_copilot_paths_are_tilde_expanded() {
+        let file = write_toml(
+            r#"
+            [commandcode]
+            auth_paths = ["~/.commandcode/auth.json", "/etc/commandcode/auth.json"]
+
+            [copilot]
+            gh_binary = "~/bin/gh"
+            "#,
+        );
+        let config = Config::load_from(file.path()).unwrap();
+        let home = crate::cache::home_dir().unwrap();
+        assert_eq!(
+            config.commandcode.auth_paths,
+            Some(vec![
+                home.join(".commandcode/auth.json"),
+                PathBuf::from("/etc/commandcode/auth.json"),
+            ])
+        );
+        assert_eq!(config.copilot.gh_binary, Some(home.join("bin/gh")));
     }
 
     #[test]
