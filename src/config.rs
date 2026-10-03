@@ -2965,6 +2965,22 @@ enabled = true
         }
     }
 
+    /// `has_inline_secrets` lists the fields by hand, and Ollama's was missed
+    /// once. Walk every vendor instead: whatever `inline_api_key` resolves as
+    /// a key must also put the config file under 0600 protection.
+    #[cfg(unix)]
+    #[test]
+    fn every_inline_api_key_receives_config_file_protection() {
+        for &vendor in VendorId::all() {
+            let section = vendor.config_section();
+            let config: Config =
+                toml::from_str(&format!("[{section}]\napi_key = \"<redacted>\"\n")).unwrap();
+            if config.inline_api_key(vendor).is_some() {
+                assert!(config.has_inline_secrets(), "{vendor:?}");
+            }
+        }
+    }
+
     #[test]
     fn missing_file_uses_defaults() {
         let path = std::path::Path::new("/tmp/does-not-exist-ai-usagebar-test");
