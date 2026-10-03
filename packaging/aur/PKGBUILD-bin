@@ -39,8 +39,8 @@ source_aarch64=(
     "$_pkgname-$pkgver-aarch64.tar.gz::$url/releases/download/v$pkgver/$_pkgname-linux-aarch64.tar.gz"
     "$_pkgname-$pkgver-aarch64.tar.gz.sig::$url/releases/download/v$pkgver/$_pkgname-linux-aarch64.tar.gz.sig"
 )
-sha256sums_x86_64=('SKIP')
-sha256sums_aarch64=('SKIP')
+sha256sums_x86_64=('SKIP' 'SKIP')
+sha256sums_aarch64=('SKIP' 'SKIP')
 
 package() {
     install -Dm0755 -t "$pkgdir/usr/bin/"                "ai-usagebar"
