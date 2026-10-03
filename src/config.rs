@@ -4956,6 +4956,19 @@ value = "/tier"
         );
     }
 
+    /// A value that is not a variable name is most likely a key pasted into
+    /// the wrong field, and this error fails the whole config load: it names
+    /// the field and never repeats the value.
+    #[test]
+    fn custom_invalid_api_key_env_is_not_repeated() {
+        let msg = custom_error(&custom_with(
+            r#"api_key_env = "MYTOOL_API_KEY""#,
+            r#"api_key_env = "sk-live-pasted-secret""#,
+        ));
+        assert!(msg.contains("api_key_env"), "{msg}");
+        assert!(!msg.contains("sk-live-pasted-secret"), "{msg}");
+    }
+
     #[test]
     fn custom_rejects_an_invalid_auth_header_name() {
         assert_custom_rejected(

@@ -139,6 +139,22 @@ mod tests {
         assert!(message.contains("kimi-code.json"), "{message}");
     }
 
+    /// A value that is not a variable name is most likely a key pasted into
+    /// `api_key_env`: the error asks for a valid one and never repeats it.
+    #[test]
+    fn a_key_pasted_into_api_key_env_is_not_repeated() {
+        let td = TempDir::new().unwrap();
+        let cfg = KimiConfig {
+            api_key_env: "sk-kimi-pasted-secret".into(),
+            ..KimiConfig::default()
+        };
+        let message = resolve_auth_in(&cfg, td.path(), None)
+            .unwrap_err()
+            .to_string();
+        assert!(!message.contains("sk-kimi-pasted-secret"), "{message}");
+        assert!(message.contains("api_key_env"), "{message}");
+    }
+
     #[test]
     fn the_reported_path_follows_a_configured_credentials_path() {
         let td = TempDir::new().unwrap();
