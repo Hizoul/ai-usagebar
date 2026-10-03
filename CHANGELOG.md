@@ -9,6 +9,16 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Security
+
+- **A key pasted into `api_key_env` is no longer repeated in errors.** A value
+  that is not an environment variable name is most likely the key itself in
+  the wrong field, and the shared resolver already refuses to echo it, but
+  two messages still did: Kimi's "no credentials" error, when no Kimi Code
+  CLI login exists either, and the `[[custom]]` validation error, which fails
+  the whole config load. Both reached the widget's tooltip, `usage --json`
+  and the TUI. They now name `api_key_env` without its value.
+
 ## [1.30.0] — 2026-10-01
 
 ### Added
