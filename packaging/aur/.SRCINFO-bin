@@ -18,8 +18,10 @@ pkgbase = ai-usagebar-bin
 	source_x86_64 = ai-usagebar-1.30.0-x86_64.tar.gz::https://github.com/akitaonrails/ai-usagebar/releases/download/v1.30.0/ai-usagebar-linux-x86_64.tar.gz
 	source_x86_64 = ai-usagebar-1.30.0-x86_64.tar.gz.sig::https://github.com/akitaonrails/ai-usagebar/releases/download/v1.30.0/ai-usagebar-linux-x86_64.tar.gz.sig
 	sha256sums_x86_64 = SKIP
+	sha256sums_x86_64 = SKIP
 	source_aarch64 = ai-usagebar-1.30.0-aarch64.tar.gz::https://github.com/akitaonrails/ai-usagebar/releases/download/v1.30.0/ai-usagebar-linux-aarch64.tar.gz
 	source_aarch64 = ai-usagebar-1.30.0-aarch64.tar.gz.sig::https://github.com/akitaonrails/ai-usagebar/releases/download/v1.30.0/ai-usagebar-linux-aarch64.tar.gz.sig
+	sha256sums_aarch64 = SKIP
 	sha256sums_aarch64 = SKIP
 
 pkgname = ai-usagebar-bin

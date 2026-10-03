@@ -124,6 +124,15 @@ Each release is also published at
   `auth_paths = ["~/.commandcode/auth.json"]` made Command Code report "not
   signed in" for a signed-in user, and `gh_binary = "~/bin/gh"` made Copilot
   report that the GitHub CLI is not installed.
+
+- **The in-tree `ai-usagebar-bin` PKGBUILD builds again.** Since #282 each
+  architecture downloads a tarball and its detached `.sig`, so it needs two
+  checksums, but the v1.29.0 version bump reset `sha256sums_x86_64` and
+  `sha256sums_aarch64` to a single `'SKIP'` (and `.SRCINFO-bin` to one line
+  each), which makepkg rejects as an array that differs in size from its
+  sources. Packages published by the release workflow were unaffected,
+  because it rewrites both arrays with two entries; local builds and the
+  manual AUR fallback were not.
 ### Security
 
 - **A config whose only inline key is Ollama Cloud's is tightened to `0600`.**
