@@ -218,6 +218,21 @@ func testParserBalances() {
         (0...max).map { set[$0] ?? "" }
     }
 
+    let grokbot = snapshot(FORMAT, vendor: "grokbot",
+                          fields: fields(through: 16, set: [0: "Cursor Ultra", 3: "70", 4: "5d 0h", 14: "50", 16: "gbt"]))
+    assertEqual(grokbot?.weekly?.pct, 70, "grokbot weekly usage")
+    assertEqual(grokbot?.weekly?.elapsed, 50, "grokbot elapsed alias drives the marker")
+    assertNil(grokbot?.session, "grokbot does not fabricate a session")
+    let grokbotMissingReset = snapshot(FORMAT, vendor: "grokbot",
+                                     fields: fields(through: 16, set: [3: "70", 4: "—", 14: "0", 16: "gbt"]))
+    assertNil(grokbotMissingReset?.weekly?.elapsed, "grokbot missing reset has no marker")
+    let grokbotMissingPeriod = snapshot(FORMAT, vendor: "grokbot",
+                                      fields: fields(through: 16, set: [3: "70", 4: "5d 0h", 16: "gbt"]))
+    assertNil(grokbotMissingPeriod?.weekly?.elapsed, "grokbot missing period has no marker")
+    let grokbotNoAllowance = snapshot(FORMAT, vendor: "grokbot",
+                                    fields: fields(through: 16, set: [0: "Grok Bot Plan", 16: "gbt"]))
+    assertNil(grokbotNoAllowance?.weekly, "grokbot no allowance has no weekly meter")
+
     // OpenRouter: balance at 17, vendor_short "opr".
     let opr = snapshot(FORMAT, vendor: "openrouter",
                        fields: fields(through: 17, set: [16: "opr", 17: "$12.34"]))
@@ -467,6 +482,33 @@ func testParserBalances() {
     assertEqual(ollama?.weekly?.pct, 23, "ollama weekly pct")
     assertEqual(ollama?.weeklyLabel, "Weekly", "ollama weekly label")
     assertEqual(ollama?.weekly?.elapsed, 45, "ollama weekly elapsed")
+    assertNil(ollama?.sonnet, "session/weekly ollama has no monthly bar")
+
+    // Monthly-only shape: session/weekly placeholders stay empty (not "0"),
+    // monthly rides the primary bar. A present window at 0% used is still 0.
+    let ollamaMonthly = snapshot(FORMAT, vendor: "ollama",
+                                 fields: fields(through: 51, set: [
+                                    0: "pro", 16: "oll", 50: "42", 51: "—"
+                                 ]))
+    assertEqual(ollamaMonthly?.hasUsageWindows, true, "ollama monthly shows a window")
+    assertEqual(ollamaMonthly?.session?.pct, 42, "ollama monthly pct on the primary bar")
+    assertEqual(ollamaMonthly?.sessionLabel, "Monthly", "ollama monthly label")
+    assertEqual(ollamaMonthly?.sessionTag, "mo", "ollama monthly tag")
+    assertNil(ollamaMonthly?.weekly, "ollama monthly suppresses fake 5h/7d")
+    assertNil(ollamaMonthly?.sonnet, "ollama monthly is not a third-slot bar")
+
+    let ollamaMonthlyZero = snapshot(FORMAT, vendor: "ollama",
+                                     fields: fields(through: 51, set: [
+                                        0: "pro", 16: "oll", 50: "0"
+                                     ]))
+    assertEqual(ollamaMonthlyZero?.session?.pct, 0, "present 0% monthly is real usage")
+    assertEqual(ollamaMonthlyZero?.sessionLabel, "Monthly", "zero monthly keeps the label")
+    assertNil(ollamaMonthlyZero?.weekly, "zero monthly still has no 5h/7d")
+
+    let ollamaEmpty = snapshot(FORMAT, vendor: "ollama",
+                               fields: fields(through: 16, set: [0: "pro", 16: "oll"]))
+    assertNil(ollamaEmpty?.session, "omitted windows are not 0% session")
+    assertNil(ollamaEmpty?.weekly, "omitted windows are not 0% weekly")
 
     let sgk = snapshot(FORMAT, vendor: "supergrok",
                        fields: fields(through: 40, set: [
@@ -1091,6 +1133,10 @@ func testApiKeyAccounts() {
                 "Preferences includes named API-key accounts")
     assertEqual(accountLabels(inTOML: "[[kilo.accounts]]\nlabel = \"team\"\n", vendor: "kilo"), ["team"],
                 "any vendor's array is parsed")
+    assertEqual(API_KEY_ACCOUNT_VENDORS.contains("deepinfra"), true,
+                "deepinfra is in API_KEY_ACCOUNT_VENDORS")
+    assertEqual(API_KEY_ACCOUNT_VENDORS.count, 10,
+                "ten API-key account vendors match Rust Config::API_KEY_ACCOUNT_VENDORS")
 }
 
 func testEnableVendorCommand() {

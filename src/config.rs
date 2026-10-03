@@ -763,6 +763,28 @@ pub fn set_vendor_enabled_in_doc(
     set_bool(doc, vendor.config_section(), "enabled", enabled)
 }
 
+/// A TOML error as `line L, column C: message`. `toml` and `toml_edit` both
+/// quote the offending source line in their `Display`, and in `config.toml`
+/// that line can hold an inline `api_key`: one missing quote around a key put
+/// the key in the widget's tooltip, in `usage --json` and on stderr. The
+/// position is enough to find the mistake.
+pub(crate) fn toml_error_summary(
+    input: &str,
+    span: Option<std::ops::Range<usize>>,
+    message: &str,
+) -> String {
+    let message = message.trim_end();
+    match span.and_then(|range| input.get(..range.start)) {
+        Some(before) => {
+            let line = before.matches('\n').count() + 1;
+            let line_start = before.rfind('\n').map_or(0, |i| i + 1);
+            let column = before[line_start..].chars().count() + 1;
+            format!("line {line}, column {column}: {message}")
+        }
+        None => message.to_string(),
+    }
+}
+
 /// Read `path` into a `toml_edit` document with comments intact. A missing
 /// file is an empty document, so a writer can create the config from nothing;
 /// any other I/O failure or a parse error is reported rather than clobbered.
@@ -776,7 +798,8 @@ pub(crate) fn read_config_document(path: &Path) -> Result<toml_edit::DocumentMut
         return Ok(toml_edit::DocumentMut::new());
     }
     original.parse().map_err(|e: toml_edit::TomlError| {
-        AppError::Other(format!("config.toml not parseable: {e}"))
+        let summary = toml_error_summary(&original, e.span(), e.message());
+        AppError::Other(format!("config.toml not parseable: {summary}"))
     })
 }
 
@@ -1148,6 +1171,11 @@ pub struct OpenRouterConfig {
     pub show_default_account: bool,
     pub api_key_env: String,
     pub api_key: Option<String>,
+    /// Env var name for the optional OpenRouter *management* key. Only the
+    /// `GET /api/v1/activity` call (recent models) uses it; when it resolves
+    /// to nothing, that request is skipped instead of fired at a 401. The
+    /// regular inference key is never sent to `/activity`.
+    pub management_api_key_env: String,
     /// Which number goes on the bar. OpenRouter states its own denominator —
     /// credits purchased — so it is a quota vendor and defaults to `percent`.
     /// See [`DisplayPrefs`].
@@ -1170,6 +1198,7 @@ impl Default for OpenRouterConfig {
             show_default_account: true,
             api_key_env: "OPENROUTER_API_KEY".to_string(),
             api_key: None,
+            management_api_key_env: "OPENROUTER_MANAGEMENT_API_KEY".to_string(),
             headline: Headline::Percent,
         }
     }
@@ -1189,6 +1218,11 @@ pub struct ApiKeyAccount {
     /// Inline fallback when the account environment variable is unset.
     #[serde(default)]
     pub api_key: Option<String>,
+    /// Optional environment variable containing this account's OpenRouter
+    /// management key (unlocks the recent-models activity). Only OpenRouter
+    /// consults it.
+    #[serde(default)]
+    pub management_api_key_env: Option<String>,
 }
 
 /// The `[[<slug>.accounts]]` lookup behind every API-key vendor: find a named
@@ -1845,10 +1879,12 @@ impl CustomProviderConfig {
             return Err(bad("url has no host".into()));
         }
         if !self.api_key_env.is_empty() && !is_valid_env_var_name(&self.api_key_env) {
-            return Err(bad(format!(
-                "api_key_env {:?} is not a valid environment variable name",
-                self.api_key_env
-            )));
+            // The value is not repeated: one that is not a variable name is
+            // most likely a key pasted into the wrong field, and a config
+            // error reaches every frontend.
+            return Err(bad(
+                "api_key_env is not a valid environment variable name".into()
+            ));
         }
         validate_header_name(&section, "auth_header", &self.auth_header)?;
         if reqwest::header::HeaderValue::from_str(&format!("{} k", self.auth_scheme)).is_err() {
@@ -2046,7 +2082,14 @@ impl Config {
     pub fn load_from(path: &std::path::Path) -> Result<Self> {
         match std::fs::read_to_string(path) {
             Ok(s) => {
-                let mut config: Self = toml::from_str(&s)?;
+                let mut config: Self = toml::from_str(&s).map_err(|mut e| {
+                    let span = e.span();
+                    // Without its input the error's `Display` drops the quoted
+                    // line but keeps the key path, `in deepseek.headline`.
+                    e.set_input(None);
+                    let summary = toml_error_summary(&s, span, &e.to_string());
+                    AppError::Other(format!("config.toml: {summary}"))
+                })?;
                 // `~` is shell syntax, not path syntax: `PathBuf` keeps it
                 // literally, so a documented `credentials_path = "~/..."`
                 // silently pointed at a directory named `~`.
@@ -2056,8 +2099,9 @@ impl Config {
                 config.protect_inline_secrets(path)?;
                 // A custom provider's token variable is as secret as any
                 // built-in one; subprocesses (`gh`, `grok`, `claude`) must
-                // not inherit it.
+                // not inherit it. Nor a named account's, or a renamed one.
                 crate::vendor::register_secret_env_vars(&config.custom_secret_env_vars());
+                crate::vendor::register_secret_env_vars(&config.provider_secret_env_vars());
                 Ok(config)
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
@@ -2080,11 +2124,17 @@ impl Config {
         self.supergrok.grok_binary = expand_tilde(&self.supergrok.grok_binary);
         expand_tilde_opt(&mut self.supergrok.auth_path);
         expand_tilde_opt(&mut self.supergrok.config_path);
+        expand_tilde_opt(&mut self.copilot.gh_binary);
         for account in &mut self.anthropic.accounts {
             account.credentials_path = expand_tilde(&account.credentials_path);
         }
         for account in &mut self.openai.accounts {
             account.codex_auth_path = expand_tilde(&account.codex_auth_path);
+        }
+        if let Some(paths) = &mut self.commandcode.auth_paths {
+            for path in paths {
+                *path = expand_tilde(path);
+            }
         }
     }
 
@@ -2106,6 +2156,7 @@ impl Config {
             self.grok.api_key.as_deref(),
             self.anthropic_api.api_key.as_deref(),
             self.opencode_go.api_key.as_deref(),
+            self.ollama.api_key.as_deref(),
             self.orcarouter.api_key.as_deref(),
             self.antigravity.oauth_client_secret.as_deref(),
         ]
@@ -2125,6 +2176,26 @@ impl Config {
             .iter()
             .filter(|c| !c.api_key_env.is_empty())
             .map(|c| c.api_key_env.clone())
+            .collect()
+    }
+
+    /// The variables built-in providers read keys from under names that
+    /// `VENDOR_SECRET_ENV_VARS` cannot list: a renamed `api_key_env` or
+    /// OpenRouter `management_api_key_env`, and each named account's
+    /// (`DEEPSEEK_WORK_API_KEY`). Default names come back too and are skipped
+    /// by the registration, as are empty ones.
+    fn provider_secret_env_vars(&self) -> Vec<String> {
+        let renamed = VendorId::all().iter().map(|&id| self.api_key_env_for(id));
+        let management = std::iter::once(self.openrouter.management_api_key_env.as_str());
+        let accounts = Self::API_KEY_ACCOUNT_VENDORS
+            .into_iter()
+            .flat_map(|id| self.api_key_accounts(id).unwrap_or(&[]))
+            .flat_map(|account| [&account.api_key_env, &account.management_api_key_env])
+            .filter_map(|name| name.as_deref());
+        renamed
+            .chain(management)
+            .chain(accounts)
+            .map(str::to_string)
             .collect()
     }
 
@@ -2339,6 +2410,23 @@ impl Config {
             account.api_key_env.as_deref().unwrap_or(""),
             account.api_key.as_deref(),
         )
+    }
+
+    /// The optional OpenRouter *management* key for the default or a named
+    /// account. `None` means none is configured, in which case the caller
+    /// skips the `/api/v1/activity` request rather than firing a doomed 401 —
+    /// the regular inference key is never sent there. A named account only
+    /// resolves a management key when it names its own
+    /// `management_api_key_env`; it never inherits the default account's.
+    pub fn openrouter_management_key(&self, label: Option<&str>) -> Option<String> {
+        let env_name = match label {
+            Some(label) => api_key_account("openrouter", &self.openrouter.accounts, label)
+                .ok()?
+                .management_api_key_env
+                .as_deref()?,
+            None => self.openrouter.management_api_key_env.as_str(),
+        };
+        optional_api_key(env_name, None)
     }
 
     /// Bar-number settings for one vendor.
@@ -2947,6 +3035,7 @@ enabled = true
             label: "work".into(),
             api_key_env: None,
             api_key: Some("<redacted>".into()),
+            management_api_key_env: None,
         });
         assert!(config.has_inline_secrets());
     }
@@ -2961,6 +3050,22 @@ enabled = true
             ))
             .unwrap();
             assert!(config.has_inline_secrets(), "{vendor:?}");
+        }
+    }
+
+    /// `has_inline_secrets` lists the fields by hand, and Ollama's was missed
+    /// once. Walk every vendor instead: whatever `inline_api_key` resolves as
+    /// a key must also put the config file under 0600 protection.
+    #[cfg(unix)]
+    #[test]
+    fn every_inline_api_key_receives_config_file_protection() {
+        for &vendor in VendorId::all() {
+            let section = vendor.config_section();
+            let config: Config =
+                toml::from_str(&format!("[{section}]\napi_key = \"<redacted>\"\n")).unwrap();
+            if config.inline_api_key(vendor).is_some() {
+                assert!(config.has_inline_secrets(), "{vendor:?}");
+            }
         }
     }
 
@@ -3803,6 +3908,7 @@ enabled = false
             label: "work".into(),
             api_key_env: None,
             api_key: Some("work-secret".into()),
+            management_api_key_env: None,
         });
         let message = config
             .resolve_account_api_key_for(VendorId::Openrouter, Some("missing"))
@@ -3820,6 +3926,7 @@ enabled = false
             label: "work".into(),
             api_key_env: Some("sk_pasted_secret".into()),
             api_key: None,
+            management_api_key_env: None,
         });
         let _g = env_guard();
         unsafe { std::env::remove_var("sk_pasted_secret") };
@@ -3829,6 +3936,57 @@ enabled = false
             .to_string();
         assert!(message.contains("[[openrouter.accounts]]"));
         assert!(!message.contains("sk_pasted_secret"));
+    }
+
+    #[test]
+    fn openrouter_management_key_resolves_per_account_and_never_inherits() {
+        let mut config = Config::default();
+        config.openrouter.accounts = vec![
+            ApiKeyAccount {
+                label: "work".into(),
+                api_key_env: None,
+                api_key: Some("work-key".into()),
+                management_api_key_env: Some("AI_USAGEBAR_TEST_OR_MGMT_WORK".into()),
+            },
+            ApiKeyAccount {
+                label: "plain".into(),
+                api_key_env: None,
+                api_key: Some("plain-key".into()),
+                management_api_key_env: None,
+            },
+        ];
+        let _g = env_guard();
+        unsafe { std::env::remove_var("OPENROUTER_MANAGEMENT_API_KEY") };
+        unsafe { std::env::set_var("AI_USAGEBAR_TEST_OR_MGMT_WORK", "mgmt-work") };
+
+        // The default account reads OPENROUTER_MANAGEMENT_API_KEY — unset here.
+        assert_eq!(config.openrouter_management_key(None), None);
+        // A named account with its own var resolves it.
+        assert_eq!(
+            config.openrouter_management_key(Some("work")).as_deref(),
+            Some("mgmt-work")
+        );
+        // A named account without one resolves nothing, even when the default
+        // account's var is set — accounts never inherit across identities.
+        unsafe { std::env::set_var("OPENROUTER_MANAGEMENT_API_KEY", "mgmt-default") };
+        assert_eq!(
+            config.openrouter_management_key(None).as_deref(),
+            Some("mgmt-default")
+        );
+        assert_eq!(config.openrouter_management_key(Some("plain")), None);
+        // An unknown label resolves nothing rather than the default's key.
+        assert_eq!(config.openrouter_management_key(Some("typo")), None);
+
+        // The [openrouter] override renames the default account's var.
+        config.openrouter.management_api_key_env = "AI_USAGEBAR_TEST_OR_MGMT_DEFAULT".into();
+        unsafe { std::env::set_var("AI_USAGEBAR_TEST_OR_MGMT_DEFAULT", "mgmt-renamed") };
+        assert_eq!(
+            config.openrouter_management_key(None).as_deref(),
+            Some("mgmt-renamed")
+        );
+        unsafe { std::env::remove_var("OPENROUTER_MANAGEMENT_API_KEY") };
+        unsafe { std::env::remove_var("AI_USAGEBAR_TEST_OR_MGMT_WORK") };
+        unsafe { std::env::remove_var("AI_USAGEBAR_TEST_OR_MGMT_DEFAULT") };
     }
 
     #[test]
@@ -3890,6 +4048,7 @@ enabled = false
             label: "work".into(),
             api_key_env: Some("AI_USAGEBAR_TEST_DEEPSEEK_WORK".into()),
             api_key: Some("work-inline".into()),
+            management_api_key_env: None,
         });
         let _g = env_guard();
         unsafe { std::env::set_var("AI_USAGEBAR_TEST_DEEPSEEK_WORK", "work-env") };
@@ -4060,6 +4219,38 @@ enabled = false
     fn invalid_toml_is_an_error_not_silent_defaults() {
         let f = write_toml("[zai\nenabled = true\n");
         assert!(Config::load_from(f.path()).is_err());
+    }
+
+    /// A missing quote is the commonest way to break the file, and the line
+    /// it breaks can be an inline key: the error must point at that line
+    /// without repeating it.
+    #[test]
+    fn a_parse_error_names_the_line_without_quoting_it() {
+        let f = write_toml("[openrouter]\nenabled = true\napi_key = sk-or-v1-unquoted\n");
+        let err = Config::load_from(f.path()).unwrap_err().to_string();
+        assert!(err.contains("line 3,"), "{err}");
+        assert!(!err.contains("sk-or-v1-unquoted"), "{err}");
+    }
+
+    /// The writers read the same file through `toml_edit`, whose errors quote
+    /// the line too.
+    #[test]
+    fn a_writer_parse_error_names_the_line_without_quoting_it() {
+        let (_dir, path) =
+            crate::cache::closed_temp_file("config.toml", Some("[zai]\napi_key = zk-unquoted\n"));
+        let err = read_config_document(&path).unwrap_err().to_string();
+        assert!(err.contains("line 2,"), "{err}");
+        assert!(!err.contains("zk-unquoted"), "{err}");
+    }
+
+    #[test]
+    fn toml_error_summary_keeps_the_position_and_the_message() {
+        let input = "a = 1\nkey = sk-secret\n";
+        assert_eq!(
+            toml_error_summary(input, Some(12..21), "string values must be quoted\n"),
+            "line 2, column 7: string values must be quoted"
+        );
+        assert_eq!(toml_error_summary(input, None, "bad"), "bad");
     }
 
     #[test]
@@ -4550,6 +4741,31 @@ enabled = false
         );
     }
 
+    /// `config.example.toml` documents `auth_paths = ["~/.commandcode/auth.json"]`;
+    /// `gh_binary` is the Copilot counterpart of `grok_binary` above.
+    #[test]
+    fn commandcode_and_copilot_paths_are_tilde_expanded() {
+        let file = write_toml(
+            r#"
+            [commandcode]
+            auth_paths = ["~/.commandcode/auth.json", "/etc/commandcode/auth.json"]
+
+            [copilot]
+            gh_binary = "~/bin/gh"
+            "#,
+        );
+        let config = Config::load_from(file.path()).unwrap();
+        let home = crate::cache::home_dir().unwrap();
+        assert_eq!(
+            config.commandcode.auth_paths,
+            Some(vec![
+                home.join(".commandcode/auth.json"),
+                PathBuf::from("/etc/commandcode/auth.json"),
+            ])
+        );
+        assert_eq!(config.copilot.gh_binary, Some(home.join("bin/gh")));
+    }
+
     #[test]
     fn kiro_db_path_is_tilde_expanded() {
         let f = write_toml(
@@ -4956,6 +5172,19 @@ value = "/tier"
         );
     }
 
+    /// A value that is not a variable name is most likely a key pasted into
+    /// the wrong field, and this error fails the whole config load: it names
+    /// the field and never repeats the value.
+    #[test]
+    fn custom_invalid_api_key_env_is_not_repeated() {
+        let msg = custom_error(&custom_with(
+            r#"api_key_env = "MYTOOL_API_KEY""#,
+            r#"api_key_env = "sk-live-pasted-secret""#,
+        ));
+        assert!(msg.contains("api_key_env"), "{msg}");
+        assert!(!msg.contains("sk-live-pasted-secret"), "{msg}");
+    }
+
     #[test]
     fn custom_rejects_an_invalid_auth_header_name() {
         assert_custom_rejected(
@@ -5161,6 +5390,44 @@ url = "https://example.test/u"
         assert!(
             crate::vendor::vendor_secret_env_vars_to_remove(&[]).contains(&var),
             "a custom provider's env var must be scrubbed from subprocesses"
+        );
+    }
+
+    #[test]
+    fn loading_a_config_registers_account_and_renamed_env_vars_for_scrubbing() {
+        let account = "AI_USAGEBAR_ACCOUNT_SCRUB_TEST_4C2E";
+        let renamed = "AI_USAGEBAR_RENAMED_SCRUB_TEST_7A3F";
+        let before = crate::vendor::vendor_secret_env_vars_to_remove(&[]);
+        assert!(!before.contains(&account));
+        assert!(!before.contains(&renamed));
+        let file = write_toml(&format!(
+            "[zai]\napi_key_env = \"{renamed}\"\n\
+             [[deepseek.accounts]]\nlabel = \"work\"\napi_key_env = \"{account}\"\n"
+        ));
+        Config::load_from(file.path()).unwrap();
+        let after = crate::vendor::vendor_secret_env_vars_to_remove(&[]);
+        assert!(after.contains(&account), "a named account's key variable");
+        assert!(after.contains(&renamed), "a renamed api_key_env");
+    }
+
+    #[test]
+    fn loading_a_config_registers_openrouter_management_env_vars_for_scrubbing() {
+        let renamed = "AI_USAGEBAR_MGMT_RENAMED_SCRUB_TEST_5D1B";
+        let account = "AI_USAGEBAR_MGMT_ACCOUNT_SCRUB_TEST_8E6C";
+        let before = crate::vendor::vendor_secret_env_vars_to_remove(&[]);
+        assert!(!before.contains(&renamed));
+        assert!(!before.contains(&account));
+        let file = write_toml(&format!(
+            "[openrouter]\nmanagement_api_key_env = \"{renamed}\"\n\
+             [[openrouter.accounts]]\nlabel = \"work\"\napi_key_env = \"OR_WORK_KEY\"\n\
+             management_api_key_env = \"{account}\"\n"
+        ));
+        Config::load_from(file.path()).unwrap();
+        let after = crate::vendor::vendor_secret_env_vars_to_remove(&[]);
+        assert!(after.contains(&renamed), "a renamed management_api_key_env");
+        assert!(
+            after.contains(&account),
+            "an account's management_api_key_env"
         );
     }
 

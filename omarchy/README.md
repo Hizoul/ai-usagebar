@@ -140,6 +140,10 @@ omarchy bar set akitaonrails.ai-usagebar colorCodeUsage true --json
 # default), session (5-hour), weekly (7-day), or monthly. The default is auto.
 omarchy bar set akitaonrails.ai-usagebar barWindow session
 
+# Panel and settings language: auto (follow the system locale, the default),
+# en, ru, or pt-BR.
+omarchy bar set akitaonrails.ai-usagebar uiLocale pt-BR
+
 # Cursor's chip lists Cursor Models, Other Models, on-demand used percent,
 # then a credit grant when the account has one. These switches hide a figure
 # from the top bar and tooltip only. The open panel still lists every pool.

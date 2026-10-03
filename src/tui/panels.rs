@@ -601,7 +601,7 @@ pub(crate) fn sections_with_metadata_for(
                 VendorSnapshot::Moonshot(s) => moonshot_sections(s, prefs),
                 VendorSnapshot::Grok(s) => grok_sections(s, prefs),
                 VendorSnapshot::SuperGrok(s) => supergrok_sections(s, now),
-                VendorSnapshot::Grokbot(s) => grokbot_sections(s, now),
+                VendorSnapshot::Grokbot(s) => grokbot_sections(s, now, pace_tolerance),
                 VendorSnapshot::ModelStudio(s) => modelstudio_sections(s, now, pace_tolerance),
                 VendorSnapshot::Antigravity(s) => antigravity_sections(s, now),
                 VendorSnapshot::Cursor(s) => cursor_sections(s, now),
@@ -1003,6 +1003,13 @@ fn openrouter_sections(
             "paid tier".into()
         }],
     });
+    if !s.recent_models.is_empty() {
+        v.push(Section::Spacer);
+        v.push(Section::Block {
+            label: "Recent models".into(),
+            body: s.recent_models.clone(),
+        });
+    }
     v
 }
 
@@ -1833,7 +1840,11 @@ fn kimi_sections(s: &crate::usage::KimiSnapshot, now: DateTime<Utc>, tol: u32) -
 /// window length when both period instants were reported, so the report
 /// carries exact `window_secs` — or the no-included-allowance state, which is
 /// a text row, never a 0% meter.
-fn grokbot_sections(s: &crate::usage::GrokbotSnapshot, now: DateTime<Utc>) -> SectionBuilder {
+fn grokbot_sections(
+    s: &crate::usage::GrokbotSnapshot,
+    now: DateTime<Utc>,
+    tol: u32,
+) -> SectionBuilder {
     let mut v = SectionBuilder::new(vec![Section::Title {
         left: s.display_plan().to_string(),
         right: None,
@@ -1846,12 +1857,24 @@ fn grokbot_sections(s: &crate::usage::GrokbotSnapshot, now: DateTime<Utc>) -> Se
         });
         return v;
     }
+    let footnote = match s.window {
+        Some(window) if window.num_seconds() > 0 && s.reset_at.is_some() => {
+            let pace = pacing::calc(s.weekly_pct, s.reset_at, now, window, tol);
+            format!(
+                "Resets in {} · {}% elapsed · {}",
+                countdown::format(s.reset_at, now),
+                pace.elapsed_pct,
+                pace.point_label
+            )
+        }
+        _ => format!("Resets in {}", countdown::format(s.reset_at, now)),
+    };
     let metric = Section::Metric {
         label: "Weekly".into(),
         pct: s.weekly_pct.clamp(0, 100) as u16,
         severity: severity_for(s.weekly_pct),
         value_label: format!("{}%", s.weekly_pct),
-        footnote: format!("Resets in {}", countdown::format(s.reset_at, now)),
+        footnote,
     };
     match s.window {
         Some(window) => v.push_metric_in_window(metric, s.reset_at, window),
@@ -2466,6 +2489,7 @@ mod tests {
             is_free_tier: false,
             limit: None,
             limit_remaining: None,
+            recent_models: Vec::new(),
         };
         let sections = sections_for(&ready(VendorSnapshot::Openrouter(snap)), now(), 5);
         assert!(matches!(sections[0], Section::Title { .. }));
@@ -2478,6 +2502,44 @@ mod tests {
             sections
                 .iter()
                 .any(|s| matches!(s, Section::Block { label, .. } if label == "Usage by period"))
+        );
+    }
+
+    #[test]
+    fn openrouter_recent_models_block_renders_only_when_present() {
+        let snap = |recent_models: Vec<String>| OpenRouterSnapshot {
+            label: "OR".into(),
+            total_credits: 100.0,
+            total_usage: 25.0,
+            usage_daily: 1.0,
+            usage_weekly: 5.0,
+            usage_monthly: 25.0,
+            is_free_tier: false,
+            limit: None,
+            limit_remaining: None,
+            recent_models,
+        };
+        let models = vec!["gpt-5-codex ($1.25 · 42 reqs)".to_string()];
+        let sections = sections_for(
+            &ready(VendorSnapshot::Openrouter(snap(models.clone()))),
+            now(),
+            5,
+        );
+        let block = sections.iter().find_map(|s| match s {
+            Section::Block { label, body } if label == "Recent models" => Some(body),
+            _ => None,
+        });
+        assert_eq!(block, Some(&models));
+
+        let sections = sections_for(
+            &ready(VendorSnapshot::Openrouter(snap(Vec::new()))),
+            now(),
+            5,
+        );
+        assert!(
+            !sections
+                .iter()
+                .any(|s| matches!(s, Section::Block { label, .. } if label == "Recent models"))
         );
     }
 
@@ -2496,6 +2558,7 @@ mod tests {
             is_free_tier: false,
             limit: None,
             limit_remaining: None,
+            recent_models: Vec::new(),
         };
         let sections = sections_for(&ready(VendorSnapshot::Openrouter(snap.clone())), now(), 5);
         let metric = sections
@@ -3354,8 +3417,43 @@ mod tests {
         assert_eq!(value_label, "42%");
         assert!(footnote.contains("Resets in"), "{footnote}");
         // The honest derived window, so a frontend paces against 7d exactly.
+        assert!(footnote.contains("42% elapsed · on track"), "{footnote}");
         assert_eq!(metric.window, Some(chrono::Duration::days(7)));
         assert_eq!(metric.reset_at, grokbot_snap().reset_at);
+    }
+
+    #[test]
+    fn grokbot_pacing_details_use_variable_periods_and_skip_missing_bounds() {
+        for (reset_at, window, expected) in [
+            (
+                Some(now() + chrono::Duration::days(5)),
+                Some(chrono::Duration::days(10)),
+                Some("50% elapsed · 8pts under"),
+            ),
+            (None, Some(chrono::Duration::days(10)), None),
+            (Some(now() + chrono::Duration::days(5)), None, None),
+            (
+                Some(now() + chrono::Duration::days(5)),
+                Some(chrono::Duration::zero()),
+                None,
+            ),
+        ] {
+            let snap = crate::usage::GrokbotSnapshot {
+                reset_at,
+                window,
+                ..grokbot_snap()
+            };
+            let sections =
+                sections_with_metadata_for(&ready(VendorSnapshot::Grokbot(snap)), now(), 5);
+            let Section::Metric { footnote, .. } = &only_metric(&sections).section else {
+                panic!("expected a weekly metric");
+            };
+            if let Some(expected) = expected {
+                assert!(footnote.contains(expected), "{footnote}");
+            } else {
+                assert!(!footnote.contains("elapsed"), "{footnote}");
+            }
+        }
     }
 
     #[test]
@@ -3937,6 +4035,7 @@ mod tests {
             is_free_tier: false,
             limit: None,
             limit_remaining: None,
+            recent_models: Vec::new(),
         });
         // A wildly different tank size changes nothing: 25 of 100 is 25%.
         // `[openrouter]` carries no `display_limit`, so this can only arrive
@@ -3965,6 +4064,7 @@ mod tests {
             is_free_tier: false,
             limit: None,
             limit_remaining: None,
+            recent_models: Vec::new(),
         });
         let sections = sections_with_metadata_for(
             &ready_with(
@@ -4004,6 +4104,7 @@ mod tests {
             is_free_tier: true,
             limit: None,
             limit_remaining: None,
+            recent_models: Vec::new(),
         });
         for prefs in [
             DisplayPrefs::default(),
@@ -4038,6 +4139,7 @@ mod tests {
             is_free_tier: false,
             limit: Some(50.0),
             limit_remaining: Some(50.0),
+            recent_models: Vec::new(),
         });
         let prefs = DisplayPrefs::balance(Some(200.0), crate::balance::Headline::Percent);
         let sections = sections_with_metadata_for(&ready_with(snapshot, prefs), now(), 5);

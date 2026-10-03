@@ -1772,6 +1772,49 @@ mod tests {
     /// ordered `sections` and the `metrics` convenience view, and is omitted
     /// (not `null`) for a metric that has none.
     #[test]
+    fn grokbot_json_matches_the_shared_frontend_pacing_fixture() {
+        let now = "2026-09-25T12:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let state = TabState::Ready(Box::new(ReadyTab {
+            snapshot: VendorSnapshot::Grokbot(crate::usage::GrokbotSnapshot {
+                plan: "Grok Bot Plan".into(),
+                billed_by: Some("Cursor Ultra".into()),
+                has_included_allowance: true,
+                weekly_pct: 70,
+                has_available_usage: true,
+                on_demand_enabled: false,
+                period_start: Some(now - chrono::Duration::days(5)),
+                reset_at: Some(now + chrono::Duration::days(5)),
+                window: Some(chrono::Duration::days(10)),
+            }),
+            stale: false,
+            last_error: None,
+            fetched_at: None,
+            display: Default::default(),
+        }));
+        let projected = entry_from_state(&TabId::vendor(VendorId::Grokbot), &state, now);
+        let rendered = render_json_for_primary(&[projected], None);
+        let value: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/grokbot_paced_report.json"))
+                .unwrap();
+        let entry = &value["entries"][0];
+        let expected = &fixture["entries"][0];
+        assert_eq!(entry["id"], expected["id"]);
+        assert_eq!(entry["display_name"], expected["display_name"]);
+        assert_eq!(entry["plan"], expected["plan"]);
+        let metric = entry["sections"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|section| section["type"] == "metric")
+            .unwrap();
+        assert_eq!(metric, &expected["sections"][0]);
+        for field in ["percent", "detail", "reset_at", "window_secs"] {
+            assert_eq!(entry["metrics"][0][field], metric[field]);
+        }
+    }
+
+    #[test]
     fn json_carries_the_window_length_only_for_exact_windows() {
         use crate::usage::{AnthropicSnapshot, UsageWindow};
 
@@ -1994,6 +2037,7 @@ mod tests {
                 is_free_tier: false,
                 limit: None,
                 limit_remaining: None,
+                recent_models: Vec::new(),
             }),
             stale: false,
             last_error: None,
@@ -2275,6 +2319,7 @@ mod tests {
                     is_free_tier: false,
                     limit: None,
                     limit_remaining: None,
+                    recent_models: Vec::new(),
                 }),
                 stale: false,
                 last_error: None,

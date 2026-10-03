@@ -159,7 +159,7 @@ The Preferences window needs **macOS 12+** (the menu bar itself works on
 dark menu bar; only the bar fill/empty colors are configurable.
 
 Pace markers require both a real reset and elapsed-time output. Claude, Codex,
-Z.AI, MiniMax and Antigravity supply that pair; the remaining vendors render
+Z.AI, MiniMax, Antigravity and Grok Bot supply that pair; the remaining vendors render
 their generic windows without a pace marker. When available, the fixed
 blue `│` pace marker is placed at elapsed time. Fill past the marker follows the
 point-delta colors used by the Rust widget: at
@@ -245,7 +245,7 @@ Selecting an entry changes whose usage is displayed, not the active Codex login.
 ## Multiple API-key accounts
 
 Entries from `[[openrouter.accounts]]` — and the same array under `[zai]`,
-`[deepseek]`, `[kilo]`, `[novita]`, `[moonshot]`, `[grok]`, `[minimax]`, and
+`[deepseek]`, `[deepinfra]`, `[kilo]`, `[novita]`, `[moonshot]`, `[grok]`, `[minimax]`, and
 `[orcarouter]` — appear as separate menu choices and use
 `--vendor <vendor> --account <label>` behind the scenes. Each account keeps its
 own cache. Set `show_default_account = false` in the provider's section when

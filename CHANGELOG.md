@@ -25,6 +25,193 @@ Each release is also published at
   grant shows nothing extra. A grant with nothing left stays visible at 100%
   used.
 
+- **Grok Bot weekly pacing in the widget and macOS menu bar.** Added elapsed
+  aliases and ratio/point pace placeholders using the account's reported period,
+  with configurable tolerance, placeholder colors and tooltip pace markers.
+- **Grok Bot pacing details in the TUI and usage report.** Added elapsed-time
+  and point-delta notes to the shared weekly metric, making them available to
+  Quattro, GNOME, KDE and Linux Mint alongside the existing Windows projections.
+
+- **Omarchy panel and settings speak English, Russian, and Brazilian Portuguese.**
+  A Language dropdown (`uiLocale`: Auto / English / Português (Brasil) / Русский)
+  remaps chrome, formatters, known report footnotes, and credential hints through
+  a local catalog; Auto follows the system locale. Long settings copy wraps under
+  the hero instead of overflowing the detail pill, and API-key notes wrap on their
+  own line under the env var name.
+
+- **Korean (한국어) in the tray popover.** Settings → Appearance → Language
+  gains 한국어 on Windows and macOS, with a full `messages/ko.json` catalog;
+  metric labels and usage strings from the report are translated as they are
+  for Português.
+
+- **OpenRouter: recent models activity and real-dollar credit balance.**
+  `GET /api/v1/activity` queries the 2 most recently used models, showing their
+  per-model cost and request counts alongside the existing spend breakdown in both
+  the TUI and the popover. When no quota reset date is published, the meter row
+  displays the account's available credit balance in USD ($) directly below the
+  gauge. Full Portuguese (pt-BR) localization support in the popover. The
+  activity endpoint requires an OpenRouter *management* key
+  (`management_api_key_env`, default `OPENROUTER_MANAGEMENT_API_KEY`, also per
+  `[[openrouter.accounts]]`); without one the activity request is skipped and
+  the block simply stays hidden.
+
+### Fixed
+
+- **Ollama Cloud monthly-only accounts no longer paint a fake 0% 5h/7d pair.**
+  Some Pro accounts report `limits.monthly` instead of `session`/`weekly`.
+  The TUI, tooltip and `usage --json` already showed that month; the widget
+  default format and the `{session_pct}`/`{weekly_pct}` aliases still emitted
+  `0` for the omitted windows, so Waybar and the macOS menu bar read as two
+  exhausted rate-limit windows. Absent windows are now empty placeholders (a
+  present month at 0% used still renders `0`), the default bar shows
+  `{oll_monthly_pct}%`, and the macOS selector draws that pool on the primary
+  bar as Monthly.
+
+- **Omarchy bar chips keep their icon next to their own value.** 1.30.0 put a
+  6 px spacer between a chip's brand mark and its value inside a row that
+  already spaces its children 4 px apart, so the gap became 14 px — wider than
+  the gap to the previous chip, and each icon read as part of the chip before
+  it. The spacer is gone; the row's spacing is the gap again, and an icon-only
+  chip still collapses to the mark alone.
+
+- **macOS menu bar parses DeepInfra named accounts.**
+  PR #291 added named account support to DeepInfra in Rust, but
+  `API_KEY_ACCOUNT_VENDORS` in the macOS menu bar was not updated. It now
+  includes `deepinfra` so `[[deepinfra.accounts]]` entries appear as menu
+  choices and in Preferences.
+
+- **Provider catalog and detection recognize named accounts and path overrides.**
+  `ai-usagebar vendors --json` and the TUI/macOS provider views reported
+  providers as unconfigured ("needs credential") when authentication was
+  configured via named accounts (`[[<vendor>.accounts]]`) without setting the
+  ambient key, or when `show_default_account = false` was set. The catalog now
+  checks named API-key accounts as well as Anthropic and OpenAI named accounts
+  and path overrides (`credentials_path`, `codex_auth_path`), matching the
+  credential resolution of the fetch and `detect` (see #307).
+
+- **Saving settings no longer switches a disabled primary provider back on.**
+  A key provider that was still `[ui] primary` after being switched off (from
+  the overlay's provider switches or by hand) stayed the selected primary
+  whenever it kept a key, inline or exported, so the next save from the TUI
+  overlay or the Omarchy settings panel wrote its `enabled = true` back,
+  whatever the edit was. A disabled primary now shows the first enabled
+  provider instead, as Copilot and keyless providers already did; picking a
+  provider explicitly still switches it on.
+
+- **Grok Bot reuses the token pair it refreshed.** After a 401 the widget
+  refreshes the desktop app's session and saves the new pair in its own
+  `oauth.json`, but it saved it under the fingerprint of the rotated refresh
+  token, while the next poll looks it up by the app's sign-in. Once the token
+  rotated the pair was never found again: every poll retried the expired
+  access token and refreshed with the original refresh token, which a server
+  that enforces rotation rejects. The pair is now keyed by the sign-in it was
+  refreshed from, as Kiro and Antigravity already do.
+
+- **Kiro no longer asks for a new login when the network drops during a
+  token refresh.** A refresh that could not reach the token endpoint was
+  reported as a credentials error ("Run `kiro-cli login` again") and recorded
+  as the last refresh error, so a laptop waking up offline with an expired
+  access token showed a sign-in warning for a login that was fine. Network
+  failures now take the same silent cache fallback as the usage call; a
+  refresh the endpoint rejects still asks for a new login.
+
+- **Antigravity's custom formats no longer break Waybar's markup.** The
+  documented `{scoped_model}` and `{extra_model}` placeholders carry the
+  third-party pool's name, "Claude & GPT OSS", and the bar text and a custom
+  `--tooltip-format` substituted it unescaped, so any format naming the pool
+  handed Waybar a bare `&` inside its markup. The pool names and the plan
+  label are now escaped in both, as Kiro already does for its plan.
+
+- **SuperGrok no longer shows an authentication failure's response body.**
+  When a refresh failed with a 401 or 403 and a cached figure was shown
+  instead, the cache recorded the neutral authentication message but the
+  outcome kept the raw response body, so the Waybar tooltip, the TUI and
+  `usage --json` displayed it on every poll that refetched. The outcome now
+  carries exactly what the cache recorded, as the other vendors already do.
+
+- **Grok reports a rejected management key under its HTTP status.** Without
+  a `team_id`, every refetch first validates the key, and an HTTP error from
+  that step was recorded as a generic error with code 0. The response body of
+  a 401 or 403 therefore reached `.last_error` and the TUI and report
+  warnings, the Waybar tooltip showed the stale balance without any error,
+  and a 429 never armed the five-minute backoff. That step is now recorded
+  like the balance call: under its status, with an auth failure's body
+  replaced by the neutral message.
+
+- **`~` now works in `[commandcode] auth_paths` and `[copilot] gh_binary`.**
+  Every other path setting expands a leading `~` when the config loads, but
+  these two kept it literally. Uncommenting the documented
+  `auth_paths = ["~/.commandcode/auth.json"]` made Command Code report "not
+  signed in" for a signed-in user, and `gh_binary = "~/bin/gh"` made Copilot
+  report that the GitHub CLI is not installed.
+
+- **The in-tree `ai-usagebar-bin` PKGBUILD builds again.** Since #282 each
+  architecture downloads a tarball and its detached `.sig`, so it needs two
+  checksums, but the v1.29.0 version bump reset `sha256sums_x86_64` and
+  `sha256sums_aarch64` to a single `'SKIP'` (and `.SRCINFO-bin` to one line
+  each), which makepkg rejects as an array that differs in size from its
+  sources. Packages published by the release workflow were unaffected,
+  because it rewrites both arrays with two entries; local builds and the
+  manual AUR fallback were not.
+
+- **A config whose only inline key is Ollama Cloud's is tightened to `0600`.**
+  On Unix, a config holding an inline credential is made private when it is
+  loaded, but `[ollama] api_key` was missing from the list of fields that
+  triggers it, so such a file kept whatever mode it was created with,
+  typically readable by every local user. It now gets the same protection as
+  every other provider's inline key.
+
+- **A key pasted into `api_key_env` is no longer repeated in errors.** A value
+  that is not an environment variable name is most likely the key itself in
+  the wrong field, and the shared resolver already refuses to echo it, but
+  two messages still did: Kimi's "no credentials" error, when no Kimi Code
+  CLI login exists either, and the `[[custom]]` validation error, which fails
+  the whole config load. Both reached the widget's tooltip, `usage --json`
+  and the TUI. They now name `api_key_env` without its value.
+
+- **Named accounts' key variables no longer reach other tools' processes.**
+  The `gh`, `grok`, `agy` and `claude` processes ai-usagebar starts get every
+  provider key variable removed from their environment, but that list held
+  only the default names and `[[custom]]` variables. A key read from a named
+  account's variable (`[[deepseek.accounts]] api_key_env`), from a renamed
+  `api_key_env`, or from an OpenRouter `management_api_key_env` other than the
+  default was passed to all of them; these are now removed as well.
+
+- **Linux Mint: the tray menu's summary reads the quota, not a Claude Code
+  session.** With `[context] enabled = true`, the Claude entry's metrics also
+  list each recent session with how full its context window is, and the
+  menu's one-line summary showed the highest of them all, so a session at 90%
+  read as "Claude: 90%" while the 5h and weekly quotas were low. The summary
+  now picks among the quota rows; grouped rows only stand in when an entry
+  has nothing else.
+
+- **Omarchy: a full Claude Code session no longer stands in for the Claude
+  quota.** With `[context] enabled = true`, each recent session reaches the
+  Claude entry as a grouped "Sessions" row whose percent is how full its
+  context window is. The bar picked the highest percent over every row, so a
+  session at 90%, even one from yesterday, became the Claude chip's value,
+  coloured it critical and turned on the bar's alarm while the 5h and weekly
+  quotas were low. The bar now reads the quota rows; grouped rows only stand
+  in when an entry has nothing else.
+
+- **The documented Windows config file is the one the binary reads.** On
+  Windows the default config is `%APPDATA%\ai-usagebar\config\config.toml`,
+  but `--help`, the README and three docs pages named
+  `%APPDATA%\ai-usagebar\config.toml`, and the PowerShell snippet in
+  `docs/windows-build.md` created that file. Nothing reads it, so a config set
+  up from the docs was silently ignored. They now name the real location, as
+  `windows/README.md` already did.
+
+### Security
+
+- **A broken `config.toml` no longer has its offending line quoted back.**
+  TOML parse errors quote the line the parser stopped on, and the commonest
+  mistake, a missing quote, is often on an inline `api_key` line, so the key
+  itself reached the widget's tooltip, `usage --json` (and with it every
+  desktop frontend), the TUI, the Settings overlay and stderr. Config parse
+  errors now give the line and column with the parser's message, never the
+  line's content.
+
 ## [1.30.0] — 2026-10-01
 
 ### Added

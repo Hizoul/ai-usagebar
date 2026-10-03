@@ -1467,7 +1467,9 @@ fn register_at(config_path: &Path, label: &str, home: Option<&Path>) -> Result<R
         toml_edit::DocumentMut::new()
     } else {
         original.parse().map_err(|error: toml_edit::TomlError| {
-            AppError::Other(format!("config.toml is not valid TOML: {error}"))
+            let summary =
+                crate::config::toml_error_summary(&original, error.span(), error.message());
+            AppError::Other(format!("config.toml is not valid TOML: {summary}"))
         })?
     };
 
@@ -1703,7 +1705,9 @@ fn register_codex_at(config_path: &Path, label: &str, home: &Path) -> Result<Reg
         toml_edit::DocumentMut::new()
     } else {
         original.parse().map_err(|error: toml_edit::TomlError| {
-            AppError::Other(format!("config.toml is not valid TOML: {error}"))
+            let summary =
+                crate::config::toml_error_summary(&original, error.span(), error.message());
+            AppError::Other(format!("config.toml is not valid TOML: {summary}"))
         })?
     };
     let existing = if config_path.exists() {

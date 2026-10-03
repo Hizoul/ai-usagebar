@@ -568,7 +568,7 @@ Codex, Z.AI, and OpenRouter are enabled by default; other providers are
 opt-in.
 
 Both binaries also accept `--config <PATH>` to read and write an alternate
-file instead of the default (`%APPDATA%\ai-usagebar\config.toml` on Windows).
+file instead of the default (`%APPDATA%\ai-usagebar\config\config.toml` on Windows).
 The file must already exist, and the override applies to every subcommand —
 handy for testing a config side by side with the real one:
 
@@ -741,6 +741,12 @@ primary is blocked (`save_does_not_write_a_disabled_primary`). Turn a vendor
 on first; it then shows up in the picker.
 
 ## Native desktop integrations
+
+Grok Bot pacing uses the account's reported period in every frontend. Waybar
+exposes weekly pace placeholders and tooltip markers; the macOS menu bar uses
+the elapsed alias. The TUI and `usage --json` carry elapsed-time and point-delta
+notes for Quattro, GNOME, KDE and Linux Mint, while Windows keeps its own
+usage projection. Missing period bounds do not produce pace estimates.
 
 ### Omarchy Quattro
 
