@@ -2117,6 +2117,7 @@ impl Config {
             self.grok.api_key.as_deref(),
             self.anthropic_api.api_key.as_deref(),
             self.opencode_go.api_key.as_deref(),
+            self.ollama.api_key.as_deref(),
             self.orcarouter.api_key.as_deref(),
             self.antigravity.oauth_client_secret.as_deref(),
         ]
@@ -2990,6 +2991,22 @@ enabled = true
             ))
             .unwrap();
             assert!(config.has_inline_secrets(), "{vendor:?}");
+        }
+    }
+
+    /// `has_inline_secrets` lists the fields by hand, and Ollama's was missed
+    /// once. Walk every vendor instead: whatever `inline_api_key` resolves as
+    /// a key must also put the config file under 0600 protection.
+    #[cfg(unix)]
+    #[test]
+    fn every_inline_api_key_receives_config_file_protection() {
+        for &vendor in VendorId::all() {
+            let section = vendor.config_section();
+            let config: Config =
+                toml::from_str(&format!("[{section}]\napi_key = \"<redacted>\"\n")).unwrap();
+            if config.inline_api_key(vendor).is_some() {
+                assert!(config.has_inline_secrets(), "{vendor:?}");
+            }
         }
     }
 
