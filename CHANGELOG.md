@@ -9,6 +9,16 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Fixed
+
+- **Kiro no longer asks for a new login when the network drops during a
+  token refresh.** A refresh that could not reach the token endpoint was
+  reported as a credentials error ("Run `kiro-cli login` again") and recorded
+  as the last refresh error, so a laptop waking up offline with an expired
+  access token showed a sign-in warning for a login that was fine. Network
+  failures now take the same silent cache fallback as the usage call; a
+  refresh the endpoint rejects still asks for a new login.
+
 ## [1.30.0] — 2026-10-01
 
 ### Added
