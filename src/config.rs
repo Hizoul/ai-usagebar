@@ -2069,8 +2069,12 @@ impl Config {
     pub fn load_from(path: &std::path::Path) -> Result<Self> {
         match std::fs::read_to_string(path) {
             Ok(s) => {
-                let mut config: Self = toml::from_str(&s).map_err(|e| {
-                    let summary = toml_error_summary(&s, e.span(), e.message());
+                let mut config: Self = toml::from_str(&s).map_err(|mut e| {
+                    let span = e.span();
+                    // Without its input the error's `Display` drops the quoted
+                    // line but keeps the key path, `in deepseek.headline`.
+                    e.set_input(None);
+                    let summary = toml_error_summary(&s, span, &e.to_string());
                     AppError::Other(format!("config.toml: {summary}"))
                 })?;
                 // `~` is shell syntax, not path syntax: `PathBuf` keeps it
