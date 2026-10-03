@@ -9,6 +9,15 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Security
+
+- **Named accounts' key variables no longer reach other tools' processes.**
+  The `gh`, `grok`, `agy` and `claude` processes ai-usagebar starts get every
+  provider key variable removed from their environment, but that list held
+  only the default names and `[[custom]]` variables. A key read from a named
+  account's variable (`[[deepseek.accounts]] api_key_env`) or from a renamed
+  `api_key_env` was passed to all of them; both are now removed as well.
+
 ## [1.30.0] — 2026-10-01
 
 ### Added
