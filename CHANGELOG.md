@@ -9,6 +9,15 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Fixed
+
+- **SuperGrok no longer shows an authentication failure's response body.**
+  When a refresh failed with a 401 or 403 and a cached figure was shown
+  instead, the cache recorded the neutral authentication message but the
+  outcome kept the raw response body, so the Waybar tooltip, the TUI and
+  `usage --json` displayed it on every poll that refetched. The outcome now
+  carries exactly what the cache recorded, as the other vendors already do.
+
 ## [1.30.0] — 2026-10-01
 
 ### Added
