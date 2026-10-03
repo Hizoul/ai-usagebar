@@ -9,6 +9,15 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Fixed
+
+- **`~` now works in `[commandcode] auth_paths` and `[copilot] gh_binary`.**
+  Every other path setting expands a leading `~` when the config loads, but
+  these two kept it literally. Uncommenting the documented
+  `auth_paths = ["~/.commandcode/auth.json"]` made Command Code report "not
+  signed in" for a signed-in user, and `gh_binary = "~/bin/gh"` made Copilot
+  report that the GitHub CLI is not installed.
+
 ## [1.30.0] — 2026-10-01
 
 ### Added
