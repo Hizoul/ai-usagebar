@@ -2141,16 +2141,23 @@ impl Config {
     }
 
     /// The variables built-in providers read keys from under names that
-    /// `VENDOR_SECRET_ENV_VARS` cannot list: a renamed `api_key_env`, and each
-    /// named account's (`DEEPSEEK_WORK_API_KEY`). Default names come back too
-    /// and are skipped by the registration, as are empty ones.
+    /// `VENDOR_SECRET_ENV_VARS` cannot list: a renamed `api_key_env` or
+    /// OpenRouter `management_api_key_env`, and each named account's
+    /// (`DEEPSEEK_WORK_API_KEY`). Default names come back too and are skipped
+    /// by the registration, as are empty ones.
     fn provider_secret_env_vars(&self) -> Vec<String> {
         let renamed = VendorId::all().iter().map(|&id| self.api_key_env_for(id));
+        let management = std::iter::once(self.openrouter.management_api_key_env.as_str());
         let accounts = Self::API_KEY_ACCOUNT_VENDORS
             .into_iter()
             .flat_map(|id| self.api_key_accounts(id).unwrap_or(&[]))
-            .filter_map(|account| account.api_key_env.as_deref());
-        renamed.chain(accounts).map(str::to_string).collect()
+            .flat_map(|account| [&account.api_key_env, &account.management_api_key_env])
+            .filter_map(|name| name.as_deref());
+        renamed
+            .chain(management)
+            .chain(accounts)
+            .map(str::to_string)
+            .collect()
     }
 
     /// The `[[custom]]` providers that are switched on, in config order.
