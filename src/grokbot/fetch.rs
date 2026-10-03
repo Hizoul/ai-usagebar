@@ -594,6 +594,52 @@ mod tests {
         }
     }
 
+    /// The app does not rewrite its file on a refresh, so the poll after a
+    /// rotation still reads the old pair from it. It has to find the rotated
+    /// pair in the vendor cache, not try the expired access token and spend
+    /// the original refresh token again.
+    #[tokio::test]
+    async fn the_next_poll_reuses_a_rotated_pair() {
+        let mut server = mockito::Server::new_async().await;
+        let stale = usage_mock(&mut server, "at-stored")
+            .with_status(401)
+            .with_body(r#"{"error":"expired"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let refresh = server
+            .mock("POST", "/oauth/token")
+            .with_status(200)
+            .with_body(r#"{"access_token":"at-fresh","refresh_token":"rt-rotated"}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let fresh = usage_mock(&mut server, "at-fresh")
+            .with_status(200)
+            .with_body(usage_json())
+            .expect(2)
+            .create_async()
+            .await;
+
+        let (_td, cache) = cache_fixture();
+        for _ in 0..2 {
+            let out = fetch_snapshot_with(
+                &reqwest::Client::new(),
+                &test_creds(),
+                &cache,
+                &test_endpoints(&server.url()),
+                Duration::ZERO,
+            )
+            .await
+            .unwrap();
+            assert_eq!(out.snapshot.weekly_pct, 12);
+        }
+
+        stale.assert_async().await;
+        refresh.assert_async().await;
+        fresh.assert_async().await;
+    }
+
     #[tokio::test]
     async fn a_persisted_pair_is_used_in_place_of_the_apps_older_access_token() {
         let mut server = mockito::Server::new_async().await;
