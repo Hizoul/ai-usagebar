@@ -138,6 +138,12 @@ Alternatively, apply the overlay when you want the package available as
 }
 ```
 
+Grok Bot pacing uses the account's reported period in every frontend. Waybar
+exposes weekly pace placeholders and tooltip markers; the macOS menu bar uses
+the elapsed alias. The TUI and `usage --json` carry elapsed-time and point-delta
+notes for Quattro, GNOME and KDE, while Windows and Linux Mint retain their
+existing usage projections. Missing period bounds do not produce pace estimates.
+
 ### Omarchy Quattro
 
 The native plugin is a display frontend and does not bundle the

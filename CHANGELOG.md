@@ -14,6 +14,9 @@ Each release is also published at
 - **Grok Bot weekly pacing in the widget and macOS menu bar.** Added elapsed
   aliases and ratio/point pace placeholders using the account's reported period,
   with configurable tolerance, placeholder colors and tooltip pace markers.
+- **Grok Bot pacing details in the TUI and usage report.** Added elapsed-time
+  and point-delta notes to the shared weekly metric, making them available to
+  Quattro, GNOME, KDE and Linux Mint alongside the existing Windows projections.
 
 - **Omarchy panel and settings speak English, Russian, and Brazilian Portuguese.**
   A Language dropdown (`uiLocale`: Auto / English / Português (Brasil) / Русский)
