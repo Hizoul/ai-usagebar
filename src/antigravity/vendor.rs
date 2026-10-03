@@ -383,6 +383,25 @@ mod tests {
         assert_eq!(v["session_elapsed"], "60");
     }
 
+    /// The bar text and a custom tooltip are Pango markup, and the
+    /// third-party pool's name carries an `&`: a format naming the pool must
+    /// not hand Waybar a bare one, and neither may an API plan label.
+    #[test]
+    fn custom_formats_escape_the_pool_names_and_the_plan() {
+        let mut snap = snapshot();
+        snap.plan = "Pro & Ultra".into();
+        let o = RenderOpts {
+            format: Some("{plan} · {scoped_model} {extra_model}".into()),
+            tooltip_format: Some("{scoped_model}".into()),
+            ..opts()
+        };
+        let out = render(&outcome(None), &snap, &Theme::default(), &o, now());
+        assert!(!out.text.contains(" & "), "{}", out.text);
+        assert!(out.text.contains("Pro &amp; Ultra"), "{}", out.text);
+        assert!(out.text.contains("Claude &amp; GPT OSS"), "{}", out.text);
+        assert_eq!(out.tooltip, "Claude &amp; GPT OSS");
+    }
+
     #[test]
     fn absent_third_party_group_blanks_its_slots() {
         let mut snap = snapshot();
