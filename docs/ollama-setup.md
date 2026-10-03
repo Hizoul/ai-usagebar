@@ -48,8 +48,9 @@ The `[ollama]` section is documented in [`config.example.toml`](../config.exampl
 Copy it into your config and set `enabled = true`. `api_key_env` is the
 **name of the variable**, not the token.
 
-An inline `api_key` works (`chmod 600` the file) but the environment is
-preferred.
+An inline `api_key` works (`chmod 600` the file — the app now tightens the
+permissions itself on load when Ollama's is the only inline key) but the
+environment is preferred.
 
 Saving a key (or picking Ollama as primary) in the TUI Settings overlay
 writes `enabled = true` for you.

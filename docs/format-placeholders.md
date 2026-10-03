@@ -38,6 +38,9 @@ Antigravity provides elapsed values plus `{session_model}`, `{weekly_model}`,
 `{scoped_model}`, and `{extra_model}` for whichever of its four windows the
 running product reports — a product that exposes only weekly buckets leaves the
 5-hour placeholders empty rather than reporting a figure it never received.
+Model and plan names are Pango-escaped at the placeholder boundary, so a name
+like `Claude & GPT OSS` can never break the bar's markup (non-Pango consumers
+see the escaped form, e.g. `&amp;`).
 Provider-specific families such as `{oai_*}`, `{zai_*}`, `{or_*}`, and
 `{orc_*}` are empty for providers that do not define them.
 

@@ -745,8 +745,8 @@ on first; it then shows up in the picker.
 Grok Bot pacing uses the account's reported period in every frontend. Waybar
 exposes weekly pace placeholders and tooltip markers; the macOS menu bar uses
 the elapsed alias. The TUI and `usage --json` carry elapsed-time and point-delta
-notes for Quattro, GNOME and KDE, while Windows and Linux Mint retain their
-existing usage projections. Missing period bounds do not produce pace estimates.
+notes for Quattro, GNOME, KDE and Linux Mint, while Windows keeps its own
+usage projection. Missing period bounds do not produce pace estimates.
 
 ### Omarchy Quattro
 

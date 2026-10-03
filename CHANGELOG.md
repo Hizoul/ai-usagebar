@@ -75,7 +75,7 @@ Each release is also published at
   and path overrides (`credentials_path`, `codex_auth_path`), matching the
   credential resolution of the fetch and `detect` (see #307).
 
-- **- **Saving settings no longer switches a disabled primary provider back on.**
+- **Saving settings no longer switches a disabled primary provider back on.**
   A key provider that was still `[ui] primary` after being switched off (from
   the overlay's provider switches or by hand) stayed the selected primary
   whenever it kept a key, inline or exported, so the next save from the TUI
@@ -140,7 +140,7 @@ Each release is also published at
   because it rewrites both arrays with two entries; local builds and the
   manual AUR fallback were not.
 
-- **- **A config whose only inline key is Ollama Cloud's is tightened to `0600`.**
+- **A config whose only inline key is Ollama Cloud's is tightened to `0600`.**
   On Unix, a config holding an inline credential is made private when it is
   loaded, but `[ollama] api_key` was missing from the list of fields that
   triggers it, so such a file kept whatever mode it was created with,
@@ -162,7 +162,6 @@ Each release is also published at
   account's variable (`[[deepseek.accounts]] api_key_env`), from a renamed
   `api_key_env`, or from an OpenRouter `management_api_key_env` other than the
   default was passed to all of them; these are now removed as well.
-
 
 - **Linux Mint: the tray menu's summary reads the quota, not a Claude Code
   session.** With `[context] enabled = true`, the Claude entry's metrics also
@@ -188,6 +187,7 @@ Each release is also published at
   `docs/windows-build.md` created that file. Nothing reads it, so a config set
   up from the docs was silently ignored. They now name the real location, as
   `windows/README.md` already did.
+
 ### Security
 
 - **A broken `config.toml` no longer has its offending line quoted back.**
