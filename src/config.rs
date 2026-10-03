@@ -798,7 +798,8 @@ pub(crate) fn read_config_document(path: &Path) -> Result<toml_edit::DocumentMut
         return Ok(toml_edit::DocumentMut::new());
     }
     original.parse().map_err(|e: toml_edit::TomlError| {
-        AppError::Other(format!("config.toml not parseable: {e}"))
+        let summary = toml_error_summary(&original, e.span(), e.message());
+        AppError::Other(format!("config.toml not parseable: {summary}"))
     })
 }
 
