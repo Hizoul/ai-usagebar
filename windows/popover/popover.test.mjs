@@ -86,6 +86,17 @@ import { measurePanelHeight } from './src/panel-size.js';
 
 const englishMessages = JSON.parse(readFileSync(new URL('./messages/en.json', import.meta.url), 'utf8'));
 
+{
+  const fixture = JSON.parse(readFileSync(new URL('../../tests/fixtures/grokbot_paced_report.json', import.meta.url), 'utf8'));
+  const now = Date.parse('2026-09-25T12:00:00Z');
+  const row = projectCards(parseHostPayload(fixture), now)[0].rows[0];
+  const projected = pace(row, now);
+  assert.equal(projected.elapsedPercent, 50);
+  assert.equal(projected.state, 'behind');
+  assert.match(paceText(projected, now), /Limit/);
+  assert.equal(pace({...row, window: undefined}, now), null);
+}
+
 // The page declares an empty icon, so the WebView never asks the tray for /favicon.ico: the
 // custom protocol serves only the page, its script and its stylesheet, and the request logged
 // a 404 in the popover's console on every open.

@@ -218,6 +218,21 @@ func testParserBalances() {
         (0...max).map { set[$0] ?? "" }
     }
 
+    let grokbot = snapshot(FORMAT, vendor: "grokbot",
+                          fields: fields(through: 16, set: [0: "Cursor Ultra", 3: "70", 4: "5d 0h", 14: "50", 16: "gbt"]))
+    assertEqual(grokbot?.weekly?.pct, 70, "grokbot weekly usage")
+    assertEqual(grokbot?.weekly?.elapsed, 50, "grokbot elapsed alias drives the marker")
+    assertNil(grokbot?.session, "grokbot does not fabricate a session")
+    let grokbotMissingReset = snapshot(FORMAT, vendor: "grokbot",
+                                     fields: fields(through: 16, set: [3: "70", 4: "—", 14: "0", 16: "gbt"]))
+    assertNil(grokbotMissingReset?.weekly?.elapsed, "grokbot missing reset has no marker")
+    let grokbotMissingPeriod = snapshot(FORMAT, vendor: "grokbot",
+                                      fields: fields(through: 16, set: [3: "70", 4: "5d 0h", 16: "gbt"]))
+    assertNil(grokbotMissingPeriod?.weekly?.elapsed, "grokbot missing period has no marker")
+    let grokbotNoAllowance = snapshot(FORMAT, vendor: "grokbot",
+                                    fields: fields(through: 16, set: [0: "Grok Bot Plan", 16: "gbt"]))
+    assertNil(grokbotNoAllowance?.weekly, "grokbot no allowance has no weekly meter")
+
     // OpenRouter: balance at 17, vendor_short "opr".
     let opr = snapshot(FORMAT, vendor: "openrouter",
                        fields: fields(through: 17, set: [16: "opr", 17: "$12.34"]))

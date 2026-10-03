@@ -21,6 +21,15 @@ def metric(used, window=18_000, elapsed=3_600):
 
 
 class TrayModelTest(unittest.TestCase):
+    def test_grokbot_report_projects_the_actual_period(self):
+        fixture = json.loads((Path(__file__).resolve().parent.parent / "tests/fixtures/grokbot_paced_report.json").read_text())
+        entry = fixture["entries"][0]
+        row = list(report_sections(entry))[0]
+        projected = metric_pace(row, NOW, "en_US")
+        self.assertEqual(projected, ("behind", "🔥 Limit in 2d 3h"))
+        self.assertEqual(meter_color(row, projected), "red")
+        self.assertEqual(metric_pace({**row, "window_secs": None}, NOW, "en_US"), None)
+
     def test_binary_resolution_supports_cargo_and_saved_override(self):
         with tempfile.TemporaryDirectory() as temporary_home:
             home = Path(temporary_home)

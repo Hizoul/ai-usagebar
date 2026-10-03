@@ -17,6 +17,13 @@ import {
 
 const at = rel => fileURLToPath(new URL(rel, import.meta.url));
 
+{
+    const fixture = readFileSync(at('../tests/fixtures/grokbot_paced_report.json'), 'utf8');
+    const entry = parseReport(fixture).entries[0];
+    assert.equal(entry.id, 'grokbot');
+    assert.equal(metricDetail(detailRows(entry)[0]), '50% elapsed · 20pts ahead');
+}
+
 // ---------------------------------------------------------------------------
 // V4 portability. Both of these shipped as real bugs during development and
 // neither is caught by Node, which accepts them happily.

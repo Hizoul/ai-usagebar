@@ -7,6 +7,15 @@ const model = {};
 vm.createContext(model);
 vm.runInContext(source, model, {filename: 'Model.js'});
 
+{
+  const fixture = fs.readFileSync(new URL('../tests/fixtures/grokbot_paced_report.json', import.meta.url), 'utf8');
+  const entry = model.parseReport(fixture).entries[0];
+  assert.equal(entry.id, 'grokbot');
+  assert.equal(entry.sections[0].window_secs, 864000);
+  assert.equal(model.metricDetail(entry.sections[0]), '50% elapsed · 20pts ahead');
+  assert.equal(model.metricMatchesWindow(entry.sections[0], 'weekly'), true);
+}
+
 const i18n = {};
 vm.createContext(i18n);
 vm.runInContext(fs.readFileSync(new URL('./I18n.js', import.meta.url), 'utf8'), i18n, {
