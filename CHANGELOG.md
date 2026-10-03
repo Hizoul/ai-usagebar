@@ -9,6 +9,15 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Security
+
+- **A config whose only inline key is Ollama Cloud's is tightened to `0600`.**
+  On Unix, a config holding an inline credential is made private when it is
+  loaded, but `[ollama] api_key` was missing from the list of fields that
+  triggers it, so such a file kept whatever mode it was created with,
+  typically readable by every local user. It now gets the same protection as
+  every other provider's inline key.
+
 ## [1.30.0] — 2026-10-01
 
 ### Added
