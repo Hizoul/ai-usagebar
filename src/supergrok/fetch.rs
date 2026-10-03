@@ -265,7 +265,7 @@ fn fallback(
         return Err(original);
     };
     let error = error_to_pair(&original);
-    let outcome = crate::outcome::fallback(cache, Some(error.clone()), original, |bytes| {
+    let mut outcome = crate::outcome::fallback(cache, None, original, |bytes| {
         let snapshot = parse_cache(bytes, account_scope)?;
         if period_has_ended(&snapshot, now) {
             return Err(AppError::Schema(
@@ -275,9 +275,10 @@ fn fallback(
         Ok(snapshot)
     })?;
     // Only once a figure is actually going on screen is the failure worth
-    // recording beside it.
+    // recording beside it, and the outcome shows what was recorded: the
+    // cache redacts an auth failure's body, the raw pair does not.
     cache.mark_stale();
-    cache.write_last_error(error.0, &error.1);
+    outcome.last_error = Some(cache.write_last_error(error.0, &error.1));
     Ok(outcome)
 }
 
