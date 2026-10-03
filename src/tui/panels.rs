@@ -1000,6 +1000,13 @@ fn openrouter_sections(
             "paid tier".into()
         }],
     });
+    if !s.recent_models.is_empty() {
+        v.push(Section::Spacer);
+        v.push(Section::Block {
+            label: "Recent models".into(),
+            body: s.recent_models.clone(),
+        });
+    }
     v
 }
 
@@ -2439,6 +2446,7 @@ mod tests {
             is_free_tier: false,
             limit: None,
             limit_remaining: None,
+            recent_models: Vec::new(),
         };
         let sections = sections_for(&ready(VendorSnapshot::Openrouter(snap)), now(), 5);
         assert!(matches!(sections[0], Section::Title { .. }));
@@ -2451,6 +2459,44 @@ mod tests {
             sections
                 .iter()
                 .any(|s| matches!(s, Section::Block { label, .. } if label == "Usage by period"))
+        );
+    }
+
+    #[test]
+    fn openrouter_recent_models_block_renders_only_when_present() {
+        let snap = |recent_models: Vec<String>| OpenRouterSnapshot {
+            label: "OR".into(),
+            total_credits: 100.0,
+            total_usage: 25.0,
+            usage_daily: 1.0,
+            usage_weekly: 5.0,
+            usage_monthly: 25.0,
+            is_free_tier: false,
+            limit: None,
+            limit_remaining: None,
+            recent_models,
+        };
+        let models = vec!["gpt-5-codex ($1.25 · 42 reqs)".to_string()];
+        let sections = sections_for(
+            &ready(VendorSnapshot::Openrouter(snap(models.clone()))),
+            now(),
+            5,
+        );
+        let block = sections.iter().find_map(|s| match s {
+            Section::Block { label, body } if label == "Recent models" => Some(body),
+            _ => None,
+        });
+        assert_eq!(block, Some(&models));
+
+        let sections = sections_for(
+            &ready(VendorSnapshot::Openrouter(snap(Vec::new()))),
+            now(),
+            5,
+        );
+        assert!(
+            !sections
+                .iter()
+                .any(|s| matches!(s, Section::Block { label, .. } if label == "Recent models"))
         );
     }
 
@@ -2469,6 +2515,7 @@ mod tests {
             is_free_tier: false,
             limit: None,
             limit_remaining: None,
+            recent_models: Vec::new(),
         };
         let sections = sections_for(&ready(VendorSnapshot::Openrouter(snap.clone())), now(), 5);
         let metric = sections
@@ -3888,6 +3935,7 @@ mod tests {
             is_free_tier: false,
             limit: None,
             limit_remaining: None,
+            recent_models: Vec::new(),
         });
         // A wildly different tank size changes nothing: 25 of 100 is 25%.
         // `[openrouter]` carries no `display_limit`, so this can only arrive
@@ -3916,6 +3964,7 @@ mod tests {
             is_free_tier: false,
             limit: None,
             limit_remaining: None,
+            recent_models: Vec::new(),
         });
         let sections = sections_with_metadata_for(
             &ready_with(
@@ -3955,6 +4004,7 @@ mod tests {
             is_free_tier: true,
             limit: None,
             limit_remaining: None,
+            recent_models: Vec::new(),
         });
         for prefs in [
             DisplayPrefs::default(),
@@ -3989,6 +4039,7 @@ mod tests {
             is_free_tier: false,
             limit: Some(50.0),
             limit_remaining: Some(50.0),
+            recent_models: Vec::new(),
         });
         let prefs = DisplayPrefs::balance(Some(200.0), crate::balance::Headline::Percent);
         let sections = sections_with_metadata_for(&ready_with(snapshot, prefs), now(), 5);
