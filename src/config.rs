@@ -5300,7 +5300,10 @@ url = "https://example.test/u"
         Config::load_from(file.path()).unwrap();
         let after = crate::vendor::vendor_secret_env_vars_to_remove(&[]);
         assert!(after.contains(&renamed), "a renamed management_api_key_env");
-        assert!(after.contains(&account), "an account's management_api_key_env");
+        assert!(
+            after.contains(&account),
+            "an account's management_api_key_env"
+        );
     }
 
     /// `VendorId::config_section` is what every by-name config writer uses;
