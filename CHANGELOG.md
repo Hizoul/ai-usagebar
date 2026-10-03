@@ -9,6 +9,17 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Fixed
+
+- **Grok reports a rejected management key under its HTTP status.** Without
+  a `team_id`, every refetch first validates the key, and an HTTP error from
+  that step was recorded as a generic error with code 0. The response body of
+  a 401 or 403 therefore reached `.last_error` and the TUI and report
+  warnings, the Waybar tooltip showed the stale balance without any error,
+  and a 429 never armed the five-minute backoff. That step is now recorded
+  like the balance call: under its status, with an auth failure's body
+  replaced by the neutral message.
+
 ## [1.30.0] — 2026-10-01
 
 ### Added
