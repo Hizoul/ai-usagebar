@@ -483,6 +483,27 @@ mod tests {
     }
 
     #[test]
+    fn a_keychain_only_anthropic_named_account_counts_as_configured() {
+        let mut cfg = Config::default();
+        let custom = PathBuf::from("/accounts/work/.credentials.json");
+        cfg.anthropic
+            .accounts
+            .push(crate::config::AnthropicAccount {
+                label: "work".into(),
+                credentials_path: custom,
+            });
+        let with_named_keychain = Probes {
+            env_set: &|_| false,
+            exists: &|_| false,
+            keychain_has_claude: &|| false,
+            keychain_has_claude_for: &|dir| dir == Path::new("/accounts/work"),
+            commandcode_signed_in: &|_| false,
+        };
+        assert!(row(&statuses_with(&cfg, &with_named_keychain), "anthropic").configured);
+        assert!(!row(&statuses_with(&cfg, &bare()), "anthropic").configured);
+    }
+
+    #[test]
     fn an_oauth_provider_with_no_artifact_names_the_command_that_fixes_it() {
         let rows = statuses_with(&Config::default(), &bare());
         let codex = row(&rows, "openai");
