@@ -1102,7 +1102,7 @@ const cursorGrant = model.parseReport(JSON.stringify({entries: [{
 }]})).entries[0];
 assert.equal(model.headline(cursorGrant).text, '35% · 7% · 16%');
 assert.equal(model.headline(cursorGrant).severity, 'low');
-assert.equal(model.headline(cursorGrant).tooltip, 'Cursor Models · 35%\nCursor Other Models · 7%\nPromo · $21.00 · 16%');
+assert.equal(model.headline(cursorGrant).tooltip, 'Cursor Models · 35%\nCursor Other Models · 7%\nPromo · 16%');
 assert.equal(model.headline(cursorGrant).tooltipRows[2].severity, 'low');
 assert.equal(model.cursorPoolPresence(cursorGrant).credits, true);
 assert.equal(model.cursorDualHeadline(cursorGrant, { credits: false }).text, '35% · 7%');

@@ -731,12 +731,9 @@ function cursorGrantMeters(sections) {
     if (!section || section.type !== "metric") continue
     if (section.label === "Cursor Models" || section.label === "Other Models") continue
     var label = section.label ? String(section.label) : "Credits"
-    var money = section.headline === "value" && section.value ? String(section.value) : ""
     parts.push({
       text: section.percent + "%",
-      line: money !== ""
-        ? label + " · " + money + " · " + section.percent + "%"
-        : label + " · " + section.percent + "%",
+      line: label + " · " + section.percent + "%",
       percent: section.percent,
       severity: section.severity
     })

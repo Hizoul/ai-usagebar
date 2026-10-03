@@ -18,7 +18,8 @@ Each release is also published at
   title, unless Cursor named that grant as a product credit. A Credits switch
   on the Cursor page shows or hides it on the top bar and tooltip, the same
   way as Cursor Models, Other Models, and On-Demand. The Omarchy chip adds
-  that used percent after the other Cursor pools. The tooltip, the TUI, the
+  that used percent after the other Cursor pools, and the hover line is that
+  percent alone, the same shape as the other pools. The TUI, the
   `usage --json` report, and `{cursor_credits}` carry it too. A cache written
   before that field existed is refetched instead of being served until its TTL
   elapses. The usage bars stay up when that call fails, and an account with no

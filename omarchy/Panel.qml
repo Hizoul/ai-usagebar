@@ -470,12 +470,9 @@ Panel {
       var label = String(row.label || "")
       if (label === "" || label === "Cursor Models" || label === "Other Models") continue
       if (row.percent === null || row.percent === undefined || row.percent === "") continue
-      var money = row.headline === "value" && row.value ? String(row.value) : ""
       bits.push({
         text: row.percent + "%",
-        line: money !== ""
-          ? label + " · " + money + " · " + row.percent + "%"
-          : label + " · " + row.percent + "%",
+        line: label + " · " + row.percent + "%",
         severity: row.severity || "low"
       })
     }
