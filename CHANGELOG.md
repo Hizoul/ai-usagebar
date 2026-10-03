@@ -9,7 +9,66 @@ Each release is also published at
 
 ## [Unreleased]
 
-- **Saving settings no longer switches a disabled primary provider back on.**
+### Added
+
+- **Omarchy panel and settings speak English, Russian, and Brazilian Portuguese.**
+  A Language dropdown (`uiLocale`: Auto / English / Português (Brasil) / Русский)
+  remaps chrome, formatters, known report footnotes, and credential hints through
+  a local catalog; Auto follows the system locale. Long settings copy wraps under
+  the hero instead of overflowing the detail pill, and API-key notes wrap on their
+  own line under the env var name.
+
+- **Korean (한국어) in the tray popover.** Settings → Appearance → Language
+  gains 한국어 on Windows and macOS, with a full `messages/ko.json` catalog;
+  metric labels and usage strings from the report are translated as they are
+  for Português.
+
+- **OpenRouter: recent models activity and real-dollar credit balance.**
+  `GET /api/v1/activity` queries the 2 most recently used models, showing their
+  per-model cost and request counts alongside the existing spend breakdown in both
+  the TUI and the popover. When no quota reset date is published, the meter row
+  displays the account's available credit balance in USD ($) directly below the
+  gauge. Full Portuguese (pt-BR) localization support in the popover. The
+  activity endpoint requires an OpenRouter *management* key
+  (`management_api_key_env`, default `OPENROUTER_MANAGEMENT_API_KEY`, also per
+  `[[openrouter.accounts]]`); without one the activity request is skipped and
+  the block simply stays hidden.
+
+### Fixed
+
+- **Ollama Cloud monthly-only accounts no longer paint a fake 0% 5h/7d pair.**
+  Some Pro accounts report `limits.monthly` instead of `session`/`weekly`.
+  The TUI, tooltip and `usage --json` already showed that month; the widget
+  default format and the `{session_pct}`/`{weekly_pct}` aliases still emitted
+  `0` for the omitted windows, so Waybar and the macOS menu bar read as two
+  exhausted rate-limit windows. Absent windows are now empty placeholders (a
+  present month at 0% used still renders `0`), the default bar shows
+  `{oll_monthly_pct}%`, and the macOS selector draws that pool on the primary
+  bar as Monthly.
+
+- **Omarchy bar chips keep their icon next to their own value.** 1.30.0 put a
+  6 px spacer between a chip's brand mark and its value inside a row that
+  already spaces its children 4 px apart, so the gap became 14 px — wider than
+  the gap to the previous chip, and each icon read as part of the chip before
+  it. The spacer is gone; the row's spacing is the gap again, and an icon-only
+  chip still collapses to the mark alone.
+
+- **macOS menu bar parses DeepInfra named accounts.**
+  PR #291 added named account support to DeepInfra in Rust, but
+  `API_KEY_ACCOUNT_VENDORS` in the macOS menu bar was not updated. It now
+  includes `deepinfra` so `[[deepinfra.accounts]]` entries appear as menu
+  choices and in Preferences.
+
+- **Provider catalog and detection recognize named accounts and path overrides.**
+  `ai-usagebar vendors --json` and the TUI/macOS provider views reported
+  providers as unconfigured ("needs credential") when authentication was
+  configured via named accounts (`[[<vendor>.accounts]]`) without setting the
+  ambient key, or when `show_default_account = false` was set. The catalog now
+  checks named API-key accounts as well as Anthropic and OpenAI named accounts
+  and path overrides (`credentials_path`, `codex_auth_path`), matching the
+  credential resolution of the fetch and `detect` (see #307).
+
+- **- **Saving settings no longer switches a disabled primary provider back on.**
   A key provider that was still `[ui] primary` after being switched off (from
   the overlay's provider switches or by hand) stayed the selected primary
   whenever it kept a key, inline or exported, so the next save from the TUI
@@ -58,7 +117,6 @@ Each release is also published at
   like the balance call: under its status, with an auth failure's body
   replaced by the neutral message.
 
-
 - **`~` now works in `[commandcode] auth_paths` and `[copilot] gh_binary`.**
   Every other path setting expands a leading `~` when the config loads, but
   these two kept it literally. Uncommenting the documented
@@ -74,22 +132,13 @@ Each release is also published at
   sources. Packages published by the release workflow were unaffected,
   because it rewrites both arrays with two entries; local builds and the
   manual AUR fallback were not.
-### Security
 
-- **A config whose only inline key is Ollama Cloud's is tightened to `0600`.**
+- **- **A config whose only inline key is Ollama Cloud's is tightened to `0600`.**
   On Unix, a config holding an inline credential is made private when it is
   loaded, but `[ollama] api_key` was missing from the list of fields that
   triggers it, so such a file kept whatever mode it was created with,
   typically readable by every local user. It now gets the same protection as
   every other provider's inline key.
-
-- **A broken `config.toml` no longer has its offending line quoted back.**
-  TOML parse errors quote the line the parser stopped on, and the commonest
-  mistake, a missing quote, is often on an inline `api_key` line, so the key
-  itself reached the widget's tooltip, `usage --json` (and with it every
-  desktop frontend), the TUI, the Settings overlay and stderr. Config parse
-  errors now give the line and column with the parser's message, never the
-  line's content.
 
 - **A key pasted into `api_key_env` is no longer repeated in errors.** A value
   that is not an environment variable name is most likely the key itself in
@@ -106,6 +155,16 @@ Each release is also published at
   account's variable (`[[deepseek.accounts]] api_key_env`), from a renamed
   `api_key_env`, or from an OpenRouter `management_api_key_env` other than the
   default was passed to all of them; these are now removed as well.
+
+### Security
+
+- **A broken `config.toml` no longer has its offending line quoted back.**
+  TOML parse errors quote the line the parser stopped on, and the commonest
+  mistake, a missing quote, is often on an inline `api_key` line, so the key
+  itself reached the widget's tooltip, `usage --json` (and with it every
+  desktop frontend), the TUI, the Settings overlay and stderr. Config parse
+  errors now give the line and column with the parser's message, never the
+  line's content.
 
 ## [1.30.0] — 2026-10-01
 
