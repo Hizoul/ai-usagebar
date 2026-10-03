@@ -1848,7 +1848,9 @@ impl CustomProviderConfig {
             // The value is not repeated: one that is not a variable name is
             // most likely a key pasted into the wrong field, and a config
             // error reaches every frontend.
-            return Err(bad("api_key_env is not a valid environment variable name".into()));
+            return Err(bad(
+                "api_key_env is not a valid environment variable name".into()
+            ));
         }
         validate_header_name(&section, "auth_header", &self.auth_header)?;
         if reqwest::header::HeaderValue::from_str(&format!("{} k", self.auth_scheme)).is_err() {
