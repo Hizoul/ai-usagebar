@@ -143,7 +143,22 @@ pub fn render(
         .format
         .clone()
         .unwrap_or_else(|| DEFAULT_FORMAT.to_string());
-    let values = build_placeholders(snap, now, opts.pace_tolerance);
+    let mut values = build_placeholders(snap, now, opts.pace_tolerance);
+    // Both sinks fed by this map (bar text and --tooltip-format) are Pango
+    // markup. One pool name carries an `&` ("Claude & GPT OSS") and the plan
+    // label is API-controlled, so escape the text placeholders here, at the
+    // projection boundary. The default tooltip escapes its own copies.
+    for key in [
+        "plan",
+        "session_model",
+        "weekly_model",
+        "scoped_model",
+        "extra_model",
+    ] {
+        if let Some(value) = values.get_mut(key) {
+            *value = escape(value);
+        }
+    }
 
     let mut text = substitute(&format, &values);
     if outcome.stale {
