@@ -763,6 +763,28 @@ pub fn set_vendor_enabled_in_doc(
     set_bool(doc, vendor.config_section(), "enabled", enabled)
 }
 
+/// A TOML error as `line L, column C: message`. `toml` and `toml_edit` both
+/// quote the offending source line in their `Display`, and in `config.toml`
+/// that line can hold an inline `api_key`: one missing quote around a key put
+/// the key in the widget's tooltip, in `usage --json` and on stderr. The
+/// position is enough to find the mistake.
+pub(crate) fn toml_error_summary(
+    input: &str,
+    span: Option<std::ops::Range<usize>>,
+    message: &str,
+) -> String {
+    let message = message.trim_end();
+    match span.and_then(|range| input.get(..range.start)) {
+        Some(before) => {
+            let line = before.matches('\n').count() + 1;
+            let line_start = before.rfind('\n').map_or(0, |i| i + 1);
+            let column = before[line_start..].chars().count() + 1;
+            format!("line {line}, column {column}: {message}")
+        }
+        None => message.to_string(),
+    }
+}
+
 /// Read `path` into a `toml_edit` document with comments intact. A missing
 /// file is an empty document, so a writer can create the config from nothing;
 /// any other I/O failure or a parse error is reported rather than clobbered.
@@ -2046,7 +2068,10 @@ impl Config {
     pub fn load_from(path: &std::path::Path) -> Result<Self> {
         match std::fs::read_to_string(path) {
             Ok(s) => {
-                let mut config: Self = toml::from_str(&s)?;
+                let mut config: Self = toml::from_str(&s).map_err(|e| {
+                    let summary = toml_error_summary(&s, e.span(), e.message());
+                    AppError::Other(format!("config.toml: {summary}"))
+                })?;
                 // `~` is shell syntax, not path syntax: `PathBuf` keeps it
                 // literally, so a documented `credentials_path = "~/..."`
                 // silently pointed at a directory named `~`.
