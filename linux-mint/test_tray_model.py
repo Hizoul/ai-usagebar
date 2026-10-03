@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
-from tray_model import connection_help, installed_binary, is_not_connected, meter_color, metric_display, metric_pace, metric_usage_label, report_sections, tr
+from tray_model import connection_help, installed_binary, is_not_connected, meter_color, metric_display, metric_pace, metric_usage_label, report_sections, summary_metric, tr
 
 
 NOW = datetime(2026, 9, 25, 12, 0, tzinfo=timezone.utc)
@@ -109,6 +109,17 @@ class TrayModelTest(unittest.TestCase):
              ("heading", "Breakdown"), ("metric", "Daily"),
              ("metric", "Weekly"), ("block", "Sessions")],
         )
+
+    def test_menu_summary_reads_quota_windows_not_context_sessions(self):
+        metrics = [
+            {"label": "Session (5h)", "percent": 29},
+            {"label": "Weekly", "percent": 35},
+            {"label": "ship the release", "percent": 90, "group": "Sessions"},
+        ]
+        self.assertEqual(summary_metric({"metrics": metrics})["label"], "Weekly")
+        # A grouped row still stands in when the entry has nothing else.
+        self.assertEqual(summary_metric({"metrics": metrics[2:]})["percent"], 90)
+        self.assertIsNone(summary_metric({"metrics": []}))
 
     def test_expired_antigravity_session_explains_remote_refresh_setup(self):
         entry = {"status": "error", "error": "Credentials error: Antigravity's saved Google session expired and ai-usagebar has no OAuth client to refresh it"}

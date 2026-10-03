@@ -156,6 +156,14 @@ Each release is also published at
   `api_key_env`, or from an OpenRouter `management_api_key_env` other than the
   default was passed to all of them; these are now removed as well.
 
+
+- **Linux Mint: the tray menu's summary reads the quota, not a Claude Code
+  session.** With `[context] enabled = true`, the Claude entry's metrics also
+  list each recent session with how full its context window is, and the
+  menu's one-line summary showed the highest of them all, so a session at 90%
+  read as "Claude: 90%" while the 5h and weekly quotas were low. The summary
+  now picks among the quota rows; grouped rows only stand in when an entry
+  has nothing else.
 ### Security
 
 - **A broken `config.toml` no longer has its offending line quoted back.**
