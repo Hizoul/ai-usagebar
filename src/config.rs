@@ -2056,8 +2056,9 @@ impl Config {
                 config.protect_inline_secrets(path)?;
                 // A custom provider's token variable is as secret as any
                 // built-in one; subprocesses (`gh`, `grok`, `claude`) must
-                // not inherit it.
+                // not inherit it. Nor a named account's, or a renamed one.
                 crate::vendor::register_secret_env_vars(&config.custom_secret_env_vars());
+                crate::vendor::register_secret_env_vars(&config.provider_secret_env_vars());
                 Ok(config)
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
@@ -2126,6 +2127,19 @@ impl Config {
             .filter(|c| !c.api_key_env.is_empty())
             .map(|c| c.api_key_env.clone())
             .collect()
+    }
+
+    /// The variables built-in providers read keys from under names that
+    /// `VENDOR_SECRET_ENV_VARS` cannot list: a renamed `api_key_env`, and each
+    /// named account's (`DEEPSEEK_WORK_API_KEY`). Default names come back too
+    /// and are skipped by the registration, as are empty ones.
+    fn provider_secret_env_vars(&self) -> Vec<String> {
+        let renamed = VendorId::all().iter().map(|&id| self.api_key_env_for(id));
+        let accounts = Self::API_KEY_ACCOUNT_VENDORS
+            .into_iter()
+            .flat_map(|id| self.api_key_accounts(id).unwrap_or(&[]))
+            .filter_map(|account| account.api_key_env.as_deref());
+        renamed.chain(accounts).map(str::to_string).collect()
     }
 
     /// The `[[custom]]` providers that are switched on, in config order.
