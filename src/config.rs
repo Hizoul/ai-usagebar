@@ -2087,6 +2087,11 @@ impl Config {
         for account in &mut self.openai.accounts {
             account.codex_auth_path = expand_tilde(&account.codex_auth_path);
         }
+        if let Some(paths) = &mut self.commandcode.auth_paths {
+            for path in paths {
+                *path = expand_tilde(path);
+            }
+        }
     }
 
     /// Explicitly enumerate every inline credential field. Adding a new
