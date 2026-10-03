@@ -68,6 +68,14 @@ pub async fn fetch_snapshot(
     let team = match resolve_team(client, endpoints, management_key, team_id).await {
         Ok(t) => t,
         Err(e) if e.is_transient() => return fallback_silent(cache, &target, e),
+        // Recorded under its own status, like the balance call below: the
+        // cache redacts a 401/403 body and arms the backoff on a 429 by code.
+        Err(AppError::Http { status, body }) => {
+            cache.mark_stale();
+            let diag = cache.write_last_error(status, &body);
+            let original = AppError::Http { status, body };
+            return fallback_with_error(cache, Some(diag), &target, original);
+        }
         Err(e) => {
             cache.mark_stale();
             let diag = cache.write_last_error(0, &e.to_string());
