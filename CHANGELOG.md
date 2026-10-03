@@ -74,8 +74,9 @@ Each release is also published at
   The `gh`, `grok`, `agy` and `claude` processes ai-usagebar starts get every
   provider key variable removed from their environment, but that list held
   only the default names and `[[custom]]` variables. A key read from a named
-  account's variable (`[[deepseek.accounts]] api_key_env`) or from a renamed
-  `api_key_env` was passed to all of them; both are now removed as well.
+  account's variable (`[[deepseek.accounts]] api_key_env`), from a renamed
+  `api_key_env`, or from an OpenRouter `management_api_key_env` other than the
+  default was passed to all of them; these are now removed as well.
 
 ## [1.30.0] — 2026-10-01
 
