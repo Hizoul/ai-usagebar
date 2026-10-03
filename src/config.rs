@@ -4556,6 +4556,31 @@ enabled = false
         );
     }
 
+    /// `config.example.toml` documents `auth_paths = ["~/.commandcode/auth.json"]`;
+    /// `gh_binary` is the Copilot counterpart of `grok_binary` above.
+    #[test]
+    fn commandcode_and_copilot_paths_are_tilde_expanded() {
+        let file = write_toml(
+            r#"
+            [commandcode]
+            auth_paths = ["~/.commandcode/auth.json", "/etc/commandcode/auth.json"]
+
+            [copilot]
+            gh_binary = "~/bin/gh"
+            "#,
+        );
+        let config = Config::load_from(file.path()).unwrap();
+        let home = crate::cache::home_dir().unwrap();
+        assert_eq!(
+            config.commandcode.auth_paths,
+            Some(vec![
+                home.join(".commandcode/auth.json"),
+                PathBuf::from("/etc/commandcode/auth.json"),
+            ])
+        );
+        assert_eq!(config.copilot.gh_binary, Some(home.join("bin/gh")));
+    }
+
     #[test]
     fn kiro_db_path_is_tilde_expanded() {
         let f = write_toml(
