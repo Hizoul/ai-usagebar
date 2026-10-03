@@ -4088,6 +4088,38 @@ enabled = false
         assert!(Config::load_from(f.path()).is_err());
     }
 
+    /// A missing quote is the commonest way to break the file, and the line
+    /// it breaks can be an inline key: the error must point at that line
+    /// without repeating it.
+    #[test]
+    fn a_parse_error_names_the_line_without_quoting_it() {
+        let f = write_toml("[openrouter]\nenabled = true\napi_key = sk-or-v1-unquoted\n");
+        let err = Config::load_from(f.path()).unwrap_err().to_string();
+        assert!(err.contains("line 3,"), "{err}");
+        assert!(!err.contains("sk-or-v1-unquoted"), "{err}");
+    }
+
+    /// The writers read the same file through `toml_edit`, whose errors quote
+    /// the line too.
+    #[test]
+    fn a_writer_parse_error_names_the_line_without_quoting_it() {
+        let (_dir, path) =
+            crate::cache::closed_temp_file("config.toml", Some("[zai]\napi_key = zk-unquoted\n"));
+        let err = read_config_document(&path).unwrap_err().to_string();
+        assert!(err.contains("line 2,"), "{err}");
+        assert!(!err.contains("zk-unquoted"), "{err}");
+    }
+
+    #[test]
+    fn toml_error_summary_keeps_the_position_and_the_message() {
+        let input = "a = 1\nkey = sk-secret\n";
+        assert_eq!(
+            toml_error_summary(input, Some(12..21), "string values must be quoted\n"),
+            "line 2, column 7: string values must be quoted"
+        );
+        assert_eq!(toml_error_summary(input, None, "bad"), "bad");
+    }
+
     #[test]
     fn a_missing_file_is_still_just_defaults() {
         // Absence stays the legitimate "use defaults" case — only real parse
