@@ -5178,6 +5178,23 @@ url = "https://example.test/u"
         );
     }
 
+    #[test]
+    fn loading_a_config_registers_account_and_renamed_env_vars_for_scrubbing() {
+        let account = "AI_USAGEBAR_ACCOUNT_SCRUB_TEST_4C2E";
+        let renamed = "AI_USAGEBAR_RENAMED_SCRUB_TEST_7A3F";
+        let before = crate::vendor::vendor_secret_env_vars_to_remove(&[]);
+        assert!(!before.contains(&account));
+        assert!(!before.contains(&renamed));
+        let file = write_toml(&format!(
+            "[zai]\napi_key_env = \"{renamed}\"\n\
+             [[deepseek.accounts]]\nlabel = \"work\"\napi_key_env = \"{account}\"\n"
+        ));
+        Config::load_from(file.path()).unwrap();
+        let after = crate::vendor::vendor_secret_env_vars_to_remove(&[]);
+        assert!(after.contains(&account), "a named account's key variable");
+        assert!(after.contains(&renamed), "a renamed api_key_env");
+    }
+
     /// `VendorId::config_section` is what every by-name config writer uses;
     /// this proves each section name is one the parser actually recognizes
     /// (the `deny_unknown_fields` on `Config` makes a misspelling fail loudly)
