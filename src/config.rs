@@ -2099,8 +2099,9 @@ impl Config {
                 config.protect_inline_secrets(path)?;
                 // A custom provider's token variable is as secret as any
                 // built-in one; subprocesses (`gh`, `grok`, `claude`) must
-                // not inherit it.
+                // not inherit it. Nor a named account's, or a renamed one.
                 crate::vendor::register_secret_env_vars(&config.custom_secret_env_vars());
+                crate::vendor::register_secret_env_vars(&config.provider_secret_env_vars());
                 Ok(config)
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
@@ -2175,6 +2176,26 @@ impl Config {
             .iter()
             .filter(|c| !c.api_key_env.is_empty())
             .map(|c| c.api_key_env.clone())
+            .collect()
+    }
+
+    /// The variables built-in providers read keys from under names that
+    /// `VENDOR_SECRET_ENV_VARS` cannot list: a renamed `api_key_env` or
+    /// OpenRouter `management_api_key_env`, and each named account's
+    /// (`DEEPSEEK_WORK_API_KEY`). Default names come back too and are skipped
+    /// by the registration, as are empty ones.
+    fn provider_secret_env_vars(&self) -> Vec<String> {
+        let renamed = VendorId::all().iter().map(|&id| self.api_key_env_for(id));
+        let management = std::iter::once(self.openrouter.management_api_key_env.as_str());
+        let accounts = Self::API_KEY_ACCOUNT_VENDORS
+            .into_iter()
+            .flat_map(|id| self.api_key_accounts(id).unwrap_or(&[]))
+            .flat_map(|account| [&account.api_key_env, &account.management_api_key_env])
+            .filter_map(|name| name.as_deref());
+        renamed
+            .chain(management)
+            .chain(accounts)
+            .map(str::to_string)
             .collect()
     }
 
@@ -5369,6 +5390,44 @@ url = "https://example.test/u"
         assert!(
             crate::vendor::vendor_secret_env_vars_to_remove(&[]).contains(&var),
             "a custom provider's env var must be scrubbed from subprocesses"
+        );
+    }
+
+    #[test]
+    fn loading_a_config_registers_account_and_renamed_env_vars_for_scrubbing() {
+        let account = "AI_USAGEBAR_ACCOUNT_SCRUB_TEST_4C2E";
+        let renamed = "AI_USAGEBAR_RENAMED_SCRUB_TEST_7A3F";
+        let before = crate::vendor::vendor_secret_env_vars_to_remove(&[]);
+        assert!(!before.contains(&account));
+        assert!(!before.contains(&renamed));
+        let file = write_toml(&format!(
+            "[zai]\napi_key_env = \"{renamed}\"\n\
+             [[deepseek.accounts]]\nlabel = \"work\"\napi_key_env = \"{account}\"\n"
+        ));
+        Config::load_from(file.path()).unwrap();
+        let after = crate::vendor::vendor_secret_env_vars_to_remove(&[]);
+        assert!(after.contains(&account), "a named account's key variable");
+        assert!(after.contains(&renamed), "a renamed api_key_env");
+    }
+
+    #[test]
+    fn loading_a_config_registers_openrouter_management_env_vars_for_scrubbing() {
+        let renamed = "AI_USAGEBAR_MGMT_RENAMED_SCRUB_TEST_5D1B";
+        let account = "AI_USAGEBAR_MGMT_ACCOUNT_SCRUB_TEST_8E6C";
+        let before = crate::vendor::vendor_secret_env_vars_to_remove(&[]);
+        assert!(!before.contains(&renamed));
+        assert!(!before.contains(&account));
+        let file = write_toml(&format!(
+            "[openrouter]\nmanagement_api_key_env = \"{renamed}\"\n\
+             [[openrouter.accounts]]\nlabel = \"work\"\napi_key_env = \"OR_WORK_KEY\"\n\
+             management_api_key_env = \"{account}\"\n"
+        ));
+        Config::load_from(file.path()).unwrap();
+        let after = crate::vendor::vendor_secret_env_vars_to_remove(&[]);
+        assert!(after.contains(&renamed), "a renamed management_api_key_env");
+        assert!(
+            after.contains(&account),
+            "an account's management_api_key_env"
         );
     }
 
