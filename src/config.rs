@@ -1845,10 +1845,10 @@ impl CustomProviderConfig {
             return Err(bad("url has no host".into()));
         }
         if !self.api_key_env.is_empty() && !is_valid_env_var_name(&self.api_key_env) {
-            return Err(bad(format!(
-                "api_key_env {:?} is not a valid environment variable name",
-                self.api_key_env
-            )));
+            // The value is not repeated: one that is not a variable name is
+            // most likely a key pasted into the wrong field, and a config
+            // error reaches every frontend.
+            return Err(bad("api_key_env is not a valid environment variable name".into()));
         }
         validate_header_name(&section, "auth_header", &self.auth_header)?;
         if reqwest::header::HeaderValue::from_str(&format!("{} k", self.auth_scheme)).is_err() {
