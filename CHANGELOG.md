@@ -9,6 +9,16 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Fixed
+
+- **The documented Windows config file is the one the binary reads.** On
+  Windows the default config is `%APPDATA%\ai-usagebar\config\config.toml`,
+  but `--help`, the README and three docs pages named
+  `%APPDATA%\ai-usagebar\config.toml`, and the PowerShell snippet in
+  `docs/windows-build.md` created that file. Nothing reads it, so a config set
+  up from the docs was silently ignored. They now name the real location, as
+  `windows/README.md` already did.
+
 ## [1.30.0] — 2026-10-01
 
 ### Added
