@@ -568,7 +568,7 @@ Codex, Z.AI, and OpenRouter are enabled by default; other providers are
 opt-in.
 
 Both binaries also accept `--config <PATH>` to read and write an alternate
-file instead of the default (`%APPDATA%\ai-usagebar\config.toml` on Windows).
+file instead of the default (`%APPDATA%\ai-usagebar\config\config.toml` on Windows).
 The file must already exist, and the override applies to every subcommand —
 handy for testing a config side by side with the real one:
 
