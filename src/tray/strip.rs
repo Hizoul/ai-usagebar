@@ -59,10 +59,13 @@ pub struct StripMetric {
     pub bounded: bool,
 }
 
+/// One provider's visible metrics: entry id, display name, and metrics.
+pub type StripGroup = (String, String, Vec<StripMetric>);
+
 /// Resolved strip contents. `groups` drives Text; `bars` drives Bars.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StripContent {
-    pub groups: Vec<(String, String, Vec<StripMetric>)>,
+    pub groups: Vec<StripGroup>,
     pub bars: Vec<StripMetric>,
 }
 
@@ -215,48 +218,15 @@ pub fn content_from_payload(payload: &Value, stars: &Stars, order: &[String]) ->
             walk.push(id);
         }
     }
-    let mut groups = Vec::new();
-    for id in walk {
-        let Some(entry) = by_id.get(&id) else {
-            continue;
-        };
-        if entry.get("status").and_then(Value::as_str) == Some("error") {
-            continue;
-        }
-        let name = entry
-            .get("display_name")
-            .or_else(|| entry.get("name"))
-            .and_then(Value::as_str)
-            .unwrap_or(id.as_str())
-            .to_string();
-        let metrics = metrics_for_entry(entry, &id, &name);
-        let wanted = if stars.is_empty() {
-            metrics
-                .iter()
-                .filter(|m| m.bounded)
-                .take(MAX_STARS_PER_PROVIDER)
-                .map(|m| m.key.clone())
-                .collect()
-        } else {
-            stars.get(&id).cloned().unwrap_or_default()
-        };
-        if wanted.is_empty() {
-            continue;
-        }
-        let mut picked = Vec::new();
-        for key in wanted {
-            if let Some(metric) = metrics
-                .iter()
-                .find(|m| m.key == key && !m.value.trim().is_empty())
-            {
-                picked.push(metric.clone());
-            }
-        }
-        if picked.is_empty() {
-            continue;
-        }
-        groups.push((id, name, picked));
-    }
+    let groups: Vec<StripGroup> = walk
+        .into_iter()
+        .filter_map(|id| {
+            let entry = by_id.get(&id)?;
+            let starred =
+                (!stars.is_empty()).then(|| stars.get(&id).map(Vec::as_slice).unwrap_or_default());
+            entry_group(&id, entry, starred)
+        })
+        .collect();
     let bars: Vec<StripMetric> = groups
         .iter()
         .flat_map(|(_, _, metrics)| metrics.iter().cloned())
@@ -264,6 +234,54 @@ pub fn content_from_payload(payload: &Value, stars: &Stars, order: &[String]) ->
         .take(MAX_BARS)
         .collect();
     StripContent { groups, bars }
+}
+
+/// One payload entry's group as if nothing were starred: its first bounded
+/// metrics. The name look draws this for a selected provider that has no
+/// starred metric, so selecting it shows that provider rather than the
+/// fallback (SuperGrok selected used to show Z.AI's chip).
+pub fn default_group(payload: &Value, id: &str) -> Option<StripGroup> {
+    let entry = payload
+        .get("entries")?
+        .as_array()?
+        .iter()
+        .find(|entry| entry.get("id").and_then(Value::as_str) == Some(id))?;
+    entry_group(id, entry, None)
+}
+
+/// Resolve one entry's visible metrics. `starred` is the provider's star
+/// keys, or `None` before any star exists, which picks the first bounded
+/// metrics. `None` for an errored entry or one with nothing to show.
+fn entry_group(id: &str, entry: &Value, starred: Option<&[String]>) -> Option<StripGroup> {
+    if entry.get("status").and_then(Value::as_str) == Some("error") {
+        return None;
+    }
+    let name = entry
+        .get("display_name")
+        .or_else(|| entry.get("name"))
+        .and_then(Value::as_str)
+        .unwrap_or(id)
+        .to_string();
+    let metrics = metrics_for_entry(entry, id, &name);
+    let wanted: Vec<String> = match starred {
+        Some(keys) => keys.to_vec(),
+        None => metrics
+            .iter()
+            .filter(|m| m.bounded)
+            .take(MAX_STARS_PER_PROVIDER)
+            .map(|m| m.key.clone())
+            .collect(),
+    };
+    let picked: Vec<StripMetric> = wanted
+        .iter()
+        .filter_map(|key| {
+            metrics
+                .iter()
+                .find(|m| &m.key == key && !m.value.trim().is_empty())
+                .cloned()
+        })
+        .collect();
+    (!picked.is_empty()).then(|| (id.to_string(), name, picked))
 }
 
 fn metrics_for_entry(entry: &Value, id: &str, name: &str) -> Vec<StripMetric> {

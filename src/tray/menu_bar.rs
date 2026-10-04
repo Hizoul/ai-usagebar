@@ -6,7 +6,7 @@
 
 use serde_json::Value;
 
-use super::strip::{StripContent, StripMetric};
+use super::strip::{StripContent, StripMetric, default_group};
 
 /// Artwork needed for the current status-item content.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -164,39 +164,89 @@ pub(super) fn logo_segments(
     look: MenuBarLook,
     selected: Option<&str>,
 ) -> Vec<LogoSegment> {
-    let single = look == MenuBarLook::Name;
-    let focus = single
-        .then(|| focused_group_id(&content.groups, selected, report))
-        .flatten();
-    let value_cap = if single { 1 } else { 2 };
+    if look == MenuBarLook::Name {
+        return name_segment(content, report, selected)
+            .into_iter()
+            .collect();
+    }
     content
         .groups
         .iter()
-        .filter(|(id, _, _)| !single || Some(id.as_str()) == focus)
-        .filter_map(|(id, _, metrics)| {
-            let values: Vec<String> = metrics
-                .iter()
-                .map(|metric| metric.value.trim())
-                .filter(|value| !value.is_empty())
-                .map(str::to_owned)
-                .take(value_cap)
-                .collect();
-            if values.is_empty() {
-                return None;
-            }
-            let slug = id.split('@').next()?.to_ascii_lowercase();
-            if slug.is_empty() {
-                return None;
-            }
-            let short_name = short_name_for(report, id);
-            Some(LogoSegment {
-                slug,
-                short_name,
-                with_name: single,
-                values,
-            })
-        })
+        .filter_map(|(id, _, metrics)| segment(id, metrics, report, 2, false))
         .collect()
+}
+
+/// The name look's one chip. A selected provider with no starred metric
+/// still wins over the fallbacks, drawn with its default metric, because
+/// the user picked it in the popover.
+fn name_segment(
+    content: &StripContent,
+    report: &Value,
+    selected: Option<&str>,
+) -> Option<LogoSegment> {
+    let starred = |id: &str| content.groups.iter().any(|(group, _, _)| group == id);
+    if let Some((id, _, metrics)) = selected
+        .filter(|id| !starred(id))
+        .and_then(|id| default_group(report, id))
+    {
+        return name_chip(&id, &metrics, report);
+    }
+    let focus = focused_group_id(&content.groups, selected, report)?;
+    let (id, _, metrics) = content.groups.iter().find(|(id, _, _)| id == focus)?;
+    name_chip(id, metrics, report)
+}
+
+/// The chip shows the provider's highest-percent metric, like the Quattro
+/// bar's default `auto` window (`omarchy/Model.js` `maxPercent`): a spent
+/// weekly window must not hide behind an idle 5h session reading 0%.
+fn name_chip(id: &str, metrics: &[StripMetric], report: &Value) -> Option<LogoSegment> {
+    let highest = highest_metric(metrics)?;
+    segment(id, std::slice::from_ref(highest), report, 1, true)
+}
+
+/// The bounded metric with the largest used fraction, the first one on a
+/// tie; the first metric with a value when none is bounded.
+fn highest_metric(metrics: &[StripMetric]) -> Option<&StripMetric> {
+    let shown = || metrics.iter().filter(|m| !m.value.trim().is_empty());
+    let highest_bounded =
+        shown()
+            .filter(|m| m.bounded)
+            .fold(None, |best: Option<&StripMetric>, m| match best {
+                Some(best) if best.fraction >= m.fraction => Some(best),
+                _ => Some(m),
+            });
+    highest_bounded.or_else(|| shown().next())
+}
+
+/// One provider's segment: up to `value_cap` non-empty values, or `None`
+/// when it has no value or no usable slug.
+fn segment(
+    id: &str,
+    metrics: &[StripMetric],
+    report: &Value,
+    value_cap: usize,
+    with_name: bool,
+) -> Option<LogoSegment> {
+    let values: Vec<String> = metrics
+        .iter()
+        .map(|metric| metric.value.trim())
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+        .take(value_cap)
+        .collect();
+    if values.is_empty() {
+        return None;
+    }
+    let slug = id.split('@').next()?.to_ascii_lowercase();
+    if slug.is_empty() {
+        return None;
+    }
+    Some(LogoSegment {
+        slug,
+        short_name: short_name_for(report, id),
+        with_name,
+        values,
+    })
 }
 
 /// Build tooltip lines for the starred groups, or the app name when none have values.
@@ -473,6 +523,32 @@ mod tests {
         assert_eq!(slug(&no_primary, Some("gone")), "anthropic");
     }
 
+    /// Selecting a provider with no starred metric used to fall through to
+    /// the primary: SuperGrok selected drew Z.AI's chip. The selection now
+    /// draws its own first bounded metric from the report.
+    #[test]
+    fn name_look_shows_a_selected_provider_that_has_no_star() {
+        let content = StripContent {
+            groups: vec![("zai".into(), "Z.AI".into(), vec![metric("0%")])],
+            bars: Vec::new(),
+        };
+        let report = json!({"primary":"zai","entries":[
+            {"id":"zai","short_name":"zai","status":"ready","sections":[
+                {"type":"metric","label":"Session","percent":0,"value":"0%"}]},
+            {"id":"supergrok","short_name":"sgk","status":"ready","sections":[
+                {"type":"metric","label":"Weekly usage","percent":7,"value":"7%"}]},
+        ]});
+
+        let chip = logo_segments(&content, &report, MenuBarLook::Name, Some("supergrok"));
+        assert_eq!(chip.len(), 1);
+        assert_eq!(chip[0].slug, "supergrok");
+        assert_eq!(chip[0].short_name.as_deref(), Some("sgk"));
+        assert_eq!(chip[0].values, vec![String::from("7%")]);
+
+        let unselected = logo_segments(&content, &report, MenuBarLook::Name, None);
+        assert_eq!(unselected[0].slug, "zai");
+    }
+
     /// A provider whose starred values are all empty is not a candidate, so
     /// the name look never draws a bare name with no number.
     #[test]
@@ -526,5 +602,51 @@ mod tests {
             fraction: 0.0,
             bounded: true,
         }
+    }
+
+    fn used(value: &str, fraction: f64) -> super::super::strip::StripMetric {
+        super::super::strip::StripMetric {
+            fraction,
+            ..metric(value)
+        }
+    }
+
+    /// Z.AI with the weekly window spent and the 5h session idle drew
+    /// `zai 0%`. Like Quattro's `auto` window the chip shows the highest
+    /// percent, so it reads `zai 100%`; an unbounded value never outranks one.
+    #[test]
+    fn name_look_shows_the_highest_percent_metric() {
+        let report = json!({"primary":null,"entries":[]});
+        let spent_weekly = StripContent {
+            groups: vec![(
+                "zai".into(),
+                "Z.AI".into(),
+                vec![used("0%", 0.0), used("100%", 1.0)],
+            )],
+            bars: Vec::new(),
+        };
+        let chip = logo_segments(&spent_weekly, &report, MenuBarLook::Name, Some("zai"));
+        assert_eq!(chip[0].values, vec![String::from("100%")]);
+
+        let balance = super::super::strip::StripMetric {
+            bounded: false,
+            ..used("$40", 0.0)
+        };
+        let mixed = StripContent {
+            groups: vec![(
+                "openrouter".into(),
+                "OpenRouter".into(),
+                vec![balance, used("12%", 0.12)],
+            )],
+            bars: Vec::new(),
+        };
+        let chip = logo_segments(&mixed, &report, MenuBarLook::Name, None);
+        assert_eq!(chip[0].values, vec![String::from("12%")]);
+
+        let logos = logo_segments(&spent_weekly, &report, MenuBarLook::Logos, None);
+        assert_eq!(
+            logos[0].values,
+            vec![String::from("0%"), String::from("100%")]
+        );
     }
 }

@@ -14,10 +14,12 @@ Each release is also published at
 - **The macOS menu bar can show one provider like the Quattro bar.** Settings →
   Menu Bar → Menu Bar Shows gains **Name** next to Chart and Logos
   (`[tray] menu_bar_style = "name"`): a single chip with the provider's logo,
-  its short name (`cld`, `cdx`, …) and the first value you starred in it, for
-  the provider selected in the popover. Until one is picked it follows
-  `[ui] primary`, then the first provider with a value. The chart stays the
-  default.
+  its short name (`cld`, `cdx`, …) and the highest percentage you starred in
+  it (its first two bounded metrics when nothing is starred), for the provider
+  selected in the popover. Like Quattro's default window, a spent weekly limit
+  reads `100%` even while the 5h session reads `0%`. Until one is picked it
+  follows `[ui] primary`, then the first provider with a value. The chart
+  stays the default.
 
 ## [1.31.0] — 2026-10-03
 
