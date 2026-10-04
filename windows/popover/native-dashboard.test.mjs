@@ -75,6 +75,28 @@ try {
   assert.doesNotMatch(nativeDashboard, />cld</);
   assert.match(nativeDashboard, /data-card-id="anthropic"/);
   assert.match(nativeDashboard, /aria-expanded="true"/);
+  // The tab reads the highest-percent window, like the Quattro bar: Z.AI with the weekly limit
+  // spent and the 5h session idle read "0%". A grouped row never outranks a quota window.
+  const quotaRow = (label, usedPercent, extra = {}) => ({
+    ...card.rows[0], key: `metric:${label}`, label, usedPercent, leftPercent: 100 - usedPercent, ...extra,
+  });
+  const spentWeekly = {
+    ...card, id: 'zai', title: 'Z.AI',
+    rows: [quotaRow('Session', 0), quotaRow('Weekly', 100), quotaRow('Context', 100, { grouped: true }), quotaRow('MCP', 18)],
+  };
+  const groupedOnly = { ...card, id: 'supergrok', title: 'SuperGrok', rows: [quotaRow('Grok Build', 7, { grouped: true })] };
+  const zaiDashboard = renderToStaticMarkup(React.createElement(TooltipProvider, {},
+    React.createElement(LanguageProvider, { language: 'pt-BR' },
+      React.createElement(NativeDashboard, {
+        cards: [spentWeekly, groupedOnly, { ...card, rows: [quotaRow('Session', 0), quotaRow('Context', 90, { grouped: true })] }],
+        hint: false, layout: { ...emptyLayout(), popoverStyle: 'native' }, nowMs, payload,
+        onCustomizeProvider() {}, onDismissHint() {}, onOpenCustomize() {}, onOpenSettings() {},
+        onRowAction() {}, onRowMenuOpenChange() {}, onSwitchAccount() {},
+        onToggleCollapse() {}, onToggleShowAs() {},
+      }))));
+  assert.match(zaiDashboard, /aria-label="Z.AI 100%"/);
+  assert.match(zaiDashboard, /aria-label="SuperGrok 7%"/);
+  assert.match(zaiDashboard, /aria-label="Claude 0%"/);
   // A waiting release shows the same Update available card as Classic, above the provider tabs.
   const withUpdate = renderToStaticMarkup(React.createElement(TooltipProvider, {},
     React.createElement(LanguageProvider, { language: 'en' },

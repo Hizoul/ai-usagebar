@@ -784,6 +784,7 @@ export function projectCards(payload, nowMs, locale) {
           reset: resetLabel(section, now, locale),
           resetAt: section.resetAt || "",
           window: section.window || 0,
+          grouped: Boolean(metricGroup),
         };
         row.key = metricRowKey(entry.id, section.label, metricGroup);
         rows.push(row);

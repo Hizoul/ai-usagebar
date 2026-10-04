@@ -34,8 +34,22 @@ function primaryMetric(card: Card): MetricRow | undefined {
     ?? card.rows.find((row): row is MetricRow => row.kind === "metric");
 }
 
+/**
+ * The tab's number: the highest-percent quota window, like the Quattro bar's
+ * default `auto` window (`maxPercent` in `omarchy/Model.js`), so a spent weekly
+ * limit is not hidden behind an idle 5h session reading 0%. Grouped rows stand
+ * in only when the card has no other percentage.
+ */
+function previewMetric(card: Card): MetricRow | undefined {
+  const percents = card.rows.filter((row): row is MetricRow => row.kind === "metric" && row.headline === "percent");
+  const windows = percents.filter((row) => !row.grouped);
+  const candidates = windows.length ? windows : percents;
+  if (!candidates.length) return primaryMetric(card);
+  return candidates.reduce((best, row) => (row.usedPercent > best.usedPercent ? row : best));
+}
+
 function providerPreview(card: Card): string {
-  const metric = primaryMetric(card);
+  const metric = previewMetric(card);
   if (metric) return metric.headline === "value" ? metric.value : `${metric.usedPercent}%`;
   if (card.error) return "—";
   const balance = card.rows.find((row) => row.kind === "text" && /balance|credit/i.test(row.label));

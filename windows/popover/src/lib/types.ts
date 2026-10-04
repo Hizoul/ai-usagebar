@@ -38,6 +38,9 @@ export interface MetricRow {
   detail: string;
   /** Which number the headline shows: the percentage, or `value`. */
   headline: "percent" | "value";
+  /** The row sits under a group heading (SuperGrok's product slices, Claude's
+   * CLI sessions) rather than being one of the provider's quota windows. */
+  grouped?: boolean;
   key?: string;
   kind: "metric";
   label: string;

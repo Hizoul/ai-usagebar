@@ -1111,6 +1111,8 @@ assert.equal(resetAlternate(badStampRow, 'exact', resetNow, utc), '');
   });
   const [usageCard] = projectCards(usageNamed, 0);
   assert.deepEqual(usageCard.rows.map((r) => r.label), ['Weekly', 'Grok Build', 'Grok Chat']);
+  // Ungrouped rows are quota windows the Native tab may headline.
+  assert.deepEqual(usageCard.rows.map((r) => r.grouped), [false, false, false]);
 
   // ASSERT: a plan equal to the title vanishes; a prefixed plan keeps its tail
   assert.equal(displayPlan(personal.title, personal.plan), '');
@@ -1309,6 +1311,8 @@ assert.equal(quotaAlternate(null, 'left'), '');
   assert.deepEqual(grok.rows.map((r) => [r.label, r.key]), [
     ['Grok Build (Breakdown)', 'metric:Grok Build (Breakdown)'],
   ]);
+  // A grouped row is marked, so the Native tab never headlines it over a quota window.
+  assert.equal(grok.rows[0].grouped, true);
 }
 
 // --- vendor warnings become card.warning, and errors carry an action ------------

@@ -21,6 +21,20 @@ Each release is also published at
   follows `[ui] primary`, then the first provider with a value. The chart
   stays the default.
 
+### Changed
+
+- **The Native popover's provider tabs show the highest percentage.** A tab
+  read its first window, so Z.AI with the weekly limit spent and the 5h session
+  idle showed `0%`. It now shows the highest quota window, like the Quattro
+  bar; grouped rows (SuperGrok's product slices, Claude's CLI sessions) count
+  only when the provider has nothing else.
+
+### Fixed
+
+- **macOS menu-bar logos are no longer drawn upside down.** The Logos look
+  painted every provider mark flipped vertically; symmetric marks hid it, but
+  Z.AI's Z read as a mirrored S.
+
 ## [1.31.0] — 2026-10-03
 
 ### Added
