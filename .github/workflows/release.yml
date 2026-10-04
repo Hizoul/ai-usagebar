@@ -74,6 +74,96 @@ jobs:
             "$(grep -m1 'pkgver = ' packaging/aur/.SRCINFO | awk '{print $3}')" "$version"
           check ".SRCINFO-bin pkgver" \
             "$(grep -m1 'pkgver = ' packaging/aur/.SRCINFO-bin | awk '{print $3}')" "$version"
+
+          check_pkgbuild_checksum_parity() {
+            local file="$1"
+            (
+              unset "${!source@}" "${!sha256sums@}" 2>/dev/null || true
+              # shellcheck disable=SC1090
+              source "$file"
+              local sub_fail=0
+              local suffixes=()
+              for v in ${!source@}; do
+                suffixes+=("${v#source}")
+              done
+              for v in ${!sha256sums@}; do
+                local sfx="${v#sha256sums}"
+                local seen=0
+                if [ "${#suffixes[@]}" -gt 0 ]; then
+                  for s in "${suffixes[@]}"; do
+                    if [ "$s" = "$sfx" ]; then seen=1; break; fi
+                  done
+                fi
+                if [ "$seen" -eq 0 ]; then suffixes+=("$sfx"); fi
+              done
+              if [ "${#suffixes[@]}" -eq 0 ]; then
+                echo "::error::$file declares no source or sha256sums arrays"
+                exit 1
+              fi
+              for sfx in "${suffixes[@]}"; do
+                local src_var="source$sfx"
+                local sha_var="sha256sums$sfx"
+                local src_len=0
+                local sha_len=0
+                if declare -p "$src_var" &>/dev/null; then
+                  eval "src_len=\${#$src_var[@]}"
+                fi
+                if declare -p "$sha_var" &>/dev/null; then
+                  eval "sha_len=\${#$sha_var[@]}"
+                fi
+                if [ "$src_len" -ne "$sha_len" ]; then
+                  echo "::error::$file: $src_var ($src_len elements) and $sha_var ($sha_len elements) differ in length"
+                  sub_fail=1
+                fi
+              done
+              exit "$sub_fail"
+            ) || fail=1
+          }
+
+          check_srcinfo_checksum_parity() {
+            local file="$1"
+            (
+              local sub_fail=0
+              local keys
+              keys=$(grep -E "^[[:space:]]*(source|sha256sums)(_[a-zA-Z0-9_]+)?[[:space:]]*=" "$file" \
+                | awk -F"=" '{print $1}' | tr -d " \t" | sort -u)
+              local suffixes=()
+              for k in $keys; do
+                local sfx=""
+                if [[ "$k" =~ ^source(_.*)$ ]]; then
+                  sfx="${BASH_REMATCH[1]}"
+                elif [[ "$k" =~ ^sha256sums(_.*)$ ]]; then
+                  sfx="${BASH_REMATCH[1]}"
+                fi
+                local seen=0
+                if [ "${#suffixes[@]}" -gt 0 ]; then
+                  for s in "${suffixes[@]}"; do
+                    if [ "$s" = "$sfx" ]; then seen=1; break; fi
+                  done
+                fi
+                if [ "$seen" -eq 0 ]; then suffixes+=("$sfx"); fi
+              done
+              for sfx in "${suffixes[@]}"; do
+                local src_key="source$sfx"
+                local sha_key="sha256sums$sfx"
+                local src_count
+                src_count=$(grep -c -E "^[[:space:]]*$src_key[[:space:]]*=" "$file" || true)
+                local sha_count
+                sha_count=$(grep -c -E "^[[:space:]]*$sha_key[[:space:]]*=" "$file" || true)
+                if [ "$src_count" -ne "$sha_count" ]; then
+                  echo "::error::$file: $src_key ($src_count lines) and $sha_key ($sha_count lines) differ in count"
+                  sub_fail=1
+                fi
+              done
+              exit "$sub_fail"
+            ) || fail=1
+          }
+
+          check_pkgbuild_checksum_parity packaging/aur/PKGBUILD
+          check_pkgbuild_checksum_parity packaging/aur/PKGBUILD-bin
+          check_srcinfo_checksum_parity packaging/aur/.SRCINFO
+          check_srcinfo_checksum_parity packaging/aur/.SRCINFO-bin
+
           jq -e . packaging/scoop/ai-usagebar.json >/dev/null \
             || { echo "::error::packaging/scoop/ai-usagebar.json is not valid JSON"; fail=1; }
           check "Scoop manifest version" \
