@@ -109,6 +109,8 @@
 /** @typedef {{}} Mcp_ToolsInputs */
 /** @typedef {{}} MenuInputs */
 /** @typedef {{}} Menu_BarInputs */
+/** @typedef {{}} Menu_Bar_Short_NameInputs */
+/** @typedef {{}} Menu_Bar_Short_Name_HintInputs */
 /** @typedef {{}} Menu_Bar_ShowsInputs */
 /** @typedef {{}} Menu_Bar_Shows_HintInputs */
 /** @typedef {{}} Metric_PluralInputs */
@@ -118,6 +120,7 @@
 /** @typedef {{}} MonthlyInputs */
 /** @typedef {{}} Monthly_LowercaseInputs */
 /** @typedef {{}} MoreInputs */
+/** @typedef {{}} NameInputs */
 /** @typedef {{}} NativeInputs */
 /** @typedef {{}} New_UpdateInputs */
 /** @typedef {{}} New_Version_ReadyInputs */
@@ -698,12 +701,20 @@ export const menu_bar = /** @type {(inputs: Menu_BarInputs) => LocalizedString} 
 	return /** @type {LocalizedString} */ (`Menu Bar`)
 };
 
+export const menu_bar_short_name = /** @type {(inputs: Menu_Bar_Short_NameInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`Show Short Name`)
+};
+
+export const menu_bar_short_name_hint = /** @type {(inputs: Menu_Bar_Short_Name_HintInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`Beside the logo in the Name look. A provider without a logo always shows its name.`)
+};
+
 export const menu_bar_shows = /** @type {(inputs: Menu_Bar_ShowsInputs) => LocalizedString} */ () => {
 	return /** @type {LocalizedString} */ (`Menu Bar Shows`)
 };
 
 export const menu_bar_shows_hint = /** @type {(inputs: Menu_Bar_Shows_HintInputs) => LocalizedString} */ () => {
-	return /** @type {LocalizedString} */ (`Both show the metrics you star in each provider.`)
+	return /** @type {LocalizedString} */ (`Chart and Logos show every provider's starred metrics. Name shows the selected provider's highest usage.`)
 };
 
 export const metric_plural = /** @type {(inputs: Metric_PluralInputs) => LocalizedString} */ () => {
@@ -732,6 +743,10 @@ export const monthly_lowercase = /** @type {(inputs: Monthly_LowercaseInputs) =>
 
 export const more = /** @type {(inputs: MoreInputs) => LocalizedString} */ () => {
 	return /** @type {LocalizedString} */ (`more`)
+};
+
+export const name = /** @type {(inputs: NameInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`Name`)
 };
 
 export const native = /** @type {(inputs: NativeInputs) => LocalizedString} */ () => {

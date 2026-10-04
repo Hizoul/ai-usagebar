@@ -121,8 +121,8 @@ const portugueseMessages = JSON.parse(readFileSync(new URL('./messages/pt-BR.jso
 assert.deepEqual(Object.keys(portugueseMessages).sort(), Object.keys(englishMessages).sort());
 assert.ok(Object.values(englishMessages).every((value) => typeof value === 'string' && value.trim()));
 assert.ok(Object.values(portugueseMessages).every((value) => typeof value === 'string' && value.trim()));
-assert.equal(englishMessages.menu_bar_shows_hint, "Both show the metrics you star in each provider.");
-assert.equal(portugueseMessages.menu_bar_shows_hint, "Os dois mostram as métricas marcadas com estrela em cada provedor.");
+assert.equal(englishMessages.menu_bar_shows_hint, "Chart and Logos show every provider's starred metrics. Name shows the selected provider's highest usage.");
+assert.equal(portugueseMessages.menu_bar_shows_hint, "Gráfico e Logotipos mostram as métricas marcadas de todos os provedores. Nome mostra o maior uso do provedor selecionado.");
 for (const key of ['focused_provider', 'highest_consumption', 'usage_window']) {
   assert.equal(Object.hasOwn(englishMessages, key), false);
   assert.equal(Object.hasOwn(portugueseMessages, key), false);
@@ -147,7 +147,7 @@ const report = {
   menu_bar_show_all: false,
   menu_bar_hide_value: true,
   menu_bar_names: 'short',
-  menu_bar_chart: true,
+  menu_bar_look: 'name',
   accent: { light: '#123456', dark: '#ABCDEF' },
   primary: 'anthropic',
   entries: [
@@ -186,7 +186,17 @@ assert.equal(payload.startupEnabled, true);
 assert.equal(Object.hasOwn(payload, 'menuBarShowAll'), false);
 assert.equal(Object.hasOwn(payload, 'menuBarHideValue'), false);
 assert.equal(Object.hasOwn(payload, 'menuBarNames'), false);
-assert.equal(payload.menuBarChart, true);
+assert.equal(payload.menuBarLook, 'name');
+// ASSERT: an unknown or missing look reads as the default chart, never as a blank one.
+assert.equal(parseHostPayload({ menu_bar_look: 'sparkles' }).menuBarLook, 'chart');
+assert.equal(parseHostPayload({}).menuBarLook, 'chart');
+assert.equal(emptyPayload('').menuBarLook, 'chart');
+assert.equal(parseHostPayload({ menu_bar_look: 'logos' }).menuBarLook, 'logos');
+// The name look's short name is on unless the host says otherwise.
+assert.equal(parseHostPayload({}).menuBarShortName, true);
+assert.equal(emptyPayload('').menuBarShortName, true);
+assert.equal(parseHostPayload({ menu_bar_short_name: false }).menuBarShortName, false);
+assert.equal(parseHostPayload({ menu_bar_short_name: 'no' }).menuBarShortName, true);
 assert.deepEqual(payload.accent, { light: '#123456', dark: '#abcdef' });
 // ASSERT: malformed, partial, and non-object accent data cannot set either CSS color.
 assert.equal(parseHostPayload({ accent: { light: '#112233', dark: 'bad' } }).accent, null);
@@ -1123,6 +1133,8 @@ assert.equal(resetAlternate(badStampRow, 'exact', resetNow, utc), '');
   });
   const [usageCard] = projectCards(usageNamed, 0);
   assert.deepEqual(usageCard.rows.map((r) => r.label), ['Weekly', 'Grok Build', 'Grok Chat']);
+  // Ungrouped rows are quota windows the Native tab may headline.
+  assert.deepEqual(usageCard.rows.map((r) => r.grouped), [false, false, false]);
 
   // ASSERT: a plan equal to the title vanishes; a prefixed plan keeps its tail
   assert.equal(displayPlan(personal.title, personal.plan), '');
@@ -1321,6 +1333,8 @@ assert.equal(quotaAlternate(null, 'left'), '');
   assert.deepEqual(grok.rows.map((r) => [r.label, r.key]), [
     ['Grok Build (Breakdown)', 'metric:Grok Build (Breakdown)'],
   ]);
+  // A grouped row is marked, so the Native tab never headlines it over a quota window.
+  assert.equal(grok.rows[0].grouped, true);
 }
 
 // --- vendor warnings become card.warning, and errors carry an action ------------
@@ -1567,7 +1581,11 @@ assert.equal(resolvedTheme('system'), 'light');
     style: 'bars',
     stars,
     order: ['anthropic'],
+    show_as: 'left',
   });
+  // The menu bar follows the Used/Left reading, so the strip message carries it.
+  assert.equal(stripCommand({ ...seeded, showAs: 'used' }, cards).show_as, 'used');
+  assert.equal(stripCommand({ ...seeded, showAs: 'sideways' }, cards).show_as, 'left');
 }
 
 {

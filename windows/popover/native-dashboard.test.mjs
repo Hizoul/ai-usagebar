@@ -76,10 +76,40 @@ try {
       }))));
   // Provider tabs carry the logo and value; the full name is the accessible label, never the short code.
   assert.match(nativeDashboard, /role="group" aria-label="Provedores"/);
-  assert.match(nativeDashboard, /aria-label="Claude 46%"/);
+  // The default Left reading: 46% used reads 54%, like the meter below the tabs.
+  assert.match(nativeDashboard, /aria-label="Claude 54%"/);
   assert.doesNotMatch(nativeDashboard, />cld</);
   assert.match(nativeDashboard, /data-card-id="anthropic"/);
   assert.match(nativeDashboard, /aria-expanded="true"/);
+  // The tab reads the highest-percent window, like the Quattro bar: Z.AI with the weekly limit
+  // spent and the 5h session idle read "0%". A grouped row never outranks a quota window.
+  const quotaRow = (label, usedPercent, extra = {}) => ({
+    ...card.rows[0], key: `metric:${label}`, label, usedPercent, leftPercent: 100 - usedPercent, ...extra,
+  });
+  const spentWeekly = {
+    ...card, id: 'zai', title: 'Z.AI',
+    rows: [quotaRow('Session', 0), quotaRow('Weekly', 100), quotaRow('Context', 100, { grouped: true }), quotaRow('MCP', 18)],
+  };
+  const groupedOnly = { ...card, id: 'supergrok', title: 'SuperGrok', rows: [quotaRow('Grok Build', 7, { grouped: true })] };
+  const quotaDashboard = (showAs) => renderToStaticMarkup(React.createElement(TooltipProvider, {},
+    React.createElement(LanguageProvider, { language: 'pt-BR' },
+      React.createElement(NativeDashboard, {
+        cards: [spentWeekly, groupedOnly, { ...card, rows: [quotaRow('Session', 0), quotaRow('Context', 90, { grouped: true })] }],
+        hint: false, layout: { ...emptyLayout(), popoverStyle: 'native', showAs }, nowMs, payload,
+        onCustomizeProvider() {}, onDismissHint() {}, onOpenCustomize() {}, onOpenSettings() {},
+        onRowAction() {}, onRowMenuOpenChange() {}, onSwitchAccount() {},
+        onToggleCollapse() {}, onToggleShowAs() {},
+      }))));
+  const zaiDashboard = quotaDashboard('used');
+  assert.match(zaiDashboard, /aria-label="Z.AI 100%"/);
+  assert.match(zaiDashboard, /aria-label="SuperGrok 7%"/);
+  assert.match(zaiDashboard, /aria-label="Claude 0%"/);
+  // In the Left reading the tab shows what is left of that same most-used window: the spent
+  // weekly limit reads 0%, never the idle session's 100%.
+  const leftDashboard = quotaDashboard('left');
+  assert.match(leftDashboard, /aria-label="Z.AI 0%"/);
+  assert.match(leftDashboard, /aria-label="SuperGrok 93%"/);
+  assert.match(leftDashboard, /aria-label="Claude 100%"/);
   // A waiting release shows the same Update available card as Classic, above the provider tabs.
   const withUpdate = renderToStaticMarkup(React.createElement(TooltipProvider, {},
     React.createElement(LanguageProvider, { language: 'en' },
@@ -124,12 +154,13 @@ try {
   assert.match(menu, /Barra de menus/);
   assert.doesNotMatch(menu, /Exibição do uso/);
   assert.match(menu, /Barra de menus mostra/);
-  assert.match(menu, /Logotipos/);
+  // An empty payload reads as the host default, the chart.
+  assert.match(menu, /Gráfico/);
   assert.doesNotMatch(menu, /Período de uso|Provedor em foco/);
   assert.doesNotMatch(menu, /Identificar provedores por|Mostrar todos os provedores|Ocultar valor de uso/);
   const menuEnglish = settingsTab('menu', settingsProps, 'en');
   assert.match(menuEnglish, /Menu Bar Shows/);
-  assert.match(menuEnglish, /Logos/);
+  assert.match(menuEnglish, /Chart/);
   assert.doesNotMatch(menuEnglish, /Usage Window|Focused Provider|Highest consumption/);
   const preferences = settingsTab('preferences');
   assert.match(preferences, /Aparência/);
@@ -152,7 +183,7 @@ try {
   const chartMenuBar = settingsTab('general', {
     ...settingsProps,
     layout: { ...emptyLayout(), popoverStyle: 'classic' },
-    payload: { ...settingsPayload, menuBarChart: true },
+    payload: { ...settingsPayload, menuBarLook: 'chart' },
   });
   assert.match(chartMenuBar, /Barra de menus mostra/);
   assert.match(chartMenuBar, /Gráfico/);
@@ -160,10 +191,23 @@ try {
   const providersMenuBar = settingsTab('general', {
     ...settingsProps,
     layout: { ...emptyLayout(), popoverStyle: 'classic' },
-    payload: { ...settingsPayload, menuBarChart: false },
+    payload: { ...settingsPayload, menuBarLook: 'logos' },
   });
   assert.match(providersMenuBar, /Logotipos/);
   assert.doesNotMatch(providersMenuBar, /Identificar provedores por|Mostrar todos os provedores|Ocultar valor de uso/);
+  // The name look is a third choice of the same picker, not a separate set of controls.
+  const nameMenuBar = settingsTab('general', {
+    ...settingsProps,
+    layout: { ...emptyLayout(), popoverStyle: 'classic' },
+    payload: { ...settingsPayload, menuBarLook: 'name' },
+  });
+  assert.match(nameMenuBar, /Barra de menus mostra/);
+  assert.match(nameMenuBar, /Nome/);
+  assert.doesNotMatch(nameMenuBar, /Identificar provedores por|Mostrar todos os provedores|Ocultar valor de uso/);
+  // The short-name switch belongs to the name look only.
+  assert.match(nameMenuBar, /Mostrar nome curto/);
+  assert.doesNotMatch(chartMenuBar, /Mostrar nome curto/);
+  assert.doesNotMatch(providersMenuBar, /Mostrar nome curto/);
   const footerMarkup = renderToStaticMarkup(React.createElement(TooltipProvider, {},
     React.createElement(LanguageProvider, { language: 'en' },
       React.createElement(Footer, {

@@ -57,12 +57,22 @@ pub struct StripMetric {
     /// 0..=1 fill for bounded metrics (used fraction).
     pub fraction: f64,
     pub bounded: bool,
+    /// The remaining share as text (`82%`) for a percentage row, the way the
+    /// popover's Left reading shows it; `None` for a value headline or a row
+    /// with no percent, which read the same either way.
+    pub left_value: Option<String>,
+    /// Under a group heading (SuperGrok's product slices, the Claude entry's
+    /// CLI sessions): a breakdown, not a quota window of its own.
+    pub grouped: bool,
 }
+
+/// One provider's visible metrics: entry id, display name, and metrics.
+pub type StripGroup = (String, String, Vec<StripMetric>);
 
 /// Resolved strip contents. `groups` drives Text; `bars` drives Bars.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StripContent {
-    pub groups: Vec<(String, String, Vec<StripMetric>)>,
+    pub groups: Vec<StripGroup>,
     pub bars: Vec<StripMetric>,
 }
 
@@ -215,48 +225,15 @@ pub fn content_from_payload(payload: &Value, stars: &Stars, order: &[String]) ->
             walk.push(id);
         }
     }
-    let mut groups = Vec::new();
-    for id in walk {
-        let Some(entry) = by_id.get(&id) else {
-            continue;
-        };
-        if entry.get("status").and_then(Value::as_str) == Some("error") {
-            continue;
-        }
-        let name = entry
-            .get("display_name")
-            .or_else(|| entry.get("name"))
-            .and_then(Value::as_str)
-            .unwrap_or(id.as_str())
-            .to_string();
-        let metrics = metrics_for_entry(entry, &id, &name);
-        let wanted = if stars.is_empty() {
-            metrics
-                .iter()
-                .filter(|m| m.bounded)
-                .take(MAX_STARS_PER_PROVIDER)
-                .map(|m| m.key.clone())
-                .collect()
-        } else {
-            stars.get(&id).cloned().unwrap_or_default()
-        };
-        if wanted.is_empty() {
-            continue;
-        }
-        let mut picked = Vec::new();
-        for key in wanted {
-            if let Some(metric) = metrics
-                .iter()
-                .find(|m| m.key == key && !m.value.trim().is_empty())
-            {
-                picked.push(metric.clone());
-            }
-        }
-        if picked.is_empty() {
-            continue;
-        }
-        groups.push((id, name, picked));
-    }
+    let groups: Vec<StripGroup> = walk
+        .into_iter()
+        .filter_map(|id| {
+            let entry = by_id.get(&id)?;
+            let starred =
+                (!stars.is_empty()).then(|| stars.get(&id).map(Vec::as_slice).unwrap_or_default());
+            entry_group(&id, entry, starred)
+        })
+        .collect();
     let bars: Vec<StripMetric> = groups
         .iter()
         .flat_map(|(_, _, metrics)| metrics.iter().cloned())
@@ -264,6 +241,72 @@ pub fn content_from_payload(payload: &Value, stars: &Stars, order: &[String]) ->
         .take(MAX_BARS)
         .collect();
     StripContent { groups, bars }
+}
+
+/// Every quota window of one payload entry that has a value, stars aside,
+/// the set the Quattro bar's `selectMetric` picks from: grouped rows only
+/// when the entry has nothing else. The name look draws its chip from this,
+/// so it agrees with the popover tab that selects it, whichever window is
+/// the busiest (Z.AI's third, monthly MCP window counts like its 5h and
+/// weekly ones). Only the macOS menu bar draws the name look, so other hosts
+/// compile it unused.
+#[cfg_attr(not(any(target_os = "macos", test)), allow(dead_code))]
+pub fn quota_group(payload: &Value, id: &str) -> Option<StripGroup> {
+    let entry = payload
+        .get("entries")?
+        .as_array()?
+        .iter()
+        .find(|entry| entry.get("id").and_then(Value::as_str) == Some(id))?;
+    if entry.get("status").and_then(Value::as_str) == Some("error") {
+        return None;
+    }
+    let name = entry_name(entry, id);
+    let shown: Vec<StripMetric> = metrics_for_entry(entry, id, &name)
+        .into_iter()
+        .filter(|m| !m.value.trim().is_empty())
+        .collect();
+    let windows: Vec<StripMetric> = shown.iter().filter(|m| !m.grouped).cloned().collect();
+    let metrics = if windows.is_empty() { shown } else { windows };
+    (!metrics.is_empty()).then(|| (id.to_string(), name, metrics))
+}
+
+fn entry_name(entry: &Value, id: &str) -> String {
+    entry
+        .get("display_name")
+        .or_else(|| entry.get("name"))
+        .and_then(Value::as_str)
+        .unwrap_or(id)
+        .to_string()
+}
+
+/// Resolve one entry's visible metrics. `starred` is the provider's star
+/// keys, or `None` before any star exists, which picks the first bounded
+/// metrics. `None` for an errored entry or one with nothing to show.
+fn entry_group(id: &str, entry: &Value, starred: Option<&[String]>) -> Option<StripGroup> {
+    if entry.get("status").and_then(Value::as_str) == Some("error") {
+        return None;
+    }
+    let name = entry_name(entry, id);
+    let metrics = metrics_for_entry(entry, id, &name);
+    let wanted: Vec<String> = match starred {
+        Some(keys) => keys.to_vec(),
+        None => metrics
+            .iter()
+            .filter(|m| m.bounded)
+            .take(MAX_STARS_PER_PROVIDER)
+            .map(|m| m.key.clone())
+            .collect(),
+    };
+    let picked: Vec<StripMetric> = wanted
+        .iter()
+        .filter_map(|key| {
+            metrics
+                .iter()
+                .find(|m| &m.key == key && !m.value.trim().is_empty())
+                .cloned()
+        })
+        .collect();
+    (!picked.is_empty()).then(|| (id.to_string(), name, picked))
 }
 
 fn metrics_for_entry(entry: &Value, id: &str, name: &str) -> Vec<StripMetric> {
@@ -311,6 +354,9 @@ fn metrics_for_entry(entry: &Value, id: &str, name: &str) -> Vec<StripMetric> {
             .map(str::to_string)
             .or_else(|| percent.map(|percent| format!("{}%", percent.round() as i64)))
             .unwrap_or_default();
+        let left_value = percent
+            .filter(|_| section.get("headline").and_then(Value::as_str) != Some("value"))
+            .map(|percent| format!("{}%", (100.0 - percent).max(0.0).round() as i64));
         let mut key = metric_key(id, raw_label, effective_group);
         let count = seen.entry(key.clone()).or_insert(0);
         *count += 1;
@@ -325,6 +371,8 @@ fn metrics_for_entry(entry: &Value, id: &str, name: &str) -> Vec<StripMetric> {
             value,
             fraction: (percent.unwrap_or(0.0) / 100.0).clamp(0.0, 1.0),
             bounded: true,
+            left_value,
+            grouped: !effective_group.is_empty(),
         });
     }
     rows
@@ -722,6 +770,20 @@ mod tests {
         assert_eq!(bars[0].label, "ship the release (Sessions)");
         assert_eq!(bars[1].key, "metric:Grok Build (Breakdown)");
         assert_eq!(bars[1].label, "Grok Build (Breakdown)");
+    }
+
+    /// The Left reading's text matches the popover's `leftPercent`
+    /// (`max(0, 100 - percent)`); a value headline keeps its value.
+    #[test]
+    fn left_value_is_the_remaining_percent() {
+        let payload = json!({"entries":[{"id":"zai", "status":"ready", "sections":[
+            {"type":"metric", "label":"Weekly", "percent":18, "value":"18%"},
+            {"type":"metric", "label":"Over", "percent":130, "value":"130%"},
+            {"type":"metric", "label":"Credits", "percent":40, "value":"$4 of $10", "headline":"value"},
+            {"type":"metric", "label":"Balance", "value":"$40"}]}]});
+        let (_, _, metrics) = quota_group(&payload, "zai").unwrap();
+        let left: Vec<Option<&str>> = metrics.iter().map(|m| m.left_value.as_deref()).collect();
+        assert_eq!(left, vec![Some("82%"), Some("0%"), None, None]);
     }
 
     #[test]

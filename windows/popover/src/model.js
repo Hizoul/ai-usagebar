@@ -41,7 +41,8 @@ export function emptyPayload(hostError) {
     nextRefreshAt: 0,
     startupEnabled: false,
     hostError: hostError || "",
-    menuBarChart: false,
+    menuBarLook: "chart",
+    menuBarShortName: true,
     notificationsEnabled: true,
     notificationsThreshold: 97,
     os: "",
@@ -89,7 +90,8 @@ function normalizePayload(parsed) {
     nextRefreshAt: Number(parsed.next_refresh_at) || 0,
     startupEnabled: parsed.startup_enabled === true,
     hostError: clean(parsed.host_error, 1200),
-    menuBarChart: parsed.menu_bar_chart === true,
+    menuBarLook: normalizeMenuBarLook(parsed.menu_bar_look),
+    menuBarShortName: parsed.menu_bar_short_name !== false,
     notificationsEnabled: parsed.notifications_enabled !== false,
     notificationsThreshold: Number.isInteger(parsed.notifications_threshold) && parsed.notifications_threshold >= 1 && parsed.notifications_threshold <= 100 ? parsed.notifications_threshold : 97,
     os: normalizeOs(parsed.os),
@@ -195,6 +197,11 @@ function normalizeOs(value) {
   const os = String(value || "").toLowerCase();
   if (["macos", "windows", "linux"].includes(os)) return os;
   return "";
+}
+
+// The menu-bar look the host reports; anything else reads as the default chart.
+function normalizeMenuBarLook(value) {
+  return value === "logos" || value === "name" ? value : "chart";
 }
 
 // The host's refresh interval; anything outside the offered set reads as the
@@ -788,6 +795,7 @@ export function projectCards(payload, nowMs, locale) {
           reset: resetLabel(section, now, locale),
           resetAt: section.resetAt || "",
           window: section.window || 0,
+          grouped: Boolean(metricGroup),
         };
         row.key = metricRowKey(entry.id, section.label, metricGroup);
         rows.push(row);
@@ -1019,7 +1027,8 @@ export function stripCommand(layout, cards) {
   } else {
     for (const id of Object.keys(source)) stars[id] = source[id];
   }
-  return { style: "bars", stars, order };
+  // The menu bar's percentages follow the popover's Used/Left reading.
+  return { style: "bars", stars, order, show_as: normalizeShowAs(layout && layout.showAs) };
 }
 
 function cleanIdList(list) {

@@ -219,11 +219,20 @@ export function Settings({
         <Section title={m.menu_bar()}>
           <SettingRow hint={m.menu_bar_shows_hint()} label={m.menu_bar_shows()}>
             <Picker
-              options={[["chart", m.chart()], ["logos", m.logos()]]}
-              value={payload.menuBarChart ? "chart" : "logos"}
-              onChange={(value) => sendCommand("set-menu-bar-chart", { value: value === "chart" })}
+              options={[["chart", m.chart()], ["logos", m.logos()], ["name", m.name()]]}
+              value={payload.menuBarLook}
+              onChange={(value) => sendCommand("set-menu-bar-look", { value })}
             />
           </SettingRow>
+          {payload.menuBarLook === "name" ? (
+            <SettingRow hint={m.menu_bar_short_name_hint()} label={m.menu_bar_short_name()}>
+              <Switch
+                checked={payload.menuBarShortName}
+                aria-label={m.menu_bar_short_name()}
+                onCheckedChange={(on) => sendCommand("set-menu-bar-short-name", { value: on === true })}
+              />
+            </SettingRow>
+          ) : null}
         </Section>
         </div>
       ) : null}

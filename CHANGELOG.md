@@ -37,6 +37,20 @@ Each release is also published at
   grant shows nothing extra. A grant with nothing left stays visible at 100%
   used.
 
+- **The macOS menu bar can show one provider like the Quattro bar.** Settings →
+  Menu Bar → Menu Bar Shows gains **Name** next to Chart and Logos
+  (`[tray] menu_bar_style = "name"`): a single chip with the provider's logo,
+  its short name (`cld`, `cdx`, …) and its highest quota window, for the
+  provider selected in the popover. Like Quattro's default window, the value
+  is the highest percentage among all of the provider's windows, starred or
+  not, so it matches the provider's tab: a spent weekly limit reads `100%`
+  even while the 5h session reads `0%`, and Z.AI's monthly MCP window counts
+  as much as its 5h and weekly ones. Until one is picked it
+  follows `[ui] primary`, then the first provider with a value. The chart
+  stays the default. **Show Short Name** (`[tray] menu_bar_short_name =
+  false`) drops the name when the logo already says which provider it is; a
+  provider with no logo keeps its name.
+
 ### Changed
 
 - **macOS: Claude Desktop and Claude Code account switching moved into
@@ -51,6 +65,18 @@ Each release is also published at
   use the same gauge block as every other provider (label, bar with percentage,
   reset countdown), followed by the dim line saying what the pool covers. The
   trailing "Resets …" line is gone, since each pool now carries its own.
+
+- **The Native popover's provider tabs show the highest percentage.** A tab
+  read its first window, so Z.AI with the weekly limit spent and the 5h session
+  idle showed `0%`. It now shows the highest quota window, like the Quattro
+  bar; grouped rows (SuperGrok's product slices, Claude's CLI sessions) count
+  only when the provider has nothing else.
+- **Tab and menu-bar percentages follow Show Usage As.** With the popover
+  reading what is left (the default), the Native tabs and the macOS menu
+  bar's Logos values and tooltip still showed what was used, so a tab read
+  `18%` above meters reading `82% left`. They now show the same reading as
+  the meters, the remaining share of that most-used window, and so does the
+  new Name chip. The Chart look still draws usage.
 
 ### Fixed
 
@@ -97,6 +123,12 @@ Each release is also published at
   so a session with `7% left` and 10 minutes to go sat above `Goal now 97%`.
   The goal now follows the Used/Left reading, like the pace tick: `3%` left
   there, and the same `97%` once the bar shows what is used.
+
+- **macOS menu-bar logos are no longer drawn upside down.** The Logos look
+  painted every provider mark flipped vertically; symmetric marks hid it, but
+  Z.AI's Z read as a mirrored S. Its single values also sat about a point
+  below the mark; they are now centred on it.
+
 ### Security
 
 - **Subprocess environment scrubbing extended to `codex login`.** Running

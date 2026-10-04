@@ -109,6 +109,8 @@
 /** @typedef {{}} Mcp_ToolsInputs */
 /** @typedef {{}} MenuInputs */
 /** @typedef {{}} Menu_BarInputs */
+/** @typedef {{}} Menu_Bar_Short_NameInputs */
+/** @typedef {{}} Menu_Bar_Short_Name_HintInputs */
 /** @typedef {{}} Menu_Bar_ShowsInputs */
 /** @typedef {{}} Menu_Bar_Shows_HintInputs */
 /** @typedef {{}} Metric_PluralInputs */
@@ -118,6 +120,7 @@
 /** @typedef {{}} MonthlyInputs */
 /** @typedef {{}} Monthly_LowercaseInputs */
 /** @typedef {{}} MoreInputs */
+/** @typedef {{}} NameInputs */
 /** @typedef {{}} NativeInputs */
 /** @typedef {{}} New_UpdateInputs */
 /** @typedef {{}} New_Version_ReadyInputs */
@@ -698,12 +701,20 @@ export const menu_bar = /** @type {(inputs: Menu_BarInputs) => LocalizedString} 
 	return /** @type {LocalizedString} */ (`메뉴 막대`)
 };
 
+export const menu_bar_short_name = /** @type {(inputs: Menu_Bar_Short_NameInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`짧은 이름 표시`)
+};
+
+export const menu_bar_short_name_hint = /** @type {(inputs: Menu_Bar_Short_Name_HintInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`이름 보기에서 로고 옆에 표시합니다. 로고가 없는 제공자는 항상 이름을 보여 줍니다.`)
+};
+
 export const menu_bar_shows = /** @type {(inputs: Menu_Bar_ShowsInputs) => LocalizedString} */ () => {
 	return /** @type {LocalizedString} */ (`메뉴 막대 표시`)
 };
 
 export const menu_bar_shows_hint = /** @type {(inputs: Menu_Bar_Shows_HintInputs) => LocalizedString} */ () => {
-	return /** @type {LocalizedString} */ (`두 방식 모두 제공자별로 별표한 지표를 보여 줍니다.`)
+	return /** @type {LocalizedString} */ (`차트와 로고는 모든 제공자의 별표 지표를, 이름은 선택한 제공자의 가장 높은 사용량을 보여 줍니다.`)
 };
 
 export const metric_plural = /** @type {(inputs: Metric_PluralInputs) => LocalizedString} */ () => {
@@ -732,6 +743,10 @@ export const monthly_lowercase = /** @type {(inputs: Monthly_LowercaseInputs) =>
 
 export const more = /** @type {(inputs: MoreInputs) => LocalizedString} */ () => {
 	return /** @type {LocalizedString} */ (`더 보기`)
+};
+
+export const name = /** @type {(inputs: NameInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`이름`)
 };
 
 export const native = /** @type {(inputs: NativeInputs) => LocalizedString} */ () => {

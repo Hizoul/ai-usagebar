@@ -111,6 +111,8 @@ import { getLocale, experimentalStaticLocale } from "../runtime.js"
 /** @typedef {{}} Mcp_ToolsInputs */
 /** @typedef {{}} MenuInputs */
 /** @typedef {{}} Menu_BarInputs */
+/** @typedef {{}} Menu_Bar_Short_NameInputs */
+/** @typedef {{}} Menu_Bar_Short_Name_HintInputs */
 /** @typedef {{}} Menu_Bar_ShowsInputs */
 /** @typedef {{}} Menu_Bar_Shows_HintInputs */
 /** @typedef {{}} Metric_PluralInputs */
@@ -120,6 +122,7 @@ import { getLocale, experimentalStaticLocale } from "../runtime.js"
 /** @typedef {{}} MonthlyInputs */
 /** @typedef {{}} Monthly_LowercaseInputs */
 /** @typedef {{}} MoreInputs */
+/** @typedef {{}} NameInputs */
 /** @typedef {{}} NativeInputs */
 /** @typedef {{}} New_UpdateInputs */
 /** @typedef {{}} New_Version_ReadyInputs */
@@ -1909,6 +1912,36 @@ export const menu_bar = /** @type {((inputs?: Menu_BarInputs, options?: { locale
 /**
 * | output |
 * | --- |
+* | "Show Short Name" |
+*
+* @param {Menu_Bar_Short_NameInputs} inputs
+* @param {{ locale?: "en" | "pt-BR" | "ko" }} options
+* @returns {LocalizedString}
+*/
+export const menu_bar_short_name = /** @type {((inputs?: Menu_Bar_Short_NameInputs, options?: { locale?: "en" | "pt-BR" | "ko" }) => LocalizedString) & import('../runtime.js').MessageMetadata<Menu_Bar_Short_NameInputs, { locale?: "en" | "pt-BR" | "ko" }, {}>} */ ((inputs = {}, options = {}) => {
+	const locale = experimentalStaticLocale ?? options.locale ?? getLocale()
+	if (locale === "pt-BR") return __pt_br2.menu_bar_short_name(inputs)
+	if (locale === "ko") return __ko.menu_bar_short_name(inputs)
+	return __en.menu_bar_short_name(inputs)
+});
+/**
+* | output |
+* | --- |
+* | "Beside the logo in the Name look. A provider without a logo always shows its name." |
+*
+* @param {Menu_Bar_Short_Name_HintInputs} inputs
+* @param {{ locale?: "en" | "pt-BR" | "ko" }} options
+* @returns {LocalizedString}
+*/
+export const menu_bar_short_name_hint = /** @type {((inputs?: Menu_Bar_Short_Name_HintInputs, options?: { locale?: "en" | "pt-BR" | "ko" }) => LocalizedString) & import('../runtime.js').MessageMetadata<Menu_Bar_Short_Name_HintInputs, { locale?: "en" | "pt-BR" | "ko" }, {}>} */ ((inputs = {}, options = {}) => {
+	const locale = experimentalStaticLocale ?? options.locale ?? getLocale()
+	if (locale === "pt-BR") return __pt_br2.menu_bar_short_name_hint(inputs)
+	if (locale === "ko") return __ko.menu_bar_short_name_hint(inputs)
+	return __en.menu_bar_short_name_hint(inputs)
+});
+/**
+* | output |
+* | --- |
 * | "Menu Bar Shows" |
 *
 * @param {Menu_Bar_ShowsInputs} inputs
@@ -1924,7 +1957,7 @@ export const menu_bar_shows = /** @type {((inputs?: Menu_Bar_ShowsInputs, option
 /**
 * | output |
 * | --- |
-* | "Both show the metrics you star in each provider." |
+* | "Chart and Logos show every provider's starred metrics. Name shows the selected provider's highest usage." |
 *
 * @param {Menu_Bar_Shows_HintInputs} inputs
 * @param {{ locale?: "en" | "pt-BR" | "ko" }} options
@@ -2040,6 +2073,21 @@ export const more = /** @type {((inputs?: MoreInputs, options?: { locale?: "en" 
 	if (locale === "pt-BR") return __pt_br2.more(inputs)
 	if (locale === "ko") return __ko.more(inputs)
 	return __en.more(inputs)
+});
+/**
+* | output |
+* | --- |
+* | "Name" |
+*
+* @param {NameInputs} inputs
+* @param {{ locale?: "en" | "pt-BR" | "ko" }} options
+* @returns {LocalizedString}
+*/
+export const name = /** @type {((inputs?: NameInputs, options?: { locale?: "en" | "pt-BR" | "ko" }) => LocalizedString) & import('../runtime.js').MessageMetadata<NameInputs, { locale?: "en" | "pt-BR" | "ko" }, {}>} */ ((inputs = {}, options = {}) => {
+	const locale = experimentalStaticLocale ?? options.locale ?? getLocale()
+	if (locale === "pt-BR") return __pt_br2.name(inputs)
+	if (locale === "ko") return __ko.name(inputs)
+	return __en.name(inputs)
 });
 /**
 * | output |

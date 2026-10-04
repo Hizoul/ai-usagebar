@@ -1,11 +1,12 @@
-//! Chart or starred-metric logo strip for the macOS status item.
+//! Chart, logo or short-name strip for the macOS status item.
 //!
 //! `StripContent` owns visible groups and their values; the report supplies
-//! only the short-name fallback for providers without an embedded mark.
+//! the short name drawn in place of a mark, either because the provider has
+//! no embedded mark or because the user chose the name look.
 
 use serde_json::Value;
 
-use super::strip::StripContent;
+use super::strip::{StripContent, StripMetric, quota_group};
 
 /// Artwork needed for the current status-item content.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,14 +19,95 @@ pub(super) enum StatusItemContent {
     Logos,
 }
 
+/// The menu-bar look chosen in Settings → Menu Bar → Menu Bar Shows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum MenuBarLook {
+    /// The usage bars (default).
+    Chart,
+    /// Each provider's logo followed by its starred values.
+    Logos,
+    /// Each provider's short name (`cld`, `cdx`, …) followed by its starred
+    /// values, the way the Quattro and Waybar bars tag a provider.
+    Name,
+}
+
+impl MenuBarLook {
+    /// Read `[tray] menu_bar_style`. Anything unrecognised keeps the chart, so
+    /// a config written by a newer build never blanks the status item.
+    pub(super) fn from_style(style: Option<&str>) -> Self {
+        match style {
+            Some("provider") => Self::Logos,
+            Some("name") => Self::Name,
+            _ => Self::Chart,
+        }
+    }
+
+    /// The `[tray] menu_bar_style` value persisted for this look.
+    pub(super) fn style(self) -> &'static str {
+        match self {
+            Self::Chart => "bars",
+            Self::Logos => "provider",
+            Self::Name => "name",
+        }
+    }
+
+    /// The value the popover's picker uses for this look.
+    pub(super) fn picker_value(self) -> &'static str {
+        match self {
+            Self::Chart => "chart",
+            Self::Logos => "logos",
+            Self::Name => "name",
+        }
+    }
+
+    /// Parse the popover's picker value.
+    pub(super) fn from_picker_value(value: &str) -> Option<Self> {
+        match value {
+            "chart" => Some(Self::Chart),
+            "logos" => Some(Self::Logos),
+            "name" => Some(Self::Name),
+            _ => None,
+        }
+    }
+}
+
 /// Select status-item artwork, falling back to the app icon when content is empty.
-pub(super) fn status_item_content(chart: bool, has_content: bool) -> StatusItemContent {
+pub(super) fn status_item_content(look: MenuBarLook, has_content: bool) -> StatusItemContent {
     if !has_content {
         StatusItemContent::AppIcon
-    } else if chart {
+    } else if look == MenuBarLook::Chart {
         StatusItemContent::Chart
     } else {
         StatusItemContent::Logos
+    }
+}
+
+/// How the popover reads a quota (Preferences → Show Usage As). The menu
+/// bar's percentages follow it, so the chip says `82%` left when the tab
+/// that selects it does, not the `18%` used behind it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum UsageReading {
+    Used,
+    Left,
+}
+
+impl UsageReading {
+    /// Read the `strip` IPC's `show_as`. Anything else keeps used, the
+    /// reading the menu bar had before the popover reports one.
+    pub(super) fn from_strip_ipc(value: &Value) -> Self {
+        match value.get("show_as").and_then(Value::as_str) {
+            Some("left") => Self::Left,
+            _ => Self::Used,
+        }
+    }
+}
+
+/// A metric's text in `reading`: its remaining share in Left when it has a
+/// percent, its report value otherwise.
+fn metric_text(metric: &StripMetric, reading: UsageReading) -> &str {
+    match (reading, metric.left_value.as_deref()) {
+        (UsageReading::Left, Some(left)) => left,
+        _ => metric.value.trim(),
     }
 }
 
@@ -65,56 +147,148 @@ pub(super) fn fallback_menu_attached(webview_built: bool) -> bool {
     !webview_built
 }
 
-/// One provider's visible logo (or short-name fallback) and starred values.
+/// One provider's visible logo (or short name) and starred values.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct LogoSegment {
     /// Lowercase provider slug used to find its embedded mark.
     pub(super) slug: String,
-    /// Report short name, used only when its embedded mark cannot be drawn.
+    /// Report short name, drawn when the mark cannot be drawn, or beside it
+    /// when `with_name` is set.
     pub(super) short_name: Option<String>,
+    /// The name look: draw `short_name` after the mark rather than only
+    /// where the mark is missing.
+    pub(super) with_name: bool,
     /// Non-empty metric values in star order; their count is the rendered line count.
     pub(super) values: Vec<String>,
 }
 
 /// Build logo segments from the same starred metric groups used by the chart.
-pub(super) fn logo_segments(content: &StripContent, report: &Value) -> Vec<LogoSegment> {
+/// The name look keeps one provider, `selected` or its fallbacks, and its
+/// highest window, like the Quattro bar's `icon SHORT 54%` chip, with the short name
+/// beside the mark unless `show_short_name` is off; the logos look keeps
+/// every group with up to two stacked values.
+pub(super) fn logo_segments(
+    content: &StripContent,
+    report: &Value,
+    look: MenuBarLook,
+    selected: Option<&str>,
+    show_short_name: bool,
+    reading: UsageReading,
+) -> Vec<LogoSegment> {
+    if look == MenuBarLook::Name {
+        return name_segment(content, report, selected, show_short_name, reading)
+            .into_iter()
+            .collect();
+    }
     content
         .groups
         .iter()
-        .filter_map(|(id, _, metrics)| {
-            let values: Vec<String> = metrics
-                .iter()
-                .map(|metric| metric.value.trim())
-                .filter(|value| !value.is_empty())
-                .map(str::to_owned)
-                .take(2)
-                .collect();
-            if values.is_empty() {
-                return None;
-            }
-            let slug = id.split('@').next()?.to_ascii_lowercase();
-            if slug.is_empty() {
-                return None;
-            }
-            let short_name = short_name_for(report, id);
-            Some(LogoSegment {
-                slug,
-                short_name,
-                values,
-            })
-        })
+        .filter_map(|(id, _, metrics)| segment(id, metrics, report, 2, false, reading))
         .collect()
 }
 
-/// Build tooltip lines for the starred groups, or the app name when none have values.
-pub(super) fn tooltip(content: &StripContent) -> String {
+/// The name look's one chip, for the popover's selected provider, else the
+/// report's `primary`, else the first starred group, skipping any without a
+/// value. Its value comes from every quota window of that provider, stars
+/// aside, like the Quattro bar and the popover tab that selects it.
+fn name_segment(
+    content: &StripContent,
+    report: &Value,
+    selected: Option<&str>,
+    show_short_name: bool,
+    reading: UsageReading,
+) -> Option<LogoSegment> {
+    let primary = report.get("primary").and_then(Value::as_str);
+    let starred = content.groups.iter().map(|(id, _, _)| id.as_str());
+    [selected, primary]
+        .into_iter()
+        .flatten()
+        .chain(starred)
+        .find_map(|id| {
+            let (id, _, metrics) = quota_group(report, id)?;
+            name_chip(&id, &metrics, report, show_short_name, reading)
+        })
+}
+
+/// The chip shows the provider's highest-percent metric, like the Quattro
+/// bar's default `auto` window (`omarchy/Model.js` `maxPercent`): a spent
+/// weekly window must not hide behind an idle 5h session reading 0%.
+/// Without `show_short_name` the mark stands alone, like the logos look,
+/// which still falls back to the name for a provider with no mark.
+fn name_chip(
+    id: &str,
+    metrics: &[StripMetric],
+    report: &Value,
+    show_short_name: bool,
+    reading: UsageReading,
+) -> Option<LogoSegment> {
+    let highest = highest_metric(metrics)?;
+    segment(
+        id,
+        std::slice::from_ref(highest),
+        report,
+        1,
+        show_short_name,
+        reading,
+    )
+}
+
+/// The bounded metric with the largest used fraction, the first one on a
+/// tie; the first metric with a value when none is bounded.
+fn highest_metric(metrics: &[StripMetric]) -> Option<&StripMetric> {
+    let shown = || metrics.iter().filter(|m| !m.value.trim().is_empty());
+    let highest_bounded =
+        shown()
+            .filter(|m| m.bounded)
+            .fold(None, |best: Option<&StripMetric>, m| match best {
+                Some(best) if best.fraction >= m.fraction => Some(best),
+                _ => Some(m),
+            });
+    highest_bounded.or_else(|| shown().next())
+}
+
+/// One provider's segment: up to `value_cap` non-empty values in `reading`,
+/// or `None` when it has no value or no usable slug.
+fn segment(
+    id: &str,
+    metrics: &[StripMetric],
+    report: &Value,
+    value_cap: usize,
+    with_name: bool,
+    reading: UsageReading,
+) -> Option<LogoSegment> {
+    let values: Vec<String> = metrics
+        .iter()
+        .map(|metric| metric_text(metric, reading))
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+        .take(value_cap)
+        .collect();
+    if values.is_empty() {
+        return None;
+    }
+    let slug = id.split('@').next()?.to_ascii_lowercase();
+    if slug.is_empty() {
+        return None;
+    }
+    Some(LogoSegment {
+        slug,
+        short_name: short_name_for(report, id),
+        with_name,
+        values,
+    })
+}
+
+/// Build tooltip lines for the starred groups in `reading`, or the app name
+/// when none have values.
+pub(super) fn tooltip(content: &StripContent, reading: UsageReading) -> String {
     let lines: Vec<String> = content
         .groups
         .iter()
         .filter_map(|(_, name, metrics)| {
             let values: Vec<&str> = metrics
                 .iter()
-                .map(|metric| metric.value.trim())
+                .map(|metric| metric_text(metric, reading))
                 .filter(|value| !value.is_empty())
                 .collect();
             if values.is_empty() {
@@ -159,13 +333,49 @@ mod tests {
 
     #[test]
     fn empty_modes_fall_back_to_static_app_icon() {
-        assert_eq!(status_item_content(true, false), StatusItemContent::AppIcon);
+        for look in [MenuBarLook::Chart, MenuBarLook::Logos, MenuBarLook::Name] {
+            assert_eq!(
+                status_item_content(look, false),
+                StatusItemContent::AppIcon,
+                "{look:?}"
+            );
+        }
         assert_eq!(
-            status_item_content(false, false),
-            StatusItemContent::AppIcon
+            status_item_content(MenuBarLook::Chart, true),
+            StatusItemContent::Chart
         );
-        assert_eq!(status_item_content(true, true), StatusItemContent::Chart);
-        assert_eq!(status_item_content(false, true), StatusItemContent::Logos);
+        assert_eq!(
+            status_item_content(MenuBarLook::Logos, true),
+            StatusItemContent::Logos
+        );
+        // Name reuses the strip image: only the label differs from Logos.
+        assert_eq!(
+            status_item_content(MenuBarLook::Name, true),
+            StatusItemContent::Logos
+        );
+    }
+
+    #[test]
+    fn menu_bar_look_round_trips_through_config_and_picker() {
+        for look in [MenuBarLook::Chart, MenuBarLook::Logos, MenuBarLook::Name] {
+            assert_eq!(MenuBarLook::from_style(Some(look.style())), look);
+            assert_eq!(
+                MenuBarLook::from_picker_value(look.picker_value()),
+                Some(look)
+            );
+        }
+    }
+
+    /// An unset, unknown or future `menu_bar_style` keeps the chart default.
+    #[test]
+    fn menu_bar_look_defaults_to_the_chart() {
+        assert_eq!(MenuBarLook::from_style(None), MenuBarLook::Chart);
+        assert_eq!(MenuBarLook::from_style(Some("bars")), MenuBarLook::Chart);
+        assert_eq!(
+            MenuBarLook::from_style(Some("sparkles")),
+            MenuBarLook::Chart
+        );
+        assert_eq!(MenuBarLook::from_picker_value("sparkles"), None);
     }
 
     /// #249: the emergency menu attaches only when the webview is absent, so
@@ -208,7 +418,14 @@ mod tests {
         };
         let report = json!({"entries":[]});
 
-        let segments = logo_segments(&content, &report);
+        let segments = logo_segments(
+            &content,
+            &report,
+            MenuBarLook::Logos,
+            None,
+            true,
+            UsageReading::Used,
+        );
         assert_eq!(segments.len(), 2);
         assert_eq!(segments[0].slug, "anthropic");
         assert_eq!(segments[0].values, vec![String::from("41%")]);
@@ -229,7 +446,14 @@ mod tests {
             bars: Vec::new(),
         };
 
-        let segments = logo_segments(&content, &json!({"entries":[]}));
+        let segments = logo_segments(
+            &content,
+            &json!({"entries":[]}),
+            MenuBarLook::Logos,
+            None,
+            true,
+            UsageReading::Used,
+        );
         assert_eq!(segments.len(), 1);
         assert_eq!(segments[0].slug, "zai");
         assert_eq!(segments[0].values, vec![String::from("12%")]);
@@ -250,7 +474,17 @@ mod tests {
 
         assert!(content.groups.is_empty());
         assert!(content.bars.is_empty());
-        assert!(logo_segments(&content, &report).is_empty());
+        assert!(
+            logo_segments(
+                &content,
+                &report,
+                MenuBarLook::Logos,
+                None,
+                true,
+                UsageReading::Used
+            )
+            .is_empty()
+        );
     }
 
     #[test]
@@ -267,10 +501,254 @@ mod tests {
             {"id":"unknown@work", "short_name":"unk"}
         ]});
 
-        let segments = logo_segments(&content, &report);
+        let segments = logo_segments(
+            &content,
+            &report,
+            MenuBarLook::Logos,
+            None,
+            true,
+            UsageReading::Used,
+        );
         assert_eq!(segments[0].slug, "unknown");
         assert!(super::super::marks::mark_svg(&segments[0].slug).is_none());
         assert_eq!(segments[0].short_name.as_deref(), Some("unk"));
+    }
+
+    /// A ready report entry with one metric section per `(label, percent)`.
+    fn entry(id: &str, short_name: &str, windows: &[(&str, f64)]) -> Value {
+        let sections: Vec<Value> = windows
+            .iter()
+            .map(|(label, percent)| {
+                json!({"type":"metric", "label":label, "percent":percent,
+                       "value":format!("{percent}%")})
+            })
+            .collect();
+        json!({"id":id, "short_name":short_name, "status":"ready", "sections":sections})
+    }
+
+    /// Strip content where each provider has one starred metric, in order.
+    fn starred(ids: &[&str]) -> StripContent {
+        StripContent {
+            groups: ids
+                .iter()
+                .map(|id| (id.to_string(), id.to_string(), vec![metric("1%")]))
+                .collect(),
+            bars: Vec::new(),
+        }
+    }
+
+    /// The name look keeps the mark and adds the short name beside it; the
+    /// logos look keeps the mark alone.
+    #[test]
+    fn name_look_adds_the_short_name_beside_the_mark() {
+        let content = starred(&["anthropic"]);
+        let report = json!({"entries":[entry("anthropic", "cld", &[("Session", 41.0)])]});
+
+        let chip = logo_segments(
+            &content,
+            &report,
+            MenuBarLook::Name,
+            None,
+            true,
+            UsageReading::Used,
+        );
+        assert!(chip[0].with_name);
+        assert_eq!(chip[0].short_name.as_deref(), Some("cld"));
+        assert!(super::super::marks::mark_svg(&chip[0].slug).is_some());
+
+        let logos = logo_segments(
+            &content,
+            &report,
+            MenuBarLook::Logos,
+            None,
+            true,
+            UsageReading::Used,
+        );
+        assert!(!logos[0].with_name);
+    }
+
+    /// With the short name turned off the chip is the mark and the value; a
+    /// provider with no mark still gets its name, since nothing else would
+    /// tell which provider the value belongs to.
+    #[test]
+    fn name_look_can_leave_out_the_short_name() {
+        let content = starred(&["kimi", "unknown"]);
+        let report = json!({"primary":null,"entries":[
+            entry("kimi", "kmi", &[("Weekly", 42.0)]),
+            entry("unknown", "unk", &[("Usage", 8.0)]),
+        ]});
+
+        let chip = logo_segments(
+            &content,
+            &report,
+            MenuBarLook::Name,
+            Some("kimi"),
+            false,
+            UsageReading::Used,
+        );
+        assert!(!chip[0].with_name);
+        assert!(super::super::marks::mark_svg(&chip[0].slug).is_some());
+        assert_eq!(chip[0].values, vec![String::from("42%")]);
+
+        let shown = logo_segments(
+            &content,
+            &report,
+            MenuBarLook::Name,
+            Some("kimi"),
+            true,
+            UsageReading::Used,
+        );
+        assert!(shown[0].with_name);
+
+        let unmarked = logo_segments(
+            &content,
+            &report,
+            MenuBarLook::Name,
+            Some("unknown"),
+            false,
+            UsageReading::Used,
+        );
+        assert!(super::super::marks::mark_svg(&unmarked[0].slug).is_none());
+        assert_eq!(unmarked[0].short_name.as_deref(), Some("unk"));
+    }
+
+    fn two_groups() -> StripContent {
+        StripContent {
+            groups: vec![
+                (
+                    "anthropic".into(),
+                    "Claude".into(),
+                    vec![metric("54%"), metric("16%")],
+                ),
+                ("openai".into(), "Codex".into(), vec![metric("100%")]),
+            ],
+            bars: Vec::new(),
+        }
+    }
+
+    fn two_entries(primary: Option<&str>) -> Value {
+        json!({"primary":primary, "entries":[
+            entry("anthropic", "cld", &[("Session", 54.0), ("Weekly", 16.0)]),
+            entry("openai", "gpt", &[("Session", 100.0)]),
+        ]})
+    }
+
+    /// Quattro draws one chip for the selected provider: one provider and one
+    /// value, where the logos look stacks two values for every provider.
+    #[test]
+    fn name_look_shows_only_the_selected_provider_and_one_value() {
+        let report = two_entries(Some("anthropic"));
+        let chip = |selected| {
+            logo_segments(
+                &two_groups(),
+                &report,
+                MenuBarLook::Name,
+                selected,
+                true,
+                UsageReading::Used,
+            )
+        };
+
+        let codex = chip(Some("openai"));
+        assert_eq!(codex.len(), 1);
+        assert_eq!(codex[0].slug, "openai");
+        assert_eq!(codex[0].values, vec![String::from("100%")]);
+        assert_eq!(chip(Some("anthropic"))[0].values, vec![String::from("54%")]);
+
+        let logos = logo_segments(
+            &two_groups(),
+            &report,
+            MenuBarLook::Logos,
+            Some("openai"),
+            true,
+            UsageReading::Used,
+        );
+        assert_eq!(logos.len(), 2);
+        assert_eq!(logos[0].values.len(), 2);
+    }
+
+    /// Before the popover reports a selection the report's `primary` stands
+    /// in, then the first starred provider; a stale selection (the provider
+    /// was disabled) falls through the same way.
+    #[test]
+    fn name_look_falls_back_from_selection_to_primary_to_first() {
+        let slug = |report: &Value, selected: Option<&str>| {
+            logo_segments(
+                &two_groups(),
+                report,
+                MenuBarLook::Name,
+                selected,
+                true,
+                UsageReading::Used,
+            )[0]
+            .slug
+            .clone()
+        };
+
+        assert_eq!(slug(&two_entries(Some("openai")), None), "openai");
+        assert_eq!(slug(&two_entries(Some("openai")), Some("gone")), "openai");
+        assert_eq!(slug(&two_entries(None), None), "anthropic");
+        assert_eq!(slug(&two_entries(None), Some("gone")), "anthropic");
+    }
+
+    /// Stars do not decide the name look: a selected provider with nothing
+    /// starred draws its own chip, never the primary's.
+    #[test]
+    fn name_look_shows_a_selected_provider_that_has_no_star() {
+        let report = json!({"primary":"zai","entries":[
+            entry("zai", "zai", &[("Session", 0.0)]),
+            entry("supergrok", "sgk", &[("Weekly usage", 7.0)]),
+        ]});
+        let content = starred(&["zai"]);
+
+        let chip = logo_segments(
+            &content,
+            &report,
+            MenuBarLook::Name,
+            Some("supergrok"),
+            true,
+            UsageReading::Used,
+        );
+        assert_eq!(chip.len(), 1);
+        assert_eq!(chip[0].slug, "supergrok");
+        assert_eq!(chip[0].short_name.as_deref(), Some("sgk"));
+        assert_eq!(chip[0].values, vec![String::from("7%")]);
+
+        let unselected = logo_segments(
+            &content,
+            &report,
+            MenuBarLook::Name,
+            None,
+            true,
+            UsageReading::Used,
+        );
+        assert_eq!(unselected[0].slug, "zai");
+    }
+
+    /// A provider with no value, or one whose fetch failed, is not a
+    /// candidate, so the name look never draws a bare name with no number.
+    #[test]
+    fn name_look_skips_a_selected_provider_without_a_value() {
+        let report = json!({"primary":null,"entries":[
+            {"id":"cursor", "status":"ready", "sections":[{"type":"metric", "label":"Usage"}]},
+            {"id":"kimi", "status":"error", "sections":[
+                {"type":"metric", "label":"Weekly", "percent":40, "value":"40%"}]},
+            entry("zai", "zai", &[("Session", 12.0)]),
+        ]});
+        let content = starred(&["cursor", "kimi", "zai"]);
+
+        for selected in ["cursor", "kimi"] {
+            let segments = logo_segments(
+                &content,
+                &report,
+                MenuBarLook::Name,
+                Some(selected),
+                true,
+                UsageReading::Used,
+            );
+            assert_eq!(segments.len(), 1);
+            assert_eq!(segments[0].slug, "zai");
+        }
     }
 
     #[test]
@@ -288,12 +766,18 @@ mod tests {
             bars: Vec::new(),
         };
 
-        assert_eq!(tooltip(&content), "Claude · 41% 5%\nCodex · 9%");
         assert_eq!(
-            tooltip(&StripContent {
-                groups: Vec::new(),
-                bars: Vec::new(),
-            }),
+            tooltip(&content, UsageReading::Used),
+            "Claude · 41% 5%\nCodex · 9%"
+        );
+        assert_eq!(
+            tooltip(
+                &StripContent {
+                    groups: Vec::new(),
+                    bars: Vec::new(),
+                },
+                UsageReading::Used
+            ),
             "AI Usage"
         );
     }
@@ -307,6 +791,161 @@ mod tests {
             value: value.to_owned(),
             fraction: 0.0,
             bounded: true,
+            left_value: None,
+            grouped: false,
         }
+    }
+
+    fn used(value: &str, fraction: f64) -> super::super::strip::StripMetric {
+        super::super::strip::StripMetric {
+            fraction,
+            ..metric(value)
+        }
+    }
+
+    /// Like Quattro's `auto` window the chip shows the highest percent among
+    /// every quota window, stars aside: a spent weekly window reads `100%`
+    /// over an idle 5h session, and Z.AI's third, monthly MCP window at 18%
+    /// reads `18%` over two at 0%. The logos look keeps the starred values.
+    #[test]
+    fn name_look_shows_the_highest_quota_window() {
+        let chip = |zai: Value| {
+            let report = json!({"primary":null, "entries":[zai]});
+            logo_segments(
+                &starred(&["zai"]),
+                &report,
+                MenuBarLook::Name,
+                Some("zai"),
+                true,
+                UsageReading::Used,
+            )[0]
+            .values
+            .clone()
+        };
+        let spent_weekly = entry("zai", "zai", &[("Session (5h)", 0.0), ("Weekly", 100.0)]);
+        assert_eq!(chip(spent_weekly), vec![String::from("100%")]);
+        let monthly_third = entry(
+            "zai",
+            "zai",
+            &[
+                ("Session (5h)", 0.0),
+                ("Weekly", 0.0),
+                ("MCP tools (monthly)", 18.0),
+            ],
+        );
+        assert_eq!(chip(monthly_third), vec![String::from("18%")]);
+        let balance_first = json!({"id":"zai", "status":"ready", "sections":[
+            {"type":"metric", "label":"Balance", "value":"$40"},
+            {"type":"metric", "label":"Weekly", "percent":12, "value":"12%"}]});
+        assert_eq!(chip(balance_first), vec![String::from("12%")]);
+
+        let starred_session = StripContent {
+            groups: vec![("zai".into(), "Z.AI".into(), vec![used("0%", 0.0)])],
+            bars: Vec::new(),
+        };
+        let logos = logo_segments(
+            &starred_session,
+            &json!({"entries":[]}),
+            MenuBarLook::Logos,
+            None,
+            true,
+            UsageReading::Used,
+        );
+        assert_eq!(logos[0].values, vec![String::from("0%")]);
+    }
+
+    /// A grouped row (Claude's CLI sessions, SuperGrok's product slices) is a
+    /// breakdown, not a window: it never outranks one, like Quattro's
+    /// `selectMetric`, and stands in only when the provider has nothing else.
+    #[test]
+    fn name_look_ranks_grouped_rows_only_without_a_window() {
+        let report = json!({"primary":null, "entries":[
+            {"id":"anthropic", "status":"ready", "sections":[
+                {"type":"metric", "label":"Session", "percent":0, "value":"0%"},
+                {"type":"metric", "label":"cli-1", "group":"Sessions", "percent":90, "value":"90%"}]},
+            {"id":"supergrok", "status":"ready", "sections":[
+                {"type":"metric", "label":"Grok", "group":"Products", "percent":7, "value":"7%"}]},
+        ]});
+        let content = starred(&["anthropic", "supergrok"]);
+        let value = |selected| {
+            logo_segments(
+                &content,
+                &report,
+                MenuBarLook::Name,
+                Some(selected),
+                true,
+                UsageReading::Used,
+            )[0]
+            .values
+            .clone()
+        };
+
+        assert_eq!(value("anthropic"), vec![String::from("0%")]);
+        assert_eq!(value("supergrok"), vec![String::from("7%")]);
+    }
+
+    /// In the popover's Left reading the menu bar says what is left, like the
+    /// tab that selects the chip: Z.AI's monthly window at 18% used reads
+    /// `82%`. The chip still picks the most-used window, so `82%` is the
+    /// tightest one. A value with no percent reads the same either way.
+    #[test]
+    fn menu_bar_text_follows_the_left_reading() {
+        let report = json!({"primary":null, "entries":[
+            entry("zai", "zai", &[("Session (5h)", 0.0), ("Weekly", 0.0), ("MCP tools (monthly)", 18.0)]),
+            {"id":"openrouter", "status":"ready", "sections":[
+                {"type":"metric", "label":"Balance", "value":"$40"}]},
+        ]});
+        let content = super::super::strip::content_from_payload(
+            &report,
+            &super::super::strip::Stars::new(),
+            &[],
+        );
+        let chip = |selected, reading| {
+            logo_segments(
+                &content,
+                &report,
+                MenuBarLook::Name,
+                Some(selected),
+                true,
+                reading,
+            )[0]
+            .values
+            .clone()
+        };
+
+        assert_eq!(chip("zai", UsageReading::Left), vec![String::from("82%")]);
+        assert_eq!(chip("zai", UsageReading::Used), vec![String::from("18%")]);
+        assert_eq!(
+            chip("openrouter", UsageReading::Left),
+            vec![String::from("$40")]
+        );
+
+        let logos = logo_segments(
+            &content,
+            &report,
+            MenuBarLook::Logos,
+            None,
+            true,
+            UsageReading::Left,
+        );
+        assert_eq!(
+            logos[0].values,
+            vec![String::from("100%"), String::from("100%")]
+        );
+        assert_eq!(
+            tooltip(&content, UsageReading::Left),
+            "zai · 100% 100%\nopenrouter · $40"
+        );
+    }
+
+    /// The popover sends `show_as` with every `strip` message; an older or
+    /// unknown value keeps the used reading the menu bar always had.
+    #[test]
+    fn usage_reading_comes_from_the_strip_ipc() {
+        let reading = |value: Value| UsageReading::from_strip_ipc(&value);
+        assert_eq!(reading(json!({"show_as":"left"})), UsageReading::Left);
+        assert_eq!(reading(json!({"show_as":"used"})), UsageReading::Used);
+        assert_eq!(reading(json!({"show_as":"sideways"})), UsageReading::Used);
+        assert_eq!(reading(json!({})), UsageReading::Used);
     }
 }
