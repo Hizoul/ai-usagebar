@@ -18,16 +18,16 @@ Each release is also published at
   provider's short code on each chip when Show all providers is on.
 
 - **Omarchy Quattro: choose which metrics the bar shows, and read them as used
-  or left.** Every metric row in the panel gains an eye that hides that metric
-  from the top bar and the tooltip, per entry (each account of a provider is its
-  own entry): Z.AI's monthly MCP window can be switched off while Session and
-  Weekly stay. A hidden row stays listed,
-  dimmed, so it can be switched back on. A hidden metric is also left out of
-  the highest percentage the bar and its icon alert state take, so a spent
+  or left.** A new **Metrics** section in the panel Settings expands per
+  provider, with one switch per metric, the way the tray's Customize does. A
+  switched-off metric disappears from the panel, the top bar and the tooltip,
+  per entry (each account of a provider is its own entry): Z.AI's monthly MCP
+  window can be switched off while Session and Weekly stay. It is also left out
+  of the highest percentage the bar and its icon alert state take, so a spent
   window you chose not to watch no longer reddens the icon or sets the number.
-  The last metric still on cannot be hidden (its eye is disabled), so the bar
-  never goes blank. On Cursor the eyes drive the same pool switches as its
-  buttons, so both always agree under the same rule.
+  The last metric still on cannot be switched off (its switch is disabled), so
+  the bar never goes blank. Cursor's rows in that section drive the same pool
+  switches as its buttons, so both always agree under the same rule.
   **Show usage as** in the panel Settings (`showAs` in the widget settings,
   `used` by default, so an existing bar reads as before) switches the bar, the
   tooltip, the hero and the panel meters between what is used and what is left
@@ -39,7 +39,7 @@ Each release is also published at
 ### Changed
 
 - **Omarchy Quattro settings fold into an accordion.** Display, Language, Top
-  bar window, Show usage as, Primary provider, Providers and Credentials (with
+  bar window, Show usage as, Metrics, Primary provider, Providers and Credentials (with
   the login buttons) are collapsible sections, one open at a time with Display
   open by default, so the page no longer needs a long scroll. A folded header
   shows the current value (the provider switches show `on/total`), and what you

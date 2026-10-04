@@ -133,28 +133,28 @@
         "key": "showCursorModels",
         "type": "boolean",
         "label": "Show Cursor Models",
-        "description": "Show the Cursor Models pool in the top bar and tooltip. The open panel always lists every pool. At least one Cursor pool stays visible.",
+        "description": "Show the Cursor Models pool in the top bar and tooltip. The panel header and list drop it too. At least one Cursor pool stays visible.",
         "defaultValue": true
       },
       {
         "key": "showCursorOther",
         "type": "boolean",
         "label": "Show Other Models",
-        "description": "Show the Other Models pool in the top bar and tooltip. The open panel always lists every pool. At least one Cursor pool stays visible.",
+        "description": "Show the Other Models pool in the top bar and tooltip. The panel header and list drop it too. At least one Cursor pool stays visible.",
         "defaultValue": true
       },
       {
         "key": "showCursorOnDemand",
         "type": "boolean",
         "label": "Show On-Demand",
-        "description": "Show prepaid on-demand usage in the top bar and tooltip. The open panel always lists every pool. At least one Cursor pool stays visible.",
+        "description": "Show prepaid on-demand usage in the top bar and tooltip. The panel header and list drop it too. At least one Cursor pool stays visible.",
         "defaultValue": true
       },
       {
         "key": "showCursorCredits",
         "type": "boolean",
         "label": "Show Credits",
-        "description": "Show a spending-page credit grant in the top bar and tooltip. The open panel always lists it. Hidden when the account has no grant. At least one Cursor figure stays visible.",
+        "description": "Show a spending-page credit grant in the top bar and tooltip. The panel header and list drop it too. Hidden when the account has no grant. At least one Cursor figure stays visible.",
         "defaultValue": true
       }
     ]

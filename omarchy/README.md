@@ -163,8 +163,8 @@ omarchy bar set akitaonrails.ai-usagebar uiLocale pt-BR
 
 # Cursor's chip lists Cursor Models, Other Models, on-demand used percent,
 # then a credit grant when the account has one. These switches hide a figure
-# from the top bar and tooltip only. The open panel still lists every pool.
-# At least one stays on. Credits is absent when there is no grant.
+# from the top bar, the tooltip, the panel header and the panel list, and the
+# Metrics section of the settings flips the same switches. At least one stays on. Credits is absent when there is no grant.
 omarchy bar set akitaonrails.ai-usagebar showCursorModels false --json
 omarchy bar set akitaonrails.ai-usagebar showCursorOther false --json
 omarchy bar set akitaonrails.ai-usagebar showCursorOnDemand false --json
@@ -182,8 +182,9 @@ pin: its two included pools are model categories, so the chip shows Cursor
 Models, Other Models, prepaid on-demand used percent, and a credit grant
 side by side (`35% · 7% · 0% · 15%`). The Cursor page's switches hide those
 figures from
-the top bar and tooltip only. The open panel, including its header, still
-lists every pool, and the last remaining figure cannot be turned off. A pool
+the top bar, the tooltip, the panel header and the panel list, and the Metrics
+section of the settings flips the same switches. The last remaining figure
+cannot be turned off. A pool
 the report does not contain does not count as that last figure. The bar's
 urgent color follows the pools still on the chip; each panel row keeps its
 own color. For every other provider, panel rows list every window and the alert
@@ -192,22 +193,23 @@ back to the highest percent (balance/text where a vendor has no metric) when
 a vendor lacks the pinned window (a balance-only provider, a weekly-only
 response, or no monthly pool), so the bar never goes blank.
 
-Every metric row in the panel has an eye that hides it from the top bar and the
-tooltip, for that provider only. The choice is saved as `hiddenMetrics` in the
-widget's `shell.json` settings, a map from an entry id to the metric labels
-switched off (`{"zai": ["MCP tools (monthly)"]}`; a metric under a heading is
-keyed `Heading / Label`). A hidden metric is ignored when the bar picks the
-highest percentage and when it decides whether the icon is alarming, so Z.AI
-with Session and Weekly at 0% and the monthly MCP window hidden reads `0%`
-however full that window is. A row under a heading (SuperGrok's product slices,
-Claude's CLI sessions) stands in for the bar only when no other meter is left,
-so hiding every plain window lets such a row set the value and the alert. The
-panel keeps listing the hidden row, dimmed,
-so the eye can bring it back. The last metric still on cannot be hidden: its
-eye is disabled, so the bar never goes blank (a `hiddenMetrics` that would hide
-every metric, edited by hand, is ignored). Cursor's row eyes drive the same pool
-switches as the buttons above the list (`showCursorModels` and friends), so the
-two always agree, under the same rule.
+The **Metrics** section of the panel Settings chooses what each provider shows,
+the way the tray's Customize does: it expands per provider, with one switch per
+metric. A metric switched off disappears from the panel, the top bar and the
+tooltip. The choice is saved as `hiddenMetrics` in the widget's `shell.json`
+settings, a map from an entry id to the metric labels switched off
+(`{"zai": ["MCP tools (monthly)"]}`; a metric under a heading is keyed
+`Heading / Label`), so each account is independent. A hidden metric is ignored
+when the bar picks the highest percentage and when it decides whether the icon
+is alarming, so Z.AI with Session and Weekly at 0% and the monthly MCP window
+switched off reads `0%` however full that window is. A row under a heading
+(SuperGrok's product slices, Claude's CLI sessions) stands in for the bar only
+when no other meter is left, so switching off every plain window lets such a
+row set the value and the alert. The last metric still on cannot be switched
+off: its switch is disabled, so the bar never goes blank (a `hiddenMetrics`
+that would hide every metric, edited by hand, is ignored). Cursor's rows in that
+section drive the same pool switches as the buttons above its list
+(`showCursorModels` and friends), so the two always agree, under the same rule.
 `showAs` changes only the number: Left shows what remains of the most-used
 window (Z.AI's 18% monthly window reads `82%`), and the alert state keeps
 following the used share.

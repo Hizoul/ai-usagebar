@@ -86,10 +86,15 @@ Panel {
   // Grouped sub-rows (SuperGrok's product slices) gain a heading row here so
   // they render as a breakdown of the meter above, not peers of it.
   readonly property bool cursorEntry: isCursorEntry(entry)
-  readonly property var entrySections: entry ? Model.groupedSections(entry.sections) : []
-  readonly property bool hasHideableMetrics: !cursorEntry && entrySections.some(function(row) {
-    return row.type === "metric"
-  })
+  readonly property var entrySections: entry
+    ? Model.groupedSections(Model.panelEntry(entry, hiddenMetrics, cursorPoolFlags()).sections) : []
+  readonly property var metricEntries: visibleEntries.map(function(item) {
+    return {
+      id: item.id,
+      name: Model.providerName(item),
+      rows: Model.metricChoices(item, hiddenMetrics, cursorPoolFlags())
+    }
+  }).filter(function(item) { return item.rows.length > 0 })
   readonly property bool filterMiss: configuredProvider !== "" && entries.length > 0 && visibleEntries.length === 0
   readonly property bool entryAlarming: shownAlarming()
   // A cached or failed provider response stays a status line, but a report
@@ -258,15 +263,17 @@ Panel {
     persistWidgetSettings({ showAs: next })
   }
 
-  function metricHidden(item, section) {
-    return item ? Model.isMetricHidden(hiddenMetrics, item.id, section) : false
-  }
-
-  function toggleMetricHidden(item, section) {
-    if (!item || !section || !Model.canToggleMetric(item, hiddenMetrics, section)) return
-    persistWidgetSettings({
-      hiddenMetrics: Model.toggleHiddenMetric(hiddenMetrics, item.id, Model.metricKey(section))
-    })
+  function setMetricShown(entryId, key, pool) {
+    var target = null
+    for (var i = 0; i < visibleEntries.length; i++)
+      if (visibleEntries[i].id === entryId) target = visibleEntries[i]
+    if (!target) return
+    if (pool !== "") {
+      toggleCursorPool(pool, target)
+      return
+    }
+    if (!Model.canToggleMetric(target, hiddenMetrics, key)) return
+    persistWidgetSettings({ hiddenMetrics: Model.toggleHiddenMetric(hiddenMetrics, entryId, key) })
   }
 
   function isCursorEntry(item) {
@@ -285,9 +292,10 @@ Panel {
     }
   }
 
-  function cursorShownFlags() {
+  function cursorShownFlags(item) {
+    var target = item || entry
     var base = typeof Model.cursorBarFlags === "function"
-      ? Model.cursorBarFlags(entry, cursorPoolFlags())
+      ? Model.cursorBarFlags(target, cursorPoolFlags())
       : cursorPoolFlags()
     var flags = {
       models: base.models === true,
@@ -298,7 +306,7 @@ Panel {
     // Hot reload can keep an older Model.js that has no credits flag. The
     // grant is still in the report, so the switch follows this file.
     if (base.credits === undefined)
-      flags.credits = showCursorCredits && creditGrantBits(entry).length > 0
+      flags.credits = showCursorCredits && creditGrantBits(target).length > 0
     return flags
   }
 
@@ -326,9 +334,10 @@ Panel {
     return rows
   }
 
-  function toggleCursorPool(id) {
+  function toggleCursorPool(id, item) {
+    var target = item || entry
     var saved = cursorPoolFlags()
-    var shown = cursorShownFlags()
+    var shown = cursorShownFlags(target)
     var next = Model.toggleCursorPool(shown, id)
     // Older Model.js ignores the credits id and hands the same flags back.
     if (id === "credits" && next.credits === shown.credits) {
@@ -343,7 +352,7 @@ Panel {
     if (next.models === shown.models && next.other === shown.other
         && next.demand === shown.demand && next.credits === shown.credits) return
     var has = typeof Model.cursorPoolPresence === "function"
-      ? Model.cursorPoolPresence(entry)
+      ? Model.cursorPoolPresence(target)
       : { models: true, other: true, demand: true, credits: false }
     persistWidgetSettings({
       showCursorModels: has.models ? next.models : saved.models,
@@ -597,7 +606,7 @@ Panel {
 
   function panelHeadline(item) {
     if (isCursorEntry(item) && typeof Model.cursorDualHeadline === "function") {
-      var dual = Model.cursorDualHeadline(item, undefined, showAs)
+      var dual = Model.cursorDualHeadline(item, cursorPoolFlags(), showAs)
       if (dual && dual.text) return dual.text
     }
     return usageText(item, false)
@@ -982,6 +991,7 @@ Panel {
             barWindow: root.barWindow
             showAs: root.showAs
             brandIcons: root.brandIcons
+            metricEntries: root.metricEntries
             onSaved: root.startRefresh()
             onShowValueRequested: function(enabled) { root.setShowValue(enabled) }
             onShowProviderRequested: function(enabled) { root.setShowProvider(enabled) }
@@ -990,6 +1000,7 @@ Panel {
             onUiLocaleRequested: function(value) { root.setUiLocale(value) }
             onBarWindowRequested: function(value) { root.setBarWindow(value) }
             onShowAsRequested: function(value) { root.setShowAs(value) }
+            onMetricToggleRequested: function(entryId, key, pool) { root.setMetricShown(entryId, key, pool) }
             onBrandIconsRequested: function(enabled) { root.setBrandIcons(enabled) }
             onFallbackRequested: root.openTerminalSettings()
             onNousLoginRequested: root.openNousLogin()
@@ -1127,17 +1138,6 @@ Panel {
               fontFamily: root.fontFamily
             }
 
-            Text {
-              visible: root.hasHideableMetrics
-              width: parent.width
-              text: root.tr("metric.hidden_hint")
-              textFormat: Text.PlainText
-              color: root.dim
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.caption
-              wrapMode: Text.WordWrap
-            }
-
             Repeater {
               model: root.entrySections
 
@@ -1226,10 +1226,6 @@ Panel {
     readonly property int indent: grouped ? Style.space(10) : 0
     readonly property string detailText: I18n.displayDetail(root.uiLocale, Model.metricDetail(row))
     readonly property string resetText: row ? I18n.formatReset(row.reset_at, root.nowMs, root.uiLocale) : ""
-    readonly property string poolId: root.cursorEntry ? Model.cursorPoolOf(row) : ""
-    readonly property bool hideable: row !== null && (!root.cursorEntry || poolId !== "")
-    readonly property bool hidden: !hideable ? false
-      : (root.cursorEntry ? !root.cursorPoolOn(poolId) : root.metricHidden(root.entry, row))
     readonly property int shownPercent: row ? Model.shownPercent(row.percent, root.showAs) : 0
     readonly property var valueView: Model.metricValueView(row, root.showAs)
     readonly property string valueText: valueView.left
@@ -1237,12 +1233,10 @@ Panel {
       : valueView.text
 
     spacing: Style.space(grouped ? 4 : 6)
-    opacity: hidden ? 0.45 : 1
 
     Item {
       width: parent.width
-      implicitHeight: Math.max(metricLabel.implicitHeight, metricValue.implicitHeight,
-        metricEye.visible ? metricEye.implicitHeight : 0)
+      implicitHeight: Math.max(metricLabel.implicitHeight, metricValue.implicitHeight)
 
       Text {
         id: metricLabel
@@ -1267,27 +1261,8 @@ Panel {
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
         font.bold: !metricRow.grouped
-        anchors.right: metricEye.visible ? metricEye.left : parent.right
-        anchors.rightMargin: metricEye.visible ? Style.spacing.sm : 0
-        anchors.verticalCenter: parent.verticalCenter
-      }
-
-      PanelActionButton {
-        id: metricEye
-        visible: metricRow.hideable
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
-        iconText: metricRow.hidden ? "󰈉" : "󰈈"
-        enabled: root.cursorEntry
-          ? metricRow.hidden || root.cursorPoolCanTurnOff(metricRow.poolId)
-          : Model.canToggleMetric(root.entry, root.hiddenMetrics, metricRow.row)
-        tooltipText: root.tr(metricRow.hidden ? "metric.show" : "metric.hide")
-        foreground: root.foreground
-        fontFamily: root.fontFamily
-        onClicked: {
-          if (root.cursorEntry) root.toggleCursorPool(metricRow.poolId)
-          else root.toggleMetricHidden(root.entry, metricRow.row)
-        }
       }
     }
 

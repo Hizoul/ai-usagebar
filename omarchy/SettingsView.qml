@@ -24,6 +24,8 @@ Column {
   property string barWindow: "auto"
   property string showAs: "used"
   property bool brandIcons: true
+  property var metricEntries: []
+  property string openMetricEntry: ""
   property string openSection: "display"
   property int keyPendingCount: 0
   readonly property color dim: Qt.darker(foreground, 1.45)
@@ -61,6 +63,7 @@ Column {
   signal barWindowRequested(string value)
   signal showAsRequested(string value)
   signal brandIconsRequested(bool enabled)
+  signal metricToggleRequested(string entryId, string key, string pool)
   signal closeRequested()
 
   spacing: Style.space(12)
@@ -156,6 +159,17 @@ Column {
     return (vendorPendingCount > 0 ? "● " : "") + on + "/" + list.length
   }
 
+  function metricShownCount(rows) {
+    var count = 0
+    for (var i = 0; i < rows.length; i++)
+      if (rows[i].checked) count++
+    return count
+  }
+
+  function toggleMetricEntry(id) {
+    openMetricEntry = openMetricEntry === id ? "" : id
+  }
+
   function toggleSection(id) {
     openSection = openSection === id ? "" : id
   }
@@ -225,6 +239,7 @@ Column {
   onVisibleChanged: {
     if (visible) {
       openSection = "display"
+      openMetricEntry = ""
       load()
       Qt.callLater(function() { root.forceActiveFocus() })
     }
@@ -488,6 +503,71 @@ Column {
         fontFamily: root.fontFamily
         enabled: !root.saving
         onChanged: function(value) { root.showAsRequested(value) }
+      }
+    }
+  }
+
+  Column {
+    visible: !root.loading && root.metricEntries.length > 0
+    width: parent.width
+    spacing: Style.space(8)
+
+    Disclosure {
+      text: root.tr("section.metrics")
+      expanded: root.openSection === "metrics"
+      onToggled: root.toggleSection("metrics")
+    }
+    Column {
+      visible: root.openSection === "metrics"
+      width: parent.width
+      spacing: Style.space(8)
+
+      Text {
+        width: parent.width
+        text: root.tr("metrics.help")
+        textFormat: Text.PlainText
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        wrapMode: Text.WordWrap
+      }
+      Repeater {
+        model: root.metricEntries
+
+        Column {
+          id: metricProvider
+          required property var modelData
+          width: parent.width
+          spacing: Style.space(8)
+
+          Disclosure {
+            text: root.safe(metricProvider.modelData.name)
+            badge: root.metricShownCount(metricProvider.modelData.rows) + "/" + metricProvider.modelData.rows.length
+            expanded: root.openMetricEntry === metricProvider.modelData.id
+            onToggled: root.toggleMetricEntry(metricProvider.modelData.id)
+          }
+          Column {
+            visible: root.openMetricEntry === metricProvider.modelData.id
+            width: parent.width
+            spacing: Style.space(8)
+
+            Repeater {
+              model: metricProvider.modelData.rows
+
+              Toggle {
+                required property var modelData
+                width: parent.width
+                label: I18n.displayLabel(root.uiLocale, modelData.label)
+                description: root.safe(modelData.group)
+                checked: modelData.checked
+                foreground: root.foreground
+                fontFamily: root.fontFamily
+                enabled: !root.saving && modelData.canToggle
+                onClicked: root.metricToggleRequested(metricProvider.modelData.id, modelData.key, modelData.pool)
+              }
+            }
+          }
+        }
       }
     }
   }

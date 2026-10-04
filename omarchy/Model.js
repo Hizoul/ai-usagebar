@@ -292,16 +292,47 @@ function hasOwn(object, key) {
 }
 
 /**
- * Builds the key a metric is hidden under: its label, behind its group when it sits under a heading,
- * so two rows with the same label in different groups stay distinct.
- * @param {Object} section Metric section from the report.
- * @returns {string}
+ * Computes the key each metric of an entry is hidden under: its label behind the heading it sits under
+ * (the report's `group`, or the text heading row above it, as Antigravity's Session and Weekly), so rows
+ * with the same label in different groups stay distinct. A label repeated under the same heading is numbered.
+ * @param {Object} entry Entry from the report.
+ * @returns {Array<{key: string, group: string}|null>} One item per section, null for a section that is not a metric.
  */
-function metricKey(section) {
-  if (!section) return ""
-  var label = cleanText(section.label, 160).trim()
-  var group = cleanText(section.group, 80).trim()
-  return group === "" ? label : group + " / " + label
+function metricKeys(entry) {
+  var sections = entry && Array.isArray(entry.sections) ? entry.sections : []
+  var keys = []
+  var heading = ""
+  var seen = {}
+  for (var i = 0; i < sections.length; i++) {
+    var section = sections[i]
+    if (isHeadingRow(section)) {
+      heading = cleanText(section.label, 80).trim()
+      keys.push(null)
+      continue
+    }
+    if (!section || section.type !== "metric") {
+      keys.push(null)
+      continue
+    }
+    var group = cleanText(section.group, 80).trim() || heading
+    var label = cleanText(section.label, 160).trim()
+    var base = group === "" ? label : group + " / " + label
+    var count = hasOwn(seen, base) ? seen[base] : 0
+    seen[base] = count + 1
+    keys.push({ key: count > 0 ? base + " #" + (count + 1) : base, group: group })
+  }
+  return keys
+}
+
+/**
+ * Tells whether a section is a group heading: a text row with a label and no value.
+ * @param {Object} section Section from the report.
+ * @returns {boolean}
+ */
+function isHeadingRow(section) {
+  if (!section || section.type !== "text") return false
+  var value = section.value === undefined || section.value === null ? "" : String(section.value)
+  return cleanText(section.label, 160).trim() !== "" && value.trim() === ""
 }
 
 /**
@@ -345,17 +376,6 @@ function hiddenKeysFor(hidden, entryId) {
 }
 
 /**
- * Tells whether a metric is switched off for an entry.
- * @param {*} hidden Raw `hiddenMetrics` setting.
- * @param {string} entryId Entry id.
- * @param {Object} section Metric section from the report.
- * @returns {boolean}
- */
-function isMetricHidden(hidden, entryId, section) {
-  return hiddenKeysFor(hidden, entryId).indexOf(metricKey(section)) >= 0
-}
-
-/**
  * Computes the next `hiddenMetrics` after switching one metric of one entry on or off.
  * An entry left with nothing hidden drops out, so the map never carries empty lists. The input is not mutated.
  * @param {*} hidden Raw `hiddenMetrics` setting.
@@ -380,9 +400,9 @@ function toggleHiddenMetric(hidden, entryId, key) {
 /**
  * Returns the entry as the bar and the tooltip see it, without the metrics switched off for it, so the
  * highest-percent choice, the alert state and every echo of them never read a row the user hid.
- * At least one metric always stays: a hidden list that would remove every metric (a hand-edited shell.json)
- * is ignored, so the bar never goes blank.
- * The panel keeps drawing the original entry, hidden rows included, so they can be switched back on.
+ * A heading left with no metric under it goes too. At least one metric always stays: a hidden list that
+ * would remove every metric (a hand-edited shell.json) is ignored, so the bar never goes blank.
+ * The settings page still offers the original entry, hidden rows included, so they can be switched back on.
  * @param {Object} entry Entry from the report.
  * @param {string[]} hiddenKeys Metric keys switched off for the entry.
  * @returns {Object} The entry itself when nothing is hidden, otherwise a copy without the hidden metrics.
@@ -391,17 +411,33 @@ function visibleEntry(entry, hiddenKeys) {
   var hidden = Array.isArray(hiddenKeys) ? hiddenKeys : []
   if (!entry || hidden.length === 0) return entry
   var sections = Array.isArray(entry.sections) ? entry.sections : []
+  var keys = metricKeys(entry)
   var kept = []
   var metrics = 0
+  var keptMetrics = 0
+  var block = null
+  var closeBlock = function() {
+    if (block && block.had > 0 && block.kept === 0) kept.splice(block.start)
+    block = null
+  }
   for (var i = 0; i < sections.length; i++) {
     var section = sections[i]
-    var isMetric = section && section.type === "metric"
-    if (isMetric) metrics++
-    if (isMetric && hidden.indexOf(metricKey(section)) >= 0) continue
+    if (isHeadingRow(section)) {
+      closeBlock()
+      block = { start: kept.length, had: 0, kept: 0 }
+    }
+    if (keys[i]) {
+      metrics++
+      if (block) block.had++
+      if (hidden.indexOf(keys[i].key) >= 0) continue
+      keptMetrics++
+      if (block) block.kept++
+    }
     kept.push(section)
   }
-  var keptMetrics = kept.filter(function(row) { return row && row.type === "metric" }).length
-  if (kept.length === sections.length || (metrics > 0 && keptMetrics === 0)) return entry
+  closeBlock()
+  if (metrics > 0 && keptMetrics === 0) return entry
+  if (metrics === keptMetrics) return entry
   var copy = {}
   for (var field in entry) copy[field] = entry[field]
   copy.sections = kept
@@ -413,20 +449,17 @@ function visibleEntry(entry, hiddenKeys) {
  * refused when it is the last metric of the entry still on, the rule Cursor's pools already follow.
  * @param {Object} entry Entry from the report.
  * @param {*} hidden Raw `hiddenMetrics` setting.
- * @param {Object} section Metric section from the report.
+ * @param {string} key Metric key from `metricKeys`.
  * @returns {boolean}
  */
-function canToggleMetric(entry, hidden, section) {
-  var key = metricKey(section)
+function canToggleMetric(entry, hidden, key) {
   if (!entry || key === "") return false
   var off = hiddenKeysFor(hidden, entry.id)
   if (off.indexOf(key) >= 0) return true
-  var sections = Array.isArray(entry.sections) ? entry.sections : []
   var visible = 0
-  for (var i = 0; i < sections.length; i++) {
-    var row = sections[i]
-    if (row && row.type === "metric" && off.indexOf(metricKey(row)) < 0) visible++
-  }
+  metricKeys(entry).forEach(function(item) {
+    if (item && off.indexOf(item.key) < 0) visible++
+  })
   return visible > 1
 }
 
@@ -890,6 +923,76 @@ function toggleCursorPool(flags, id) {
 }
 
 /**
+ * Returns the entry as the panel lists it: the metrics the user switched off are gone, so their meters
+ * do not draw. A provider hides metrics through `hiddenMetrics`; Cursor hides its pools through its own
+ * switches. Only a pool the report really carries can be switched off: an On-Demand row without a limit is
+ * plain text and always stays.
+ * @param {Object} entry Entry from the report.
+ * @param {*} hidden Raw `hiddenMetrics` setting.
+ * @param {{models: boolean, other: boolean, demand: boolean, credits: boolean}} cursorFlags Cursor pool switches.
+ * @returns {Object} The entry itself when nothing is hidden, otherwise a copy without the hidden rows.
+ */
+function panelEntry(entry, hidden, cursorFlags) {
+  if (!entry) return entry
+  if (baseProvider(entry.id) !== "cursor") return visibleEntry(entry, hiddenKeysFor(hidden, entry.id))
+  var has = cursorPoolPresence(entry)
+  var on = cursorPoolVisibility(cursorFlags)
+  var sections = Array.isArray(entry.sections) ? entry.sections : []
+  var kept = sections.filter(function(section) {
+    var pool = cursorPoolOf(section)
+    return pool === "" || has[pool] !== true || on[pool] === true
+  })
+  if (kept.length === sections.length) return entry
+  var copy = {}
+  for (var field in entry) copy[field] = entry[field]
+  copy.sections = kept
+  return copy
+}
+
+/**
+ * Lists the metrics of one entry as the settings page offers them, each with whether it is shown and
+ * whether its switch may be flipped. Cursor's rows follow its pool switches, one row per pool the report carries.
+ * @param {Object} entry Entry from the report.
+ * @param {*} hidden Raw `hiddenMetrics` setting.
+ * @param {{models: boolean, other: boolean, demand: boolean, credits: boolean}} cursorFlags Cursor pool switches.
+ * @returns {Array<{key: string, label: string, group: string, pool: string, checked: boolean, canToggle: boolean}>}
+ */
+function metricChoices(entry, hidden, cursorFlags) {
+  var rows = []
+  if (!entry) return rows
+  var sections = Array.isArray(entry.sections) ? entry.sections : []
+  var cursor = baseProvider(entry.id) === "cursor"
+  var off = hiddenKeysFor(hidden, entry.id)
+  var has = cursor ? cursorPoolPresence(entry) : null
+  var on = cursor ? cursorPoolVisibility(cursorFlags) : null
+  var keys = metricKeys(entry)
+  var pools = {}
+  for (var i = 0; i < sections.length; i++) {
+    var section = sections[i]
+    var pool = cursor ? cursorPoolOf(section) : ""
+    if (!section || (section.type !== "metric" && pool !== "demand")) continue
+    if (cursor && (pool === "" || has[pool] !== true)) continue
+    if (pool !== "" && hasOwn(pools, pool)) continue
+    if (pool !== "") pools[pool] = true
+    var named = keys[i] || { key: cleanText(section.label, 160).trim(), group: "" }
+    var key = named.key
+    rows.push({
+      key: key,
+      label: section.label,
+      group: named.group,
+      pool: pool,
+      checked: pool !== "" ? on[pool] === true : off.indexOf(key) < 0,
+      canToggle: true
+    })
+  }
+  var shown = rows.filter(function(row) { return row.checked }).length
+  return rows.map(function(row) {
+    row.canToggle = !row.checked || shown > 1
+    return row
+  })
+}
+
+/**
  * Decides what the value beside a panel meter reads. A report value that carries information of its own
  * (a dollar balance, a count) is kept. A value that only echoes the percentage is replaced by the percentage
  * in the chosen reading, so the number beside the meter agrees with the bar drawn under it.
@@ -912,13 +1015,15 @@ function metricValueView(row, showAs) {
 }
 
 /**
- * Names the Cursor pool switch a metric row belongs to: the two model pools and On-Demand have their own,
+ * Names the Cursor pool switch a row belongs to: the two model pools and On-Demand have their own,
  * and every other meter is a spending-page grant.
  * @param {Object} section Section from the report.
- * @returns {"models"|"other"|"demand"|"credits"|""} Empty for anything that is not a metric.
+ * @returns {"models"|"other"|"demand"|"credits"|""} Empty for anything that is neither a metric nor On-Demand.
  */
 function cursorPoolOf(section) {
-  if (!section || section.type !== "metric") return ""
+  if (!section) return ""
+  if (section.type === "text") return section.label === "On-Demand" ? "demand" : ""
+  if (section.type !== "metric") return ""
   if (section.label === "Cursor Models") return "models"
   if (section.label === "Other Models") return "other"
   if (section.label === "On-Demand") return "demand"

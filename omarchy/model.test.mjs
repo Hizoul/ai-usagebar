@@ -299,13 +299,13 @@ assert.match(panelSource, /persistSelection\(selectedEntryId\)/);
 assert.match(panelSource, /Model\.barLabel\(/);
 // Cursor pool switches filter the bar chip and tooltip. The open panel keeps
 // every pool, including the hero numbers.
-assert.match(panelSource, /entrySections:\s*entry\s*\?\s*Model\.groupedSections\(entry\.sections\)/);
+assert.match(panelSource, /entrySections:\s*entry\s*\?\s*Model\.groupedSections\(Model\.panelEntry\(entry,\s*hiddenMetrics,\s*cursorPoolFlags\(\)\)\.sections\)/);
 assert.doesNotMatch(panelSource, /filterCursorSections/);
 assert.match(panelSource, /cursorDualHeadline\(item,\s*cursorPoolFlags\(\),\s*showAs\)/);
 assert.match(panelSource, /function creditGrantBits\(item\)/);
 assert.match(panelSource, /has\.credits \|\| creditGrantBits\(entry\)\.length > 0/);
 assert.match(panelSource, /return withCreditGrants\(pools, item\)/);
-assert.match(panelSource, /function panelHeadline\(item\) \{[\s\S]*?cursorDualHeadline\(item,\s*undefined,\s*showAs\)/);
+assert.match(panelSource, /function panelHeadline\(item\) \{[\s\S]*?cursorDualHeadline\(item,\s*cursorPoolFlags\(\),\s*showAs\)/);
 
 const settingsViewSource = fs.readFileSync(new URL('./SettingsView.qml', import.meta.url), 'utf8');
 assert.match(settingsViewSource, /command:\s*\["ai-usagebar",\s*"settings",\s*"show"\]/);
@@ -1474,7 +1474,8 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
 {
   const zai = zaiReport(18);
   const [session, weekly, mcp] = Array.from(zai.sections);
-  const can = (hidden, section) => model.canToggleMetric(zai, hidden, section);
+  const keyOf = (entry, section) => model.metricKeys(entry)[Array.from(entry.sections).indexOf(section)].key;
+  const can = (hidden, section) => model.canToggleMetric(zai, hidden, keyOf(zai, section));
   assert.equal(can({}, session) && can({}, weekly) && can({}, mcp), true, 'with all on, any one may be hidden');
   const two = {zai: ['Session', 'Weekly']};
   assert.equal(can(two, mcp), false, 'the last metric still on cannot be hidden');
@@ -1483,12 +1484,12 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
   assert.equal(can({zai: ['Session']}, mcp), true);
   assert.equal(can({zai: ['Session']}, weekly), true);
   assert.equal(can({'zai@other': ['Session', 'Weekly']}, mcp), true, 'another entry id does not count');
-  assert.equal(model.canToggleMetric(zai, {}, {type: 'metric', label: ''}), false);
-  assert.equal(model.canToggleMetric(null, {}, session), false);
+  assert.equal(model.canToggleMetric(zai, {}, ''), false);
+  assert.equal(model.canToggleMetric(null, {}, keyOf(zai, session)), false);
   const single = model.parseReport(JSON.stringify({entries: [{id: 'solo', sections: [
     {type: 'metric', label: 'Only', percent: 5}
   ]}]})).entries[0];
-  assert.equal(model.canToggleMetric(single, {}, single.sections[0]), false, 'a lone metric has no switch to flip');
+  assert.equal(model.canToggleMetric(single, {}, keyOf(single, single.sections[0])), false, 'a lone metric has no switch to flip');
 }
 
 {
@@ -1496,7 +1497,7 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
     {type: 'metric', label: 'Credits', percent: 10},
     {type: 'metric', label: 'Chat', percent: 90, group: 'Breakdown'}
   ]}]})).entries[0];
-  assert.equal(model.metricKey(grok.sections[1]), 'Breakdown / Chat');
+  assert.equal(model.metricKeys(grok)[1].key, 'Breakdown / Chat');
   assert.equal(model.headline(grok).text, '10%');
   assert.equal(model.headline(model.visibleEntry(grok, ['Credits'])).text, '90%');
   assert.equal(model.headline(model.visibleEntry(grok, ['Chat'])).text, '10%');
@@ -1526,8 +1527,6 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
   assert.deepEqual(Array.from(model.hiddenKeysFor(clean, 'zai')), ['MCP tools (monthly)', '7']);
   assert.deepEqual(Array.from(model.hiddenKeysFor(clean, 'toString')), []);
   assert.deepEqual(Array.from(model.hiddenKeysFor(clean, 'anthropic')), [], 'an entry id is matched exactly');
-  assert.equal(model.isMetricHidden(clean, 'zai', {type: 'metric', label: 'MCP tools (monthly)'}), true);
-  assert.equal(model.isMetricHidden(clean, 'zai', {type: 'metric', label: 'Weekly'}), false);
 }
 
 {
@@ -1578,10 +1577,112 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
   assert.deepEqual(view(null, 'left'), {text: '', left: false, percent: null});
 }
 
+// The panel lists the metrics that are on, so a switched-off one draws no meter.
+{
+  const zai = zaiReport(18);
+  const panel = (hidden) => Array.from(model.panelEntry(zai, hidden, {}).sections.map(row => row.label));
+  assert.deepEqual(panel({}), ['Session', 'Weekly', 'MCP tools (monthly)']);
+  assert.deepEqual(panel({zai: ['MCP tools (monthly)']}), ['Session', 'Weekly']);
+  assert.deepEqual(panel({zai: ['Session', 'Weekly']}), ['MCP tools (monthly)']);
+  assert.deepEqual(panel({zai: ['Session', 'Weekly', 'MCP tools (monthly)']}), ['Session', 'Weekly', 'MCP tools (monthly)'],
+    'hiding every metric is ignored');
+  assert.deepEqual(panel({'zai@other': ['Session']}), ['Session', 'Weekly', 'MCP tools (monthly)']);
+  assert.equal(model.panelEntry(null, {}, {}), null);
+  const grok = model.parseReport(JSON.stringify({entries: [{id: 'supergrok', sections: [
+    {type: 'metric', label: 'Credits', percent: 10},
+    {type: 'metric', label: 'Chat', percent: 90, group: 'Breakdown'}
+  ]}]})).entries[0];
+  const rows = (hidden) => Array.from(model.groupedSections(model.panelEntry(grok, hidden, {}).sections).map(row => row.label));
+  assert.deepEqual(rows({}), ['Credits', 'Breakdown', 'Chat']);
+  assert.deepEqual(rows({supergrok: ['Breakdown / Chat']}), ['Credits'], 'a group with no row left loses its heading');
+}
+
+// Antigravity's groups are heading rows, not a field: the same label under two headings stays distinct.
+{
+  const agy = model.parseReport(JSON.stringify({entries: [{id: 'antigravity', sections: [
+    {type: 'spacer'},
+    {type: 'text', label: 'Session', value: ''},
+    {type: 'metric', label: 'Gemini', percent: 0},
+    {type: 'metric', label: 'Claude & GPT OSS', percent: 0},
+    {type: 'text', label: 'Weekly', value: ''},
+    {type: 'metric', label: 'Gemini', percent: 6},
+    {type: 'metric', label: 'Claude & GPT OSS', percent: 0},
+    {type: 'text', label: 'Source', value: 'local'}
+  ]}]})).entries[0];
+  assert.deepEqual(Array.from(model.metricKeys(agy), item => item && item.key),
+    [null, null, 'Session / Gemini', 'Session / Claude & GPT OSS', null, 'Weekly / Gemini', 'Weekly / Claude & GPT OSS', null]);
+  const shown = (hidden) => Array.from(model.panelEntry(agy, hidden, {}).sections.map(row => row.type + ':' + (row.label || '')));
+  assert.deepEqual(shown({antigravity: ['Weekly / Gemini']}),
+    ['spacer:', 'text:Session', 'metric:Gemini', 'metric:Claude & GPT OSS', 'text:Weekly', 'metric:Claude & GPT OSS', 'text:Source'],
+    'hiding one of two same-labelled rows hides only that one');
+  assert.deepEqual(shown({antigravity: ['Session / Gemini', 'Session / Claude & GPT OSS']}),
+    ['spacer:', 'text:Weekly', 'metric:Gemini', 'metric:Claude & GPT OSS', 'text:Source'],
+    'a heading with no metric left goes with them');
+  assert.equal(model.headline(model.visibleEntry(agy, ['Weekly / Gemini'])).text, '0%');
+  assert.equal(model.headline(agy).text, '6%');
+  const rows = model.metricChoices(agy, {antigravity: ['Weekly / Gemini']}, {});
+  assert.deepEqual(Array.from(rows, row => `${row.group}|${row.label}|${row.checked}`),
+    ['Session|Gemini|true', 'Session|Claude & GPT OSS|true', 'Weekly|Gemini|false', 'Weekly|Claude & GPT OSS|true']);
+  const twice = model.parseReport(JSON.stringify({entries: [{id: 'x', sections: [
+    {type: 'metric', label: 'Pool', percent: 1},
+    {type: 'metric', label: 'Pool', percent: 2}
+  ]}]})).entries[0];
+  assert.deepEqual(Array.from(model.metricKeys(twice), item => item.key), ['Pool', 'Pool #2'], 'a repeated label is numbered');
+}
+
+// Settings offers one switch per metric, and Cursor's follow its pool switches.
+{
+  const zai = zaiReport(18);
+  const choices = (hidden) => Array.from(model.metricChoices(zai, hidden, {}),
+    row => `${row.label}|${row.checked}|${row.canToggle}`);
+  assert.deepEqual(choices({}), ['Session|true|true', 'Weekly|true|true', 'MCP tools (monthly)|true|true']);
+  assert.deepEqual(choices({zai: ['Weekly']}), ['Session|true|true', 'Weekly|false|true', 'MCP tools (monthly)|true|true']);
+  assert.deepEqual(choices({zai: ['Session', 'Weekly']}), ['Session|false|true', 'Weekly|false|true', 'MCP tools (monthly)|true|false'],
+    'the last metric on has its switch locked');
+  assert.deepEqual(Array.from(model.metricChoices(null, {}, {})), []);
+  const grouped = model.parseReport(JSON.stringify({entries: [{id: 'supergrok', sections: [
+    {type: 'metric', label: 'Credits', percent: 10},
+    {type: 'metric', label: 'Chat', percent: 90, group: 'Breakdown'}
+  ]}]})).entries[0];
+  const rows = model.metricChoices(grouped, {}, {});
+  assert.deepEqual(Array.from(rows, row => row.key), ['Credits', 'Breakdown / Chat']);
+  assert.equal(rows[1].group, 'Breakdown');
+  const cursor = model.parseReport(JSON.stringify({entries: [{id: 'cursor', sections: [
+    {type: 'metric', label: 'Cursor Models', percent: 35},
+    {type: 'metric', label: 'Other Models', percent: 100},
+    {type: 'text', label: 'On-Demand', value: '$1.00 / $5.00'},
+    {type: 'metric', label: 'Team credit', percent: 15},
+    {type: 'metric', label: 'Spend grant', percent: 5}
+  ]}]})).entries[0];
+  const flags = (over) => Object.assign({models: true, other: true, demand: true, credits: true}, over);
+  const view = (over) => Array.from(model.metricChoices(cursor, {}, flags(over)),
+    row => `${row.pool}|${row.checked}|${row.canToggle}`);
+  assert.deepEqual(view({}), ['models|true|true', 'other|true|true', 'demand|true|true', 'credits|true|true'],
+    'one switch per pool, the grants sharing the credits switch');
+  assert.deepEqual(view({other: false, demand: false, credits: false}),
+    ['models|true|false', 'other|false|true', 'demand|false|true', 'credits|false|true']);
+  const kept = (over) => Array.from(model.panelEntry(cursor, {}, flags(over)).sections.map(row => row.label));
+  assert.deepEqual(kept({}), ['Cursor Models', 'Other Models', 'On-Demand', 'Team credit', 'Spend grant']);
+  assert.deepEqual(kept({other: false}), ['Cursor Models', 'On-Demand', 'Team credit', 'Spend grant']);
+  assert.deepEqual(kept({models: false, credits: false}), ['Other Models', 'On-Demand']);
+  assert.deepEqual(kept({models: false, other: false, demand: false, credits: false}), ['Cursor Models'],
+    'the first pool stays when every switch is off');
+  const plainDemand = model.parseReport(JSON.stringify({entries: [{id: 'cursor', sections: [
+    {type: 'metric', label: 'Cursor Models', percent: 35},
+    {type: 'metric', label: 'Other Models', percent: 100},
+    {type: 'text', label: 'On-Demand', value: '$0.00'}
+  ]}]})).entries[0];
+  assert.deepEqual(Array.from(model.panelEntry(plainDemand, {}, flags({other: false})).sections.map(row => row.label)),
+    ['Cursor Models', 'On-Demand'], 'an On-Demand row without a limit is not a pool, so it is never cut');
+  assert.deepEqual(Array.from(model.metricChoices(plainDemand, {}, flags({})), row => row.pool), ['models', 'other'],
+    'and it gets no switch');
+}
+
 assert.equal(model.cursorPoolOf({type: 'metric', label: 'Cursor Models'}), 'models');
 assert.equal(model.cursorPoolOf({type: 'metric', label: 'Other Models'}), 'other');
 assert.equal(model.cursorPoolOf({type: 'metric', label: 'On-Demand'}), 'demand');
 assert.equal(model.cursorPoolOf({type: 'metric', label: 'Team credit'}), 'credits');
+assert.equal(model.cursorPoolOf({type: 'text', label: 'On-Demand'}), 'demand', 'the On-Demand text row has its pool too');
 assert.equal(model.cursorPoolOf({type: 'text', label: 'Redefinições'}), '');
 assert.equal(model.cursorPoolOf(null), '');
 
@@ -1621,27 +1722,28 @@ assert.equal(model.cursorPoolOf(null), '');
   assert.match(panel, /Model\.normalizeHiddenMetrics\(setting\("hiddenMetrics",\s*\{\}\)\)/);
   assert.match(panel, /Model\.visibleEntry\(item,\s*Model\.hiddenKeysFor\(hiddenMetrics,\s*item\.id\)\)/);
   assert.match(panel, /persistWidgetSettings\(\{\s*showAs:\s*next\s*\}\)/);
-  assert.match(panel, /!Model\.canToggleMetric\(item,\s*hiddenMetrics,\s*section\)\) return/);
-  assert.match(panel, /:\s*Model\.canToggleMetric\(root\.entry,\s*root\.hiddenMetrics,\s*metricRow\.row\)/);
-  assert.match(panel, /hiddenMetrics:\s*Model\.toggleHiddenMetric\(hiddenMetrics,\s*item\.id,\s*Model\.metricKey\(section\)\)/);
+  assert.match(panel, /if \(!Model\.canToggleMetric\(target,\s*hiddenMetrics,\s*key\)\) return/);
+  assert.match(panel, /hiddenMetrics:\s*Model\.toggleHiddenMetric\(hiddenMetrics,\s*entryId,\s*key\)/);
+  assert.match(panel, /toggleCursorPool\(pool,\s*target\)/);
+  assert.match(panel, /Model\.metricChoices\(item,\s*hiddenMetrics,\s*cursorPoolFlags\(\)\)/);
+  assert.match(panel, /onMetricToggleRequested:\s*function\(entryId,\s*key,\s*pool\)\s*\{\s*root\.setMetricShown\(entryId,\s*key,\s*pool\)\s*\}/);
+  assert.doesNotMatch(panel, /metricEye|hideable|hasHideableMetrics|metric\.hidden_hint/, 'rows carry no switch; the choice lives in Settings');
   assert.match(panel, /onShowAsRequested:\s*function\(value\)\s*\{\s*root\.setShowAs\(value\)\s*\}/);
-  assert.match(panel, /readonly property bool hideable:\s*row !== null && \(!root\.cursorEntry \|\| poolId !== ""\)/);
-  assert.match(panel, /if \(root\.cursorEntry\) root\.toggleCursorPool\(metricRow\.poolId\)/);
   assert.match(panel, /function shownAlarming\(\) \{\s*return entryIsAlarming\(shapedEntry\)/, 'the alert reads the entry without hidden metrics');
   assert.match(panel, /entryIsAlarming\(shapedEntries\[i\]\)/);
   assert.match(panel, /readonly property var valueView:\s*Model\.metricValueView\(row,\s*root\.showAs\)/);
-  assert.match(panel, /visible:\s*root\.hasHideableMetrics/);
-  assert.match(panel, /readonly property bool hasHideableMetrics:\s*!cursorEntry && entrySections\.some/);
   assert.match(settingsForm, /property string openSection:\s*"display"/);
   assert.match(settingsForm, /function toggleSection\(id\) \{\s*openSection = openSection === id \? "" : id\s*\}/);
-  assert.equal((settingsForm.match(/^    Disclosure \{/gm) || []).length, 7);
-  for (const id of ['display', 'language', 'barWindow', 'showAs', 'primary', 'providers', 'credentials']) {
+  assert.equal((settingsForm.match(/^    Disclosure \{/gm) || []).length, 8);
+  for (const id of ['display', 'language', 'barWindow', 'showAs', 'metrics', 'primary', 'providers', 'credentials']) {
     assert.match(settingsForm, new RegExp(`onToggled: root\\.toggleSection\\("${id}"\\)`), `${id} folds`);
     assert.match(settingsForm, new RegExp(`visible: root\\.openSection === "${id}"`), `${id} body`);
   }
   assert.doesNotMatch(settingsForm, /providersOpen|credentialsOpen/);
   assert.doesNotMatch(settingsForm, /^    PanelSectionHeader \{\s*\n\s*text: root\.tr\("section\.(display|language|bar_window|show_as|primary|providers|credentials)"\)/m);
   assert.match(settingsForm, /signal showAsRequested\(string value\)/);
+  assert.match(settingsForm, /signal metricToggleRequested\(string entryId, string key, string pool\)/);
+  assert.match(settingsForm, /enabled: !root\.saving && modelData\.canToggle/);
   assert.match(settingsForm, /onChanged:\s*function\(value\)\s*\{\s*root\.showAsRequested\(value\)\s*\}/);
   assert.match(panel, /Model\.booleanSetting\(setting\("brandIcons",\s*true\),\s*true\)/);
   assert.match(panel, /barWindow,\s*showAs,\s*brandIcons\)/);
