@@ -1432,12 +1432,17 @@ enum LoginOutcome {
     NotFound,
 }
 
-fn login_claude_account(account_dir: &Path) -> LoginOutcome {
+fn claude_login_command(account_dir: &Path) -> std::process::Command {
     let mut command = std::process::Command::new("claude");
     command.env("CLAUDE_CONFIG_DIR", account_dir);
     for var in crate::vendor::vendor_secret_env_vars_to_remove(&[]) {
         command.env_remove(var);
     }
+    command
+}
+
+fn login_claude_account(account_dir: &Path) -> LoginOutcome {
+    let mut command = claude_login_command(account_dir);
 
     match command.status() {
         Ok(status) if status.success() => LoginOutcome::Ok,
