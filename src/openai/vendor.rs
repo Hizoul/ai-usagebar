@@ -604,4 +604,19 @@ mod tests {
             assert!(!out.tooltip.contains(glyph), "{}", out.tooltip);
         }
     }
+
+    #[test]
+    fn api_plan_is_pango_escaped_in_custom_formats() {
+        let mut s = sample();
+        s.plan = "ChatGPT Pro & Enterprise <preview>".into();
+        let mut o = opts();
+        o.format = Some("{plan}".into());
+        o.tooltip_format = Some("{oai_plan}".into());
+
+        let out = render(&oc(s.clone()), &s, &Theme::default(), &o, Utc::now());
+        assert!(!out.text.contains(" & "));
+        assert!(!out.tooltip.contains('<'));
+        assert!(out.text.contains("ChatGPT Pro &amp; Enterprise &lt;preview&gt;"));
+        assert_eq!(out.tooltip, "ChatGPT Pro &amp; Enterprise &lt;preview&gt;");
+    }
 }
