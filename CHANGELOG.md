@@ -34,6 +34,15 @@ Each release is also published at
   ungrouped quota rows; grouped rows only stand in when an entry has nothing
   else (fixes #332).
 
+- **Quota notifications no longer repeat on every refresh for Antigravity and
+  MiniMax.** Both list a `Session` and a `Weekly` heading over the same pool
+  labels, so two windows shared one dedupe key: a window past the threshold
+  (Antigravity's weekly Gemini at 98%) notified again each time its namesake
+  under the re-arm band (the session Gemini at 3%) cleared the record. Metrics
+  under a heading now always include it (`Weekly · Gemini`) in the key and
+  notification title, keeping the identity stable even when another window
+  is absent. Metrics without a heading keep their names.
+
 ### Security
 
 - **Subprocess environment scrubbing extended to `codex login`.** Running
