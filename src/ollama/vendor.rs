@@ -508,4 +508,20 @@ mod tests {
         assert!(out.text.contains("82%"), "{}", out.text);
         assert!(out.text.contains("23%w"), "{}", out.text);
     }
+
+    #[test]
+    fn plan_is_pango_escaped_in_custom_formats() {
+        let mut snap = sample_snap();
+        snap.plan = "Cloud Pro & Enterprise <preview>".into();
+        let outcome = sample_outcome(snap.clone());
+        let mut o = opts();
+        o.format = Some("{plan}".into());
+        o.tooltip_format = Some("{oll_plan}".into());
+
+        let out = render(&outcome, &snap, &Theme::default(), &o, Utc::now());
+        assert!(!out.text.contains(" & "));
+        assert!(!out.tooltip.contains('<'));
+        assert!(out.text.contains("Cloud Pro &amp; Enterprise &lt;preview&gt;"));
+        assert_eq!(out.tooltip, "Cloud Pro &amp; Enterprise &lt;preview&gt;");
+    }
 }
