@@ -9,6 +9,18 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Fixed
+
+- **Nous Research: an allocation that is spent to the last credit reports the
+  rounding residue instead of a clean zero, and 1.31.0/1.32.0 rejected the whole
+  account snapshot for it.** The Portal answers a drained plan with
+  `subscription.credits_remaining = -1.64e-20`, `optional_credit` refused any
+  value below zero ("account credit must be finite and non-negative"), and the
+  widget, panel and TUI showed `Nous Research account response schema mismatch`
+  for an account whose only problem was being at zero. A value within `1e-6` of
+  zero now reads as `0.0`; a genuinely negative balance is still an error, so the
+  guard against nonsense payloads is unchanged.
+
 ## [1.32.0] — 2026-10-04
 
 ### Added
