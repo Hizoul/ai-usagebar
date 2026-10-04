@@ -406,9 +406,10 @@ func progressAttr(pct: Int, width: Int, elapsed: Int?, menu: Bool = false,
 /// Width every row label is padded to, so the bars of one dropdown start in the
 /// same column. 12 is the floor every vendor already used; a longer label (Cursor's
 /// "Cursor Models") widens the column for its siblings instead of pushing only its
-/// own bar to the right.
+/// own bar to the right. The longest label keeps one trailing space, otherwise its
+/// bar or ring touches the text.
 func menuLabelWidth(_ labels: [String]) -> Int {
-    max(12, labels.map(\.count).max() ?? 0)
+    max(12, (labels.map(\.count).max() ?? 0) + 1)
 }
 
 /// Left-pads `text` with spaces to `width` (monospaced rows), so "49%" and "100%"

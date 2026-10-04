@@ -35,8 +35,8 @@ Each release is also published at
 - **macOS dropdown rows line their bars up when a label is longer than 12
   characters.** Labels were padded only up to 12, so Cursor's "Cursor Models"
   pushed its bar one column right of "Other Models". Every row now pads to the
-  longest label in the dropdown, and the percentages are right-aligned so the
-  reset column stays straight.
+  longest label in the dropdown plus one space, and the percentages are
+  right-aligned so the reset column stays straight.
 
 ## [1.31.0] — 2026-10-03
 
