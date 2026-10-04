@@ -832,7 +832,7 @@ itself:
 On macOS the menu bar item shows the starred metrics — Chart (default):
 <img src="screenshots/macos-menu-bar-chart.png" width="40" alt="Menu bar item in Chart mode"> ·
 Logos: <img src="screenshots/macos-menu-bar-logos.png" width="240" alt="Menu bar item in Logos mode: each starred provider's logo with its percentage"> ·
-Name: <img src="screenshots/macos-menu-bar-name.png" width="75" alt="Menu bar item in Name mode: the selected provider's logo, short name and percentage">
+Name: one chip with the selected provider's logo, short name and highest percentage.
 
 ### Desktop integrations
 
