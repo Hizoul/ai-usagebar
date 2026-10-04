@@ -403,6 +403,20 @@ func progressAttr(pct: Int, width: Int, elapsed: Int?, menu: Bool = false,
     return barAttr(pct: pct, width: width, elapsed: elapsed)
 }
 
+/// Width every row label is padded to, so the bars of one dropdown start in the
+/// same column. 12 is the floor every vendor already used; a longer label (Cursor's
+/// "Cursor Models") widens the column for its siblings instead of pushing only its
+/// own bar to the right.
+func menuLabelWidth(_ labels: [String]) -> Int {
+    max(12, labels.map(\.count).max() ?? 0)
+}
+
+/// Left-pads `text` with spaces to `width` (monospaced rows), so "49%" and "100%"
+/// end in the same column and the reset that follows them lines up too.
+func rightAligned(_ text: String, width: Int) -> String {
+    String(repeating: " ", count: max(0, width - text.count)) + text
+}
+
 func subprocessEnvironment() -> [String: String] {
     var env = ProcessInfo.processInfo.environment
     let home = NSHomeDirectory()
@@ -2846,19 +2860,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let header = accountLabel(of: VENDOR).map { "\(plan) · \($0)" } ?? plan
         headerItem.attributedTitle = run(header, .labelColor, NSFont.boldSystemFont(ofSize: 13))
 
+        let labelWidth = menuLabelWidth([
+            s.session == nil ? nil : s.sessionLabel,
+            s.weekly == nil ? nil : s.weeklyLabel,
+            s.sonnet == nil ? nil : s.sonnetLabel,
+            s.secondaryWeekly == nil ? nil : s.secondaryWeeklyLabel,
+        ].compactMap { $0 })
+        let pctWidth = [s.session, s.weekly, s.sonnet, s.secondaryWeekly]
+            .compactMap { $0 }.map { "\($0.pct)%".count }.max() ?? 0
         func row(_ key: String, _ name: String, _ pct: Int, _ value: String, _ reset: String?, _ elapsed: Int?, unlimited: Bool = false) {
             guard let item = rows[key] else { return }
             item.isHidden = false
             let a = NSMutableAttributedString()
-            let label = name.count < 12
-                ? name.padding(toLength: 12, withPad: " ", startingAt: 0)
-                : name
+            let label = name.padding(toLength: max(labelWidth, name.count), withPad: " ", startingAt: 0)
             a.append(run(label, .labelColor))
             if unlimited {
                 a.append(run("Unlimited", hexColor(COLOR_LOW)))
             } else {
                 a.append(progressAttr(pct: pct, width: MENU_BAR_W, elapsed: elapsed, menu: true, appearance: appearance))
-                a.append(run("  \(value)", colorForPct(pct)))
+                a.append(run("  \(rightAligned(value, width: pctWidth))", colorForPct(pct)))
                 if let r = reset, !r.isEmpty, let display = resetClockLabel(r, fallback: r) {
                     a.append(run("   ↺ \(display)", .secondaryLabelColor))
                 }

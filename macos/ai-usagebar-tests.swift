@@ -765,6 +765,18 @@ func testCompactToggle() {
                 "boundary: exactly barsMax still draws bars")
 }
 
+func testMenuLabelWidth() {
+    print("menuLabelWidth")
+    assertEqual(menuLabelWidth([]), 12, "no labels keeps the 12-column floor")
+    assertEqual(menuLabelWidth(["Session", "Weekly"]), 12, "short labels keep the floor")
+    // Cursor's pools: the 13-char label sets the column for the 12-char one.
+    assertEqual(menuLabelWidth(["Cursor Models", "Other Models"]), 13,
+                "a longer label widens the column for its siblings")
+    assertEqual(rightAligned("49%", width: 4), " 49%", "a shorter value is padded on the left")
+    assertEqual(rightAligned("100%", width: 4), "100%", "the widest value is untouched")
+    assertEqual(rightAligned("1000%", width: 4), "1000%", "a wider value is never cut")
+}
+
 func testShortReset() {
     assertEqual(shortReset("4d 1h"), "4d", "days+hours → leading days")
     assertEqual(shortReset("2h 05m"), "2h", "hours+minutes → leading hours")
@@ -1207,6 +1219,7 @@ struct TestRunner {
         testClaudeAccounts()
         testDesktopAccounts()
         testCompactToggle()
+        testMenuLabelWidth()
         testShortReset()
         testResetSeconds()
         testResetClockLabel()
