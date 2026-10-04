@@ -247,4 +247,20 @@ mod tests {
         let out = render(&outcome, &snap, &Theme::default(), &o, Utc::now());
         assert_eq!(out.tooltip, "bal: $8.42");
     }
+
+    #[test]
+    fn api_plan_is_pango_escaped_in_custom_formats() {
+        let mut snap = sample_snap();
+        snap.label = "Kilo & Gateway <org>".into();
+        let outcome = sample_outcome(snap.clone());
+        let mut o = opts();
+        o.format = Some("{plan}".into());
+        o.tooltip_format = Some("{plan}".into());
+
+        let out = render(&outcome, &snap, &Theme::default(), &o, Utc::now());
+        assert!(!out.text.contains(" & "));
+        assert!(!out.tooltip.contains('<'));
+        assert!(out.text.contains("Kilo &amp; Gateway &lt;org&gt;"));
+        assert_eq!(out.tooltip, "Kilo &amp; Gateway &lt;org&gt;");
+    }
 }
