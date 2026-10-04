@@ -1635,6 +1635,72 @@ struct VendorsSection: View {
     }
 }
 
+/// Claude Desktop and Claude Code sign-ins, shown in Preferences rather than
+/// the dropdown: most people use one of them or neither, so two permanent menu
+/// rows were noise. The delegate owns the actions (they raise alerts and spawn
+/// the switch subprocess) and feeds this model; the view only renders it.
+final class ClaudeAccountsModel: ObservableObject {
+    /// Nil until `account status --json` answers, and for a binary that predates
+    /// the subcommand — the section stays hidden in both cases.
+    @Published var status: AccountStatus?
+    /// A switch quits and reopens another app, so every button waits for it.
+    @Published var switching = false
+    var switchAccount: (_ label: String, _ desktop: Bool) -> Void = { _, _ in }
+    var addAccount: (_ desktop: Bool) -> Void = { _ in }
+}
+
+struct ClaudeAccountsSection: View {
+    @ObservedObject var model: ClaudeAccountsModel
+
+    var body: some View {
+        if let status = model.status {
+            GroupBox("Claude accounts") {
+                VStack(alignment: .leading, spacing: 14) {
+                    // Only a machine with no Claude Desktop app at all loses its
+                    // list. With the app present but nothing captured, the empty
+                    // list is exactly where "Add account…" matters.
+                    if status.desktopAvailable {
+                        surface("Claude Desktop", desktop: true,
+                                labels: status.desktopLabels, active: status.desktopActive,
+                                note: "Switching quits and reopens the app.")
+                    }
+                    surface("Claude Code", desktop: false,
+                            labels: status.cliLabels, active: status.cliActive, note: nil)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private func surface(_ title: String, desktop: Bool, labels: [String],
+                         active: String?, note: String?) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title).font(.headline)
+            ForEach(labels, id: \.self) { label in
+                HStack {
+                    Text(label)
+                    if label == active {
+                        Text("active").font(.caption).foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    if label != active {
+                        Button("Switch") { model.switchAccount(label, desktop) }
+                            .disabled(model.switching)
+                    }
+                }
+            }
+            if labels.isEmpty {
+                Text("No accounts saved yet.").font(.caption).foregroundColor(.secondary)
+            }
+            Button("Add account…") { model.addAccount(desktop) }
+                .disabled(model.switching)
+            if let note {
+                Text(note).font(.caption).foregroundColor(.secondary)
+            }
+        }
+    }
+}
+
 struct SettingsView: View {
     @AppStorage("vendor") private var vendor = "anthropic"
     @AppStorage("interval") private var interval = 30.0
@@ -1657,6 +1723,7 @@ struct SettingsView: View {
     @AppStorage("binaryPath") private var binaryPath = ""
     @State private var launchAtLogin = launchAgentIsInstalled()
     @State private var launchAtLoginError: String?
+    @ObservedObject var accounts: ClaudeAccountsModel
 
     // Only vendors the Rust catalog marks enabled appear in the selector —
     // whatever `vendors --json` reports, so a provider added in Rust (and its
@@ -1746,6 +1813,7 @@ struct SettingsView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                ClaudeAccountsSection(model: accounts)
                 VendorsSection()
             }
             .padding(20)
@@ -1948,21 +2016,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Overview-only: forces the status-bar title into the compact %-text mode
     /// ("Collapse"); while compact it reads "Expand" and turns it back off.
     let compactItem = NSMenuItem(title: "Collapse", action: nil, keyEquivalent: "")
-    /// Which account each surface is signed in as. One dim line under the
-    /// header, plus a submenu per surface. All three stay hidden until
-    /// `account status --json` answers, so an older binary that doesn't know
-    /// the subcommand simply shows the menu it always did.
+    /// Which account each surface is signed in as: one dim line under the
+    /// header, hidden until `account status --json` answers so an older binary
+    /// that doesn't know the subcommand shows the menu it always did. Switching
+    /// and adding live in Preferences, through `accounts`.
     let accountsInfoItem = NSMenuItem()
-    let desktopAccountSubmenu = NSMenu()
-    let desktopAccountItem = NSMenuItem(title: "Claude Desktop", action: nil, keyEquivalent: "")
-    let cliAccountSubmenu = NSMenu()
-    let cliAccountItem = NSMenuItem(title: "Claude Code", action: nil, keyEquivalent: "")
+    let accounts = ClaudeAccountsModel()
     var lastAccountStatus: AccountStatus?
     var accountStatusFetchedAt = Date.distantPast
     var accountStatusGeneration = 0
     var vendorCatalogGeneration = 0
-    /// A switch runs a subprocess that quits and reopens another app; both
-    /// submenus grey out until it returns so it cannot be fired twice.
+    /// A switch runs a subprocess that quits and reopens another app; the
+    /// Preferences buttons grey out until it returns so it cannot be fired twice.
     var accountSwitchInFlight = false
     var refreshOverride: (() -> Void)?
 
@@ -1995,6 +2060,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DEF.register(defaults: ["swapShortcutEnabled": true, "compactShortcutEnabled": true])
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         statusItem.button?.title = "5h …"
+        accounts.switchAccount = { [weak self] label, desktop in
+            if desktop { self?.switchDesktopAccount(to: label) }
+            else { self?.switchCliAccount(to: label) }
+        }
+        accounts.addAccount = { [weak self] desktop in self?.addAccount(desktop: desktop) }
         buildMenu()
         rebuildVendorSubmenu()
         updateVendorCatalog()
@@ -2299,12 +2369,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         addAction(menu, "Open TUI", #selector(openTui), "t")
         vendorSubmenuItem.submenu = vendorSubmenu
         menu.addItem(vendorSubmenuItem)
-        for (item, submenu) in [(desktopAccountItem, desktopAccountSubmenu),
-                                (cliAccountItem, cliAccountSubmenu)] {
-            item.submenu = submenu
-            item.isHidden = true
-            menu.addItem(item)
-        }
         addAction(menu, "Preferences…", #selector(openPrefs), ",")
         menu.addItem(.separator())
         addAction(menu, "Quit", #selector(quit), "q")
@@ -2336,7 +2400,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func openPrefs() {
         if prefsWindow == nil {
-            let host = NSHostingController(rootView: SettingsView())
+            let host = NSHostingController(rootView: SettingsView(accounts: accounts))
             // Install the host view directly so this window owns its size on
             // macOS 12 as well. The SwiftUI ScrollView still fills the
             // resizable content area without expanding it to its full height.
@@ -2356,10 +2420,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             w.isReleasedWhenClosed = false
             w.center()
             prefsWindow = w
+            // An account added in Terminal finishes while this window sits in the
+            // background; re-read the status whenever it comes back to the front.
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(prefsWindowBecameKey),
+                name: NSWindow.didBecomeKeyNotification, object: w)
         }
         NSApp.activate(ignoringOtherApps: true)
         prefsWindow?.makeKeyAndOrderFront(nil)
     }
+
+    @objc func prefsWindowBecameKey() { fetchAccountStatus() }
 
     @objc func openTui() {
         guard let tui = resolveBinary("ai-usagebar-tui") else { return }
@@ -2975,56 +3046,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func renderAccountMenus() {
+        accounts.status = lastAccountStatus
+        accounts.switching = accountSwitchInFlight
         // Nil means the binary predates the subcommand: leave the menu exactly
         // as it was before this feature existed.
         guard let status = lastAccountStatus else {
             accountsInfoItem.isHidden = true
-            desktopAccountItem.isHidden = true
-            cliAccountItem.isHidden = true
             return
         }
         let line = accountsSummaryLine(status)
         accountsInfoItem.isHidden = line.isEmpty
         accountsInfoItem.attributedTitle = run(line, .secondaryLabelColor)
-
-        fill(desktopAccountSubmenu, status.desktopLabels, status.desktopActive,
-             #selector(switchDesktopAccount(_:)))
-        fill(cliAccountSubmenu, status.cliLabels, status.cliActive,
-             #selector(switchCliAccount(_:)))
-        // Both stay visible with an empty list — that is when "Add
-        // account…" matters most. Only a machine with no Claude Desktop app at
-        // all loses its submenu.
-        desktopAccountItem.isHidden = !status.desktopAvailable
-        cliAccountItem.isHidden = false
-        desktopAccountItem.isEnabled = !accountSwitchInFlight
-        cliAccountItem.isEnabled = !accountSwitchInFlight
-    }
-
-    private func fill(_ submenu: NSMenu, _ labels: [String], _ active: String?, _ action: Selector) {
-        submenu.removeAllItems()
-        for label in labels {
-            let it = NSMenuItem(title: label, action: action, keyEquivalent: "")
-            it.target = self
-            it.representedObject = label
-            it.state = (label == active) ? .on : .off
-            it.isEnabled = !accountSwitchInFlight && label != active
-            submenu.addItem(it)
-        }
-        submenu.addItem(.separator())
-        let add = NSMenuItem(title: "Add account…",
-                             action: #selector(addAccount(_:)), keyEquivalent: "")
-        add.target = self
-        add.representedObject = (submenu === desktopAccountSubmenu)
-        add.isEnabled = !accountSwitchInFlight
-        submenu.addItem(add)
     }
 
     /// Ask for a label, then hand the interactive part to Terminal: a Desktop
     /// capture waits for a browser sign-in, a CLI one runs `claude`. Neither
     /// belongs in a background subprocess the user cannot see or answer.
-    @objc func addAccount(_ sender: NSMenuItem) {
-        guard let desktop = sender.representedObject as? Bool,
-              let bin = resolveBinary("ai-usagebar") else { return }
+    func addAccount(desktop: Bool) {
+        guard let bin = resolveBinary("ai-usagebar") else { return }
         let alert = NSAlert()
         alert.messageText = desktop ? "Add a Claude Desktop account"
                                     : "Add a Claude Code account"
@@ -3049,8 +3088,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Quits and reopens Claude.app, so confirm first — an unsent message or an
     /// in-flight Cowork run would go with it. The CLI switch has no visible
     /// side effect and needs no prompt.
-    @objc func switchDesktopAccount(_ sender: NSMenuItem) {
-        guard let label = sender.representedObject as? String else { return }
+    func switchDesktopAccount(to label: String) {
         let alert = NSAlert()
         alert.messageText = "Switch the Claude Desktop account to “\(label)”?"
         alert.informativeText = "The app will quit and reopen. Your local history is merged into that "
@@ -3122,8 +3160,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         return zip(conflicts, boxes).filter { $0.1.state != .on }.map { $0.0.key }
     }
 
-    @objc func switchCliAccount(_ sender: NSMenuItem) {
-        guard let label = sender.representedObject as? String else { return }
+    func switchCliAccount(to label: String) {
         runAccountSwitch(label: label, desktop: false)
     }
 
