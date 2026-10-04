@@ -22,6 +22,14 @@ Each release is also published at
   share and point delta for Quattro, GNOME and KDE. A cycle whose length the API
   did not state is never paced against a guessed month.
 
+### Changed
+
+- **The Cursor tooltip draws each pool as a progress bar.** Cursor Models and
+  Other Models were the only tooltip rows printing a bare "49% used"; they now
+  use the same gauge block as every other provider (label, bar with percentage,
+  reset countdown), followed by the dim line saying what the pool covers. The
+  trailing "Resets …" line is gone, since each pool now carries its own.
+
 ## [1.31.0] — 2026-10-03
 
 ### Added

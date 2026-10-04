@@ -357,8 +357,8 @@ also says that Priority Tier costs are omitted.
   `--pace-tolerance`; `{…_pace_indicator}`, `{…_pace_pts}` and `{…_pace_delta}`
   are the point-delta glyph, label and signed difference.
   `--format-pace-color` colors each pool by its own delta, and
-  `--tooltip-pace-pts` selects the point glyph in the tooltip and spells out the
-  elapsed share on its reset line.
+  `--tooltip-pace-pts` selects the point glyph in the tooltip and draws the
+  elapsed marker inside each pool's bar.
 
 A pool can exceed 100%. The default format is
 `{cursor_auto_pct}·{cursor_api_pct}%` and uses the worse pool's severity color.

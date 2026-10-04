@@ -11,8 +11,8 @@ use crate::format::{placeholders, substitute, updated_at_hm};
 use crate::pacing::{self, PaceSeverity, Pacing};
 use crate::pango::{color_span, escape, severity_color, severity_for};
 use crate::theme::Theme;
-use crate::tooltip::{Line as TooltipLine, render_bordered};
-use crate::usage::CursorSnapshot;
+use crate::tooltip::{Line as TooltipLine, WindowRow, push_window_with_row, render_bordered};
+use crate::usage::{CursorSnapshot, UsageWindow};
 use crate::vendor::{RenderOpts, VendorId, VendorOutcome};
 use crate::waybar::{Class, WaybarOutput};
 
@@ -218,56 +218,42 @@ fn pace_colored(
     colored
 }
 
-/// The pace glyph after a pool's "used" line, in the same ratio/point
-/// convention as every other tooltip (`--tooltip-pace-pts` picks the points).
-/// `None` when the billing cycle has no exact length: no glyph beats a
-/// fabricated `→`.
-fn pool_glyph(
+/// One pool as the shared gauge block: label, bar with percentage and pace
+/// glyph, reset countdown, then a dim description of what the pool covers.
+///
+/// Both pools share the billing cycle, so the window is the cycle itself. A
+/// cycle of unknown length gets a bar with no glyph and no marker: no pace
+/// beats a fabricated `→` (see [`has_cycle_pace`]).
+fn push_pool(
+    lines: &mut Vec<TooltipLine>,
     snap: &CursorSnapshot,
-    pct: i32,
+    theme: &Theme,
     opts: &RenderOpts,
     now: DateTime<Utc>,
-) -> Option<&'static str> {
-    if !has_cycle_pace(snap) {
-        return None;
-    }
-    let pace = pool_pacing(snap, pct, opts.pace_tolerance, now);
-    Some(if opts.tooltip_pace_pts {
-        pace.point_pace.glyph()
-    } else {
-        pace.ratio_pace.glyph()
-    })
-}
-
-fn pool_line(
-    lines: &mut Vec<TooltipLine>,
-    theme: &Theme,
-    label: &str,
-    pct: i32,
-    glyph: Option<&str>,
+    pool: PoolRow<'_>,
 ) {
-    let fg = &theme.fg;
-    let color = severity_color(severity_for(pct), theme);
-    let glyph = glyph.map(|g| format!(" {g}")).unwrap_or_default();
+    let window = UsageWindow {
+        utilization_pct: pool.pct,
+        resets_at: snap.reset_at,
+        window_duration: snap.cycle_window().unwrap_or_else(chrono::Duration::zero),
+    };
+    let row = if has_cycle_pace(snap) {
+        WindowRow::paced(&window, now, opts.pace_tolerance, opts.tooltip_pace_pts)
+    } else {
+        WindowRow::default()
+    };
+    push_window_with_row(lines, pool.label, &window, theme, now, row);
+    let dim = &theme.dim;
     lines.push(TooltipLine::Body(format!(
-        " <span foreground='{fg}'>  󰢻  {label}</span>"
-    )));
-    lines.push(TooltipLine::Body(format!(
-        "   <span font_weight='bold' foreground='{color}'>{pct}%</span> used{glyph}"
+        " <span foreground='{dim}'>     {}</span>",
+        escape(&pool.description)
     )));
 }
 
-/// The reset line, plus how far through the billing cycle we are when
-/// `--tooltip-pace-pts` asks for the elapsed marker. The bar-less tooltip has
-/// no bar to draw that marker in, so the share is spelled out once here — both
-/// pools reset together.
-fn reset_text(snap: &CursorSnapshot, opts: &RenderOpts, now: DateTime<Utc>) -> String {
-    let reset = countdown::format(snap.reset_at, now);
-    if !opts.tooltip_pace_pts || !has_cycle_pace(snap) {
-        return format!("Resets {reset}");
-    }
-    let elapsed = pool_pacing(snap, snap.auto_pct, opts.pace_tolerance, now).elapsed_pct;
-    format!("Resets {reset} · {elapsed}% elapsed")
+struct PoolRow<'a> {
+    label: &'a str,
+    pct: i32,
+    description: String,
 }
 
 fn render_tooltip(
@@ -294,31 +280,23 @@ fn render_tooltip(
             " <span foreground='{fg}'>  󰐾  Unlimited plan</span>"
         )));
     } else {
-        let auto_glyph = pool_glyph(snap, snap.auto_pct, opts, now);
-        pool_line(
-            &mut lines,
-            theme,
-            "Cursor Models",
-            snap.auto_pct,
-            auto_glyph,
-        );
-        lines.push(TooltipLine::Body(format!(
-            " <span foreground='{dim}'>     Auto + Composer</span>"
-        )));
+        let auto = PoolRow {
+            label: "  󰢻  Cursor Models",
+            pct: snap.auto_pct,
+            description: "Auto + Composer".into(),
+        };
+        push_pool(&mut lines, snap, theme, opts, now, auto);
         lines.push(TooltipLine::Body("".into()));
-        let api_glyph = pool_glyph(snap, snap.api_pct, opts, now);
-        pool_line(&mut lines, theme, "Other Models", snap.api_pct, api_glyph);
-        lines.push(TooltipLine::Body(format!(
-            " <span foreground='{dim}'>     Named / API models · on-demand {}</span>",
-            if snap.on_demand_enabled { "on" } else { "off" }
-        )));
+        let api = PoolRow {
+            label: "  󰢻  Other Models",
+            pct: snap.api_pct,
+            description: format!(
+                "Named / API models · on-demand {}",
+                if snap.on_demand_enabled { "on" } else { "off" }
+            ),
+        };
+        push_pool(&mut lines, snap, theme, opts, now, api);
     }
-
-    lines.push(TooltipLine::Body("".into()));
-    lines.push(TooltipLine::Body(format!(
-        " <span foreground='{dim}'>  󰃰  {}</span>",
-        escape(&reset_text(snap, opts, now))
-    )));
 
     if let Some((code, msg)) = outcome.last_error.as_ref()
         && *code != 0
@@ -428,6 +406,7 @@ mod tests {
         assert!(out.tooltip.contains("Other Models"));
         assert!(out.tooltip.contains("100%"));
         assert!(out.tooltip.contains("9d"));
+        assert!(out.tooltip.contains('█'), "each pool is drawn as a bar");
     }
 
     #[test]
@@ -593,21 +572,58 @@ mod tests {
     }
 
     #[test]
-    fn tooltip_marks_each_pool_and_spells_out_the_elapsed_share_in_point_mode() {
+    fn tooltip_draws_a_bar_per_pool_with_its_pace_glyph() {
+        let snap = paced_snap();
+        let out = render(
+            &sample_outcome(snap.clone()),
+            &snap,
+            &Theme::default(),
+            &opts(),
+            now(),
+        );
+        assert!(out.tooltip.contains("70% ↑"), "{}", out.tooltip);
+        assert!(out.tooltip.contains("30% ↓"), "{}", out.tooltip);
+        assert_eq!(
+            out.tooltip.matches("Resets in").count(),
+            2,
+            "{}",
+            out.tooltip
+        );
+        assert!(out.tooltip.contains("Auto + Composer"), "{}", out.tooltip);
+        assert!(out.tooltip.contains("on-demand off"), "{}", out.tooltip);
+    }
+
+    #[test]
+    fn tooltip_point_mode_uses_the_point_glyph_and_draws_the_elapsed_marker() {
         let snap = paced_snap();
         let outcome = sample_outcome(snap.clone());
-        let plain = render(&outcome, &snap, &Theme::default(), &opts(), now());
-        assert!(plain.tooltip.contains("used ↑"), "{}", plain.tooltip);
-        assert!(plain.tooltip.contains("used ↓"), "{}", plain.tooltip);
-        assert!(!plain.tooltip.contains("elapsed"), "{}", plain.tooltip);
-
         let mut o = opts();
         o.pace_tolerance = 50;
+        let ratio = render(&outcome, &snap, &Theme::default(), &o, now());
+        // 70% against 50% elapsed is a 140% ratio: inside a 50-point band the
+        // ratio glyph calms down.
+        assert!(ratio.tooltip.contains("70% →"), "{}", ratio.tooltip);
         o.tooltip_pace_pts = true;
         let points = render(&outcome, &snap, &Theme::default(), &o, now());
-        // Point mode ignores the tolerance and adds the elapsed share.
-        assert!(points.tooltip.contains("used ↑"), "{}", points.tooltip);
-        assert!(points.tooltip.contains("50% elapsed"), "{}", points.tooltip);
+        // Point mode ignores the tolerance and adds the marker inside the bar.
+        assert!(points.tooltip.contains("70% ↑"), "{}", points.tooltip);
+        assert_ne!(ratio.tooltip, points.tooltip, "the marker must be drawn");
+    }
+
+    #[test]
+    fn a_pool_past_its_allowance_still_draws_a_bar() {
+        let snap = CursorSnapshot {
+            auto_pct: 143,
+            ..paced_snap()
+        };
+        let out = render(
+            &sample_outcome(snap.clone()),
+            &snap,
+            &Theme::default(),
+            &opts(),
+            now(),
+        );
+        assert!(out.tooltip.contains("143%"), "{}", out.tooltip);
     }
 
     #[test]
