@@ -2381,4 +2381,63 @@ mod tests {
         let error = AppError::Other("bad \x1b[2Kpath\nRESTORED: 0 files\u{202e}".to_string());
         assert_eq!(printable(&error), "bad [2Kpath RESTORED: 0 files");
     }
+
+    #[test]
+    fn codex_login_command_scrubs_vendor_secret_env_vars() {
+        let home = Path::new("/tmp/codex-home");
+        let command = codex_login_command(home);
+        assert_eq!(command.get_program(), "codex");
+        let args: Vec<_> = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(args, vec!["login"]);
+        let configured: BTreeMap<_, _> = command
+            .get_envs()
+            .map(|(k, v)| {
+                (
+                    k.to_string_lossy().into_owned(),
+                    v.map(|s| s.to_string_lossy().into_owned()),
+                )
+            })
+            .collect();
+        assert_eq!(
+            configured.get("CODEX_HOME").and_then(|v| v.as_deref()),
+            Some(home.to_str().unwrap())
+        );
+        for var in crate::vendor::vendor_secret_env_vars_to_remove(&[]) {
+            assert_eq!(
+                configured.get(var),
+                Some(&None),
+                "expected {var} to be scrubbed from codex login command"
+            );
+        }
+    }
+
+    #[test]
+    fn claude_login_command_scrubs_vendor_secret_env_vars() {
+        let dir = Path::new("/tmp/claude-dir");
+        let command = claude_login_command(dir);
+        assert_eq!(command.get_program(), "claude");
+        let configured: BTreeMap<_, _> = command
+            .get_envs()
+            .map(|(k, v)| {
+                (
+                    k.to_string_lossy().into_owned(),
+                    v.map(|s| s.to_string_lossy().into_owned()),
+                )
+            })
+            .collect();
+        assert_eq!(
+            configured.get("CLAUDE_CONFIG_DIR").and_then(|v| v.as_deref()),
+            Some(dir.to_str().unwrap())
+        );
+        for var in crate::vendor::vendor_secret_env_vars_to_remove(&[]) {
+            assert_eq!(
+                configured.get(var),
+                Some(&None),
+                "expected {var} to be scrubbed from claude login command"
+            );
+        }
+    }
 }
