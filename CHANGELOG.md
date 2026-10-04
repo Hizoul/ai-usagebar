@@ -9,6 +9,15 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Changed
+
+- **macOS: Claude Desktop and Claude Code account switching moved into
+  Preferences.** The dropdown no longer carries two permanent **Claude Desktop ▸**
+  and **Claude Code ▸** rows — noise for anyone who uses one of them or neither.
+  Preferences gains a **Claude accounts** section with the same switch and
+  add-account actions, and the dim `Desktop: … · Code: …` line under the header
+  stays.
+
 ### Fixed
 
 - **Release verify-version guards AUR checksum-array parity.** When sources and

@@ -207,16 +207,19 @@ Those entries decide whose usage is *shown*. Which account you are actually
 signed in as is a separate thing — and there are two of them, the Claude
 Desktop app and the `claude` CLI, which drift apart.
 
-The dropdown gets a **Claude Desktop ▸** and a **Claude Code ▸** submenu, each
-listing the accounts it knows with a checkmark on the active one. Pick another
-to switch to it; pick **Adicionar conta…** to capture a new one (that part is
-interactive, so it opens in Terminal). A dim line under the header shows both
-active accounts at a glance — `Desktop: work · Code: personal`.
+Preferences has a **Claude accounts** section — **Claude Desktop** and
+**Claude Code**, each listing the accounts it knows with the active one marked.
+Press **Switch** on another to move to it; press **Add account…** to capture a
+new one (that part is interactive, so it opens in Terminal). They live in
+Preferences rather than the dropdown so that someone who uses only one of them,
+or neither, does not carry two permanent menu rows. A dim line under the
+dropdown header still shows both active accounts at a glance —
+`Desktop: work · Code: personal`.
 
-Switching the Desktop app **quits and reopens Claude.app**, so the menu confirms
-first; your local history is merged into the target account and a rollback
-archive is written before anything changes. The Claude Code switch has no
-visible side effect and happens straight away. Both submenus grey out while a
+Switching the Desktop app **quits and reopens Claude.app**, so Preferences
+confirms first; your local history is merged into the target account and a
+rollback archive is written before anything changes. The Claude Code switch has
+no visible side effect and happens straight away. The buttons grey out while a
 switch is running.
 
 The same thing from the shell:
