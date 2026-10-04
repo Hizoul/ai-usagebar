@@ -258,6 +258,12 @@ func testParserBalances() {
     let moon = snapshot(FORMAT, vendor: "moonshot",
                         fields: fields(through: 21, set: [21: "¥42.00"]))
     assertEqual(moon?.creditBalance, "¥42.00", "moonshot balance via km_balance")
+
+    // Lyceum: balance at 52 (appended after oll_monthly, keeping indices stable).
+    let lyc = snapshot(FORMAT, vendor: "lyceum",
+                       fields: fields(through: 52, set: [52: "$7.77"]))
+    assertEqual(lyc?.creditBalance, "$7.77", "lyceum balance via lyceum_balance")
+    assertEqual(lyc?.hasUsageWindows, false, "lyceum suppresses 5h/7d windows")
     assertEqual(moon?.hasUsageWindows, false, "moonshot suppresses 5h/7d windows")
 
     // Grok: balance at 22.

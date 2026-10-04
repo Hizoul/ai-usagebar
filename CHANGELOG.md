@@ -132,6 +132,11 @@ Each release is also published at
   Z.AI's Z read as a mirrored S. Its single values also sat about a point
   below the mark; they are now centred on it.
 
+- **macOS menu bar shows Lyceum's USD balance.** The Swift balance mirror was
+  not extended when the provider registered: `{lyceum_balance}` had no FORMAT
+  slot, so a Lyceum entry rendered with no value at all. It is appended at
+  index 52 (keeping every existing index stable) with a parser test.
+
 ### Security
 
 - **Subprocess environment scrubbing extended to `codex login`.** Running
