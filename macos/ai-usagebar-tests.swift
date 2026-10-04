@@ -1165,8 +1165,8 @@ func testApiKeyAccounts() {
                 "any vendor's array is parsed")
     assertEqual(API_KEY_ACCOUNT_VENDORS.contains("deepinfra"), true,
                 "deepinfra is in API_KEY_ACCOUNT_VENDORS")
-    assertEqual(API_KEY_ACCOUNT_VENDORS.count, 10,
-                "ten API-key account vendors match Rust Config::API_KEY_ACCOUNT_VENDORS")
+    assertEqual(API_KEY_ACCOUNT_VENDORS.count, 11,
+                "eleven API-key account vendors match Rust Config::API_KEY_ACCOUNT_VENDORS")
 }
 
 func testEnableVendorCommand() {

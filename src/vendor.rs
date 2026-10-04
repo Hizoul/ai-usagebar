@@ -42,6 +42,7 @@ pub(crate) const VENDOR_SECRET_ENV_VARS: &[&str] = &[
     "OPENCODE_GO_API_KEY",
     "COMMANDCODE_API_KEY",
     "ORCAROUTER_API_KEY",
+    "LYCEUM_API_KEY",
     "GITHUB_COPILOT_TOKEN",
     "GH_TOKEN",
     "GITHUB_TOKEN",
@@ -732,6 +733,7 @@ mod tests {
             "ANTHROPIC_ADMIN_KEY",
             "GITHUB_COPILOT_TOKEN",
             "ORCAROUTER_API_KEY",
+            "LYCEUM_API_KEY",
         ];
         for name in configured_defaults {
             assert!(VENDOR_SECRET_ENV_VARS.contains(&name), "missing {name}");
