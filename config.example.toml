@@ -104,7 +104,7 @@
 # (banner with an Install button; default) | off (no background checks).
 # updates = "notify"
 # macOS menu bar: "bars" (default) draws the usage chart; "provider" draws each
-# provider's logo followed by its value; "names" draws one chip, the logo, the
+# provider's logo followed by its value; "name" draws one chip, the logo, the
 # short name (cld, cdx, …) and the first starred value of the provider selected
 # in the popover. Chart and logos show the metrics starred in each provider (up
 # to two). Settings → Menu Bar → Menu Bar Shows sets it.

@@ -65,11 +65,11 @@ export function NativeDashboard({
     ?? cards.find((card) => card.id === payload.primary)
     ?? cards.find((card) => primaryMetric(card))
     ?? cards[0];
-  // The macOS menu bar's names look draws the provider selected here, the way the
-  // Quattro bar follows its selected entry.
+  // The macOS menu bar's name look draws the provider selected here, the way the
+  // Quattro bar follows its selected entry. Only macOS has that look.
   function selectProvider(id: string) {
     setSelectedId(id);
-    sendCommand("select-provider", { id });
+    if (payload.os === "macos") sendCommand("select-provider", { id });
   }
   const selectedAccount = selected ? accountSwitchFor(selected.id, payload.accounts) : null;
   const updated = payload.generatedAt > 0

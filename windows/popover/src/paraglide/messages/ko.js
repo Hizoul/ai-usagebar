@@ -118,7 +118,7 @@
 /** @typedef {{}} MonthlyInputs */
 /** @typedef {{}} Monthly_LowercaseInputs */
 /** @typedef {{}} MoreInputs */
-/** @typedef {{}} NamesInputs */
+/** @typedef {{}} NameInputs */
 /** @typedef {{}} NativeInputs */
 /** @typedef {{}} New_UpdateInputs */
 /** @typedef {{}} New_Version_ReadyInputs */
@@ -735,7 +735,7 @@ export const more = /** @type {(inputs: MoreInputs) => LocalizedString} */ () =>
 	return /** @type {LocalizedString} */ (`더 보기`)
 };
 
-export const names = /** @type {(inputs: NamesInputs) => LocalizedString} */ () => {
+export const name = /** @type {(inputs: NameInputs) => LocalizedString} */ () => {
 	return /** @type {LocalizedString} */ (`이름`)
 };
 

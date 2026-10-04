@@ -219,7 +219,7 @@ export function Settings({
         <Section title={m.menu_bar()}>
           <SettingRow hint={m.menu_bar_shows_hint()} label={m.menu_bar_shows()}>
             <Picker
-              options={[["chart", m.chart()], ["logos", m.logos()], ["names", m.names()]]}
+              options={[["chart", m.chart()], ["logos", m.logos()], ["name", m.name()]]}
               value={payload.menuBarLook}
               onChange={(value) => sendCommand("set-menu-bar-look", { value })}
             />

@@ -160,15 +160,15 @@ try {
   });
   assert.match(providersMenuBar, /Logotipos/);
   assert.doesNotMatch(providersMenuBar, /Identificar provedores por|Mostrar todos os provedores|Ocultar valor de uso/);
-  // The names look is a third choice of the same picker, not a separate set of controls.
-  const namesMenuBar = settingsTab('general', {
+  // The name look is a third choice of the same picker, not a separate set of controls.
+  const nameMenuBar = settingsTab('general', {
     ...settingsProps,
     layout: { ...emptyLayout(), popoverStyle: 'classic' },
-    payload: { ...settingsPayload, menuBarLook: 'names' },
+    payload: { ...settingsPayload, menuBarLook: 'name' },
   });
-  assert.match(namesMenuBar, /Barra de menus mostra/);
-  assert.match(namesMenuBar, /Nomes/);
-  assert.doesNotMatch(namesMenuBar, /Identificar provedores por|Mostrar todos os provedores|Ocultar valor de uso/);
+  assert.match(nameMenuBar, /Barra de menus mostra/);
+  assert.match(nameMenuBar, /Nome/);
+  assert.doesNotMatch(nameMenuBar, /Identificar provedores por|Mostrar todos os provedores|Ocultar valor de uso/);
   const footerMarkup = renderToStaticMarkup(React.createElement(TooltipProvider, {},
     React.createElement(LanguageProvider, { language: 'en' },
       React.createElement(Footer, {

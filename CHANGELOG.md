@@ -12,8 +12,8 @@ Each release is also published at
 ### Added
 
 - **The macOS menu bar can show one provider like the Quattro bar.** Settings →
-  Menu Bar → Menu Bar Shows gains **Names** next to Chart and Logos
-  (`[tray] menu_bar_style = "names"`): a single chip with the provider's logo,
+  Menu Bar → Menu Bar Shows gains **Name** next to Chart and Logos
+  (`[tray] menu_bar_style = "name"`): a single chip with the provider's logo,
   its short name (`cld`, `cdx`, …) and the first value you starred in it, for
   the provider selected in the popover. Until one is picked it follows
   `[ui] primary`, then the first provider with a value. The chart stays the

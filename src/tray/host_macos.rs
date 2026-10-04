@@ -110,7 +110,7 @@ struct LogoStripKey {
 /// One premeasured provider segment captured by the AppKit drawing block.
 struct LogoStripItem {
     mark: Option<Retained<NSImage>>,
-    /// The short name, drawn after the mark (names look) or in its place.
+    /// The short name, drawn after the mark (name look) or in its place.
     name: Option<Retained<NSString>>,
     values: Vec<Retained<NSString>>,
     label_width: f64,
@@ -172,7 +172,7 @@ struct TrayState {
     strip_order: Vec<String>,
     strip_order_known: bool,
     menu_bar_look: MenuBarLook,
-    /// Provider id the popover has selected; the names look draws this one.
+    /// Provider id the popover has selected; the name look draws this one.
     selected_provider: Option<String>,
     menu_bar_logo_key: Option<LogoStripKey>,
     notifications_enabled: bool,
@@ -971,7 +971,7 @@ fn handle_ipc(state: &mut TrayState, body: &str, control_flow: &mut ControlFlow)
         "select-provider" => {
             let id = value.get("id").and_then(Value::as_str).unwrap_or("");
             state.selected_provider = (!id.is_empty()).then(|| id.to_owned());
-            if state.menu_bar_look == MenuBarLook::Names {
+            if state.menu_bar_look == MenuBarLook::Name {
                 apply_strip_icon(state);
             }
         }
@@ -1525,6 +1525,7 @@ fn logo_strip_image(segments: &[LogoSegment]) -> Retained<NSImage> {
         .collect();
 
     let item_gap = 11.0;
+    let single_line_height = text_height(&single_value_attributes);
     let width = items
         .iter()
         .map(|item| {
@@ -1539,7 +1540,7 @@ fn logo_strip_image(segments: &[LogoSegment]) -> Retained<NSImage> {
         + item_gap * items.len().saturating_sub(1) as f64;
     let block = RcBlock::new(move |dst: NSRect| {
         let mut x = dst.origin.x;
-        let fallback_y = dst.origin.y + (LOGO_STRIP_HEIGHT - LOGO_SINGLE_VALUE_FONT_SIZE) / 2.0;
+        let single_line_y = dst.origin.y + (LOGO_STRIP_HEIGHT - single_line_height) / 2.0;
         for (index, item) in items.iter().enumerate() {
             if let Some(mark) = &item.mark {
                 draw_fitted_mark(
@@ -1554,7 +1555,7 @@ fn logo_strip_image(segments: &[LogoSegment]) -> Retained<NSImage> {
                 } else {
                     x
                 };
-                draw_status_text(name, name_x, fallback_y, &label_attributes);
+                draw_status_text(name, name_x, single_line_y, &label_attributes);
             }
             x += item.label_width;
             if item.label_width > 0.0 {
@@ -1576,7 +1577,11 @@ fn logo_strip_image(segments: &[LogoSegment]) -> Retained<NSImage> {
             } else {
                 font_size
             };
-            let text_height = font_size + line_step * item.line_count.saturating_sub(1) as f64;
+            let text_height = if stacked {
+                font_size + line_step * item.line_count.saturating_sub(1) as f64
+            } else {
+                single_line_height
+            };
             let text_y = dst.origin.y + (LOGO_STRIP_HEIGHT - text_height) / 2.0;
             for (line, value) in item.values.iter().enumerate() {
                 draw_status_text(value, x, text_y + line as f64 * line_step, value_attributes);
@@ -1628,6 +1633,18 @@ fn text_width(text: &NSString, attributes: &NSDictionary<NSAttributedStringKey, 
     // SAFETY: `attributes` has the NSFontAttributeName key and NSFont value
     // built by `font_attributes` immediately before measuring and drawing.
     unsafe { text.sizeWithAttributes(Some(attributes)).width.ceil() }
+}
+
+/// Height of one line set in `attributes`. AppKit draws at the top of the line
+/// box, which is taller than the font size, so centring on the point size alone
+/// leaves single-line text about a point below a mark of the same strip.
+fn text_height(attributes: &NSDictionary<NSAttributedStringKey, AnyObject>) -> f64 {
+    // SAFETY: as in `text_width`, `attributes` carries the font it was built with.
+    unsafe {
+        NSString::from_str("0")
+            .sizeWithAttributes(Some(attributes))
+            .height
+    }
 }
 
 /// Draw text with the same font attributes used to calculate its width.

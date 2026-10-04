@@ -2,7 +2,7 @@
 //!
 //! `StripContent` owns visible groups and their values; the report supplies
 //! the short name drawn in place of a mark, either because the provider has
-//! no embedded mark or because the user chose the names look.
+//! no embedded mark or because the user chose the name look.
 
 use serde_json::Value;
 
@@ -28,7 +28,7 @@ pub(super) enum MenuBarLook {
     Logos,
     /// Each provider's short name (`cld`, `cdx`, …) followed by its starred
     /// values, the way the Quattro and Waybar bars tag a provider.
-    Names,
+    Name,
 }
 
 impl MenuBarLook {
@@ -37,7 +37,7 @@ impl MenuBarLook {
     pub(super) fn from_style(style: Option<&str>) -> Self {
         match style {
             Some("provider") => Self::Logos,
-            Some("names") => Self::Names,
+            Some("name") => Self::Name,
             _ => Self::Chart,
         }
     }
@@ -47,7 +47,7 @@ impl MenuBarLook {
         match self {
             Self::Chart => "bars",
             Self::Logos => "provider",
-            Self::Names => "names",
+            Self::Name => "name",
         }
     }
 
@@ -56,7 +56,7 @@ impl MenuBarLook {
         match self {
             Self::Chart => "chart",
             Self::Logos => "logos",
-            Self::Names => "names",
+            Self::Name => "name",
         }
     }
 
@@ -65,7 +65,7 @@ impl MenuBarLook {
         match value {
             "chart" => Some(Self::Chart),
             "logos" => Some(Self::Logos),
-            "names" => Some(Self::Names),
+            "name" => Some(Self::Name),
             _ => None,
         }
     }
@@ -126,14 +126,14 @@ pub(super) struct LogoSegment {
     /// Report short name, drawn when the mark cannot be drawn, or beside it
     /// when `with_name` is set.
     pub(super) short_name: Option<String>,
-    /// The names look: draw `short_name` after the mark rather than only
+    /// The name look: draw `short_name` after the mark rather than only
     /// where the mark is missing.
     pub(super) with_name: bool,
     /// Non-empty metric values in star order; their count is the rendered line count.
     pub(super) values: Vec<String>,
 }
 
-/// The id of the one provider the names look draws: the popover's selected
+/// The id of the one provider the name look draws: the popover's selected
 /// provider, else the report's `primary`, else the first group with a value.
 /// `None` only when no group has a value to show.
 fn focused_group_id<'a>(
@@ -155,7 +155,7 @@ fn focused_group_id<'a>(
 }
 
 /// Build logo segments from the same starred metric groups used by the chart.
-/// The names look keeps one provider, `selected` or its fallbacks, and one
+/// The name look keeps one provider, `selected` or its fallbacks, and one
 /// value, like the Quattro bar's `icon SHORT 54%` chip; the logos look keeps
 /// every group with up to two stacked values.
 pub(super) fn logo_segments(
@@ -164,15 +164,15 @@ pub(super) fn logo_segments(
     look: MenuBarLook,
     selected: Option<&str>,
 ) -> Vec<LogoSegment> {
-    let names = look == MenuBarLook::Names;
-    let focus = names
+    let single = look == MenuBarLook::Name;
+    let focus = single
         .then(|| focused_group_id(&content.groups, selected, report))
         .flatten();
-    let value_cap = if names { 1 } else { 2 };
+    let value_cap = if single { 1 } else { 2 };
     content
         .groups
         .iter()
-        .filter(|(id, _, _)| !names || Some(id.as_str()) == focus)
+        .filter(|(id, _, _)| !single || Some(id.as_str()) == focus)
         .filter_map(|(id, _, metrics)| {
             let values: Vec<String> = metrics
                 .iter()
@@ -192,7 +192,7 @@ pub(super) fn logo_segments(
             Some(LogoSegment {
                 slug,
                 short_name,
-                with_name: names,
+                with_name: single,
                 values,
             })
         })
@@ -252,7 +252,7 @@ mod tests {
 
     #[test]
     fn empty_modes_fall_back_to_static_app_icon() {
-        for look in [MenuBarLook::Chart, MenuBarLook::Logos, MenuBarLook::Names] {
+        for look in [MenuBarLook::Chart, MenuBarLook::Logos, MenuBarLook::Name] {
             assert_eq!(
                 status_item_content(look, false),
                 StatusItemContent::AppIcon,
@@ -267,16 +267,16 @@ mod tests {
             status_item_content(MenuBarLook::Logos, true),
             StatusItemContent::Logos
         );
-        // Names reuse the strip image: only the label differs from Logos.
+        // Name reuses the strip image: only the label differs from Logos.
         assert_eq!(
-            status_item_content(MenuBarLook::Names, true),
+            status_item_content(MenuBarLook::Name, true),
             StatusItemContent::Logos
         );
     }
 
     #[test]
     fn menu_bar_look_round_trips_through_config_and_picker() {
-        for look in [MenuBarLook::Chart, MenuBarLook::Logos, MenuBarLook::Names] {
+        for look in [MenuBarLook::Chart, MenuBarLook::Logos, MenuBarLook::Name] {
             assert_eq!(MenuBarLook::from_style(Some(look.style())), look);
             assert_eq!(
                 MenuBarLook::from_picker_value(look.picker_value()),
@@ -402,20 +402,20 @@ mod tests {
         assert_eq!(segments[0].short_name.as_deref(), Some("unk"));
     }
 
-    /// The names look keeps the mark and adds the short name beside it; the
+    /// The name look keeps the mark and adds the short name beside it; the
     /// logos look keeps the mark alone.
     #[test]
-    fn names_look_adds_the_short_name_beside_the_mark() {
+    fn name_look_adds_the_short_name_beside_the_mark() {
         let content = StripContent {
             groups: vec![("anthropic".into(), "Claude".into(), vec![metric("41%")])],
             bars: Vec::new(),
         };
         let report = json!({"entries":[{"id":"anthropic", "short_name":"cld"}]});
 
-        let names = logo_segments(&content, &report, MenuBarLook::Names, None);
-        assert!(names[0].with_name);
-        assert_eq!(names[0].short_name.as_deref(), Some("cld"));
-        assert!(super::super::marks::mark_svg(&names[0].slug).is_some());
+        let chip = logo_segments(&content, &report, MenuBarLook::Name, None);
+        assert!(chip[0].with_name);
+        assert_eq!(chip[0].short_name.as_deref(), Some("cld"));
+        assert!(super::super::marks::mark_svg(&chip[0].slug).is_some());
 
         let logos = logo_segments(&content, &report, MenuBarLook::Logos, None);
         assert!(!logos[0].with_name);
@@ -438,20 +438,15 @@ mod tests {
     /// Quattro draws one chip for the selected provider: one provider and one
     /// value, where the logos look stacks two values for every provider.
     #[test]
-    fn names_look_shows_only_the_selected_provider_and_its_first_value() {
+    fn name_look_shows_only_the_selected_provider_and_its_first_value() {
         let report = json!({"primary":"anthropic","entries":[]});
 
-        let names = logo_segments(&two_groups(), &report, MenuBarLook::Names, Some("openai"));
-        assert_eq!(names.len(), 1);
-        assert_eq!(names[0].slug, "openai");
-        assert_eq!(names[0].values, vec![String::from("100%")]);
+        let chip = logo_segments(&two_groups(), &report, MenuBarLook::Name, Some("openai"));
+        assert_eq!(chip.len(), 1);
+        assert_eq!(chip[0].slug, "openai");
+        assert_eq!(chip[0].values, vec![String::from("100%")]);
 
-        let claude = logo_segments(
-            &two_groups(),
-            &report,
-            MenuBarLook::Names,
-            Some("anthropic"),
-        );
+        let claude = logo_segments(&two_groups(), &report, MenuBarLook::Name, Some("anthropic"));
         assert_eq!(claude[0].values, vec![String::from("54%")]);
 
         let logos = logo_segments(&two_groups(), &report, MenuBarLook::Logos, Some("openai"));
@@ -463,11 +458,11 @@ mod tests {
     /// in, then the first provider with a value; a stale selection (the
     /// provider was unstarred or disabled) falls through the same way.
     #[test]
-    fn names_look_falls_back_from_selection_to_primary_to_first() {
+    fn name_look_falls_back_from_selection_to_primary_to_first() {
         let with_primary = json!({"primary":"openai","entries":[]});
         let no_primary = json!({"primary":null,"entries":[]});
         let slug = |report: &Value, selected: Option<&str>| {
-            logo_segments(&two_groups(), report, MenuBarLook::Names, selected)[0]
+            logo_segments(&two_groups(), report, MenuBarLook::Name, selected)[0]
                 .slug
                 .clone()
         };
@@ -479,9 +474,9 @@ mod tests {
     }
 
     /// A provider whose starred values are all empty is not a candidate, so
-    /// the names look never draws a bare name with no number.
+    /// the name look never draws a bare name with no number.
     #[test]
-    fn names_look_skips_a_selected_provider_without_a_value() {
+    fn name_look_skips_a_selected_provider_without_a_value() {
         let content = StripContent {
             groups: vec![
                 ("cursor".into(), "Cursor".into(), vec![metric("  ")]),
@@ -491,7 +486,7 @@ mod tests {
         };
         let report = json!({"primary":null,"entries":[]});
 
-        let segments = logo_segments(&content, &report, MenuBarLook::Names, Some("cursor"));
+        let segments = logo_segments(&content, &report, MenuBarLook::Name, Some("cursor"));
         assert_eq!(segments.len(), 1);
         assert_eq!(segments[0].slug, "zai");
     }
