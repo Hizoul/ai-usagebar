@@ -9,6 +9,14 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Fixed
+
+- **Release verify-version guards AUR checksum-array parity.** When sources and
+  checksums drift (e.g. adding a detached signature or tarball without matching
+  checksum entries), makepkg rejects the package. The release workflow's
+  `verify-version` job now fails the tag if `PKGBUILD` / `PKGBUILD-bin` source
+  and `sha256sums` arrays or `.SRCINFO` entries differ in length (fixes #335).
+
 ## [1.31.0] — 2026-10-03
 
 ### Added
