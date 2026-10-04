@@ -24,7 +24,7 @@ ai-usagebar-tui --config ./config.test.toml
 #                         # | zai | openrouter | deepseek | deepinfra | kimi | kilo | novita
 #                         # | moonshot | grok | supergrok | grokbot | antigravity | cursor
 #                         # | minimax | kiro | nous | opencode-go | commandcode
-#                         # | orcarouter | modelstudio
+#                         # | orcarouter | modelstudio | lyceum
 
 [context]
 enabled = false           # opt in, then press c in ai-usagebar-tui
@@ -134,6 +134,15 @@ api_key_env = "NOVITA_API_KEY"
 # display_limit = 200      # tank size in USD; see "Balance tanks" below
 # headline = "amount"      # "amount" | "percent"
 
+[lyceum]
+enabled = true              # disabled by default; enable once you add an API key
+api_key_env = "LYCEUM_API_KEY"
+# api_key = "..."           # inline fallback; chmod 600 the file if used
+# [[lyceum.accounts]]       # optional named API-key accounts
+# label = "work"
+# api_key_env = "LYCEUM_WORK_API_KEY"
+# api_key = "..."
+
 [orcarouter]
 enabled = true             # disabled by default; enable once you add an API key
 api_key_env = "ORCAROUTER_API_KEY"
@@ -233,7 +242,7 @@ enabled = false            # disabled by default; enable after `bl auth login --
 For more than one OpenRouter key, see the
 [OpenRouter account guide](openrouter-accounts.md). The existing singular
 `[openrouter]` key remains the default account and needs no migration. Z.AI,
-DeepSeek, DeepInfra, Kilo, Novita, Moonshot, Grok, MiniMax, and OrcaRouter take the same
+DeepSeek, DeepInfra, Kilo, Novita, Moonshot, Grok, MiniMax, OrcaRouter, and Lyceum take the same
 `[[<vendor>.accounts]]` array and `show_default_account` switch — see the
 [API-key account guide](api-key-accounts.md).
 

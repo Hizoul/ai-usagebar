@@ -285,6 +285,7 @@ come from environment variables or `config.toml`.
 | Kimi | Existing Kimi Code CLI login **or** API key (`KIMI_API_KEY` or config) | Opt in, then either log in with `kimi` (nothing to paste) or set an API key, which wins when present. A Kimi For Coding subscription can issue one at kimi.com/code/console. |
 | Kilo | API key (`KILO_API_KEY` env or `[kilo] api_key` in config) | Set either. Opt-in. For a team balance, also set `[kilo] organization_id`; omit it for the personal balance. |
 | Novita | API key (`NOVITA_API_KEY` env or `[novita] api_key` in config) | Set either. Opt-in. |
+| Lyceum | API key (`LYCEUM_API_KEY` env or `[lyceum] api_key` in config) | Opt-in. Reports the available USD balance and amount used; no percentage quota or reset is inferred. |
 | OrcaRouter | API key (`ORCAROUTER_API_KEY` env or `[orcarouter] api_key` in config) | Set either. Opt-in. Reports the credit card (spend / total limit / remaining, key expiry) from the one-api compatible dashboard billing endpoints. |
 | Moonshot | API key (`MOONSHOT_API_KEY` or config) | Opt in. Set region `cn` for CNY; `global` uses USD. |
 | Grok (xAI) | Management key | Opt in with `XAI_MANAGEMENT_KEY` or config. An inference key does not work. |
@@ -1037,7 +1038,7 @@ Waybar examples.
 
 ### Multiple keys for other API-key providers
 
-Z.AI, DeepSeek, DeepInfra, Kilo, Novita, Moonshot, Grok, MiniMax, and OrcaRouter take the
+Z.AI, DeepSeek, DeepInfra, Kilo, Novita, Moonshot, Grok, MiniMax, OrcaRouter, and Lyceum take the
 same array: one `[[<vendor>.accounts]]` entry per extra key, selected with
 `--vendor <vendor> --account <label>`. Region, team, organization, and display
 settings stay per provider. See the

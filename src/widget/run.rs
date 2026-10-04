@@ -23,6 +23,7 @@ use crate::grokbot;
 use crate::kilo;
 use crate::kimi;
 use crate::kiro;
+use crate::lyceum;
 use crate::minimax;
 use crate::modelstudio;
 use crate::moonshot;
@@ -172,6 +173,7 @@ async fn build_output(cli: &Cli) -> Result<WaybarOutput> {
         Vendor::CommandCode => commandcode_output(cli, &config).await,
         Vendor::Ollama => ollama_output(cli, &config).await,
         Vendor::OrcaRouter => orcarouter_output(cli, &config).await,
+        Vendor::Lyceum => lyceum_output(cli, &config).await,
         Vendor::ModelStudio => modelstudio_output(cli, &config).await,
     }
 }
@@ -614,6 +616,28 @@ async fn novita_output(cli: &Cli, config: &Config) -> Result<WaybarOutput> {
         &theme,
         &opts,
         chrono::Utc::now(),
+    ))
+}
+
+async fn lyceum_output(cli: &Cli, config: &Config) -> Result<WaybarOutput> {
+    let (api_key, cache) = api_key_target(cli, config, VendorId::Lyceum)?;
+    let client = http_client()?;
+    let outcome = match lyceum::fetch::fetch_snapshot(&client, &api_key, &cache, DEFAULT_TTL).await
+    {
+        Ok(outcome) => outcome,
+        Err(error) if error.is_transient() => {
+            return Ok(WaybarOutput::loading(cli.icon.as_deref()));
+        }
+        Err(error) => return Err(error),
+    };
+    let snapshot = outcome.snapshot.clone();
+    let vendor_outcome: crate::vendor::VendorOutcome = outcome.into();
+    Ok(lyceum::vendor::render(
+        &vendor_outcome,
+        &snapshot,
+        &theme_from_cli(cli),
+        &RenderOpts::from_cli(cli),
+        Utc::now(),
     ))
 }
 

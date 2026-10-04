@@ -184,6 +184,7 @@ pub enum VendorId {
     Ollama,
     OrcaRouter,
     ModelStudio,
+    Lyceum,
 }
 
 /// How a provider authenticates. Drives what a frontend offers a provider that
@@ -239,6 +240,7 @@ impl VendorId {
             VendorId::Ollama => "ollama",
             VendorId::OrcaRouter => "orcarouter",
             VendorId::ModelStudio => "modelstudio",
+            VendorId::Lyceum => "lyceum",
         }
     }
 
@@ -272,6 +274,7 @@ impl VendorId {
             VendorId::Ollama => "Ollama Cloud",
             VendorId::OrcaRouter => "OrcaRouter",
             VendorId::ModelStudio => "Model Studio",
+            VendorId::Lyceum => "Lyceum",
         }
     }
 
@@ -308,6 +311,7 @@ impl VendorId {
             VendorId::OrcaRouter => VendorId::OrcaRouter.short_name(),
             // Same story for Model Studio: the `mst` short name is unique.
             VendorId::ModelStudio => VendorId::ModelStudio.short_name(),
+            VendorId::Lyceum => VendorId::Lyceum.short_name(),
         }
     }
 
@@ -342,6 +346,7 @@ impl VendorId {
             VendorId::Ollama => "oll",
             VendorId::OrcaRouter => "orc",
             VendorId::ModelStudio => "mst",
+            VendorId::Lyceum => "lyc",
         }
     }
 
@@ -379,6 +384,7 @@ impl VendorId {
             VendorId::Ollama => "ollama",
             VendorId::OrcaRouter => "orcarouter",
             VendorId::ModelStudio => "modelstudio",
+            VendorId::Lyceum => "lyceum",
         }
     }
 
@@ -407,7 +413,8 @@ impl VendorId {
             | VendorId::Minimax
             | VendorId::OpenCodeGo
             | VendorId::Ollama
-            | VendorId::OrcaRouter => AuthKind::ApiKey,
+            | VendorId::OrcaRouter
+            | VendorId::Lyceum => AuthKind::ApiKey,
             // No credential of their own: another local product's session is
             // the login. Antigravity has no credential file at all (the binary
             // probes whichever local server answers), Cursor and Kiro read the
@@ -444,6 +451,7 @@ impl VendorId {
             VendorId::OpenCodeGo => "OPENCODE_GO_API_KEY",
             VendorId::Ollama => "OLLAMA_API_KEY",
             VendorId::OrcaRouter => "ORCAROUTER_API_KEY",
+            VendorId::Lyceum => "LYCEUM_API_KEY",
             // OAuth-first, with an environment override for CI and headless
             // use. Neither name is configurable, so neither has an
             // `api_key_env` field in its config section.
@@ -507,7 +515,8 @@ impl VendorId {
             | VendorId::Minimax
             | VendorId::OpenCodeGo
             | VendorId::Ollama
-            | VendorId::OrcaRouter => "Add an API key in Settings, then Refresh.",
+            | VendorId::OrcaRouter
+            | VendorId::Lyceum => "Add an API key in Settings, then Refresh.",
         }
     }
 
@@ -540,7 +549,8 @@ impl VendorId {
             | VendorId::Minimax
             | VendorId::OpenCodeGo
             | VendorId::Ollama
-            | VendorId::OrcaRouter => "",
+            | VendorId::OrcaRouter
+            | VendorId::Lyceum => "",
         }
     }
 
@@ -571,6 +581,7 @@ impl VendorId {
             VendorId::Ollama,
             VendorId::OrcaRouter,
             VendorId::ModelStudio,
+            VendorId::Lyceum,
         ]
     }
 
@@ -627,6 +638,13 @@ mod tests {
         assert_eq!(VendorId::Anthropic.display_name(), "Claude");
         assert_eq!(VendorId::Openai.display_name(), "Codex");
         assert_eq!(VendorId::Zai.display_name(), "Z.AI");
+        assert!(VendorId::all().contains(&VendorId::Lyceum));
+        assert_eq!(VendorId::Lyceum.slug(), "lyceum");
+        assert_eq!(VendorId::Lyceum.display_name(), "Lyceum");
+        assert_eq!(VendorId::Lyceum.short_name(), "lyc");
+        assert_eq!(VendorId::Lyceum.api_key_env(), "LYCEUM_API_KEY");
+        assert_eq!(VendorId::Lyceum.config_section(), "lyceum");
+        assert_eq!(VendorId::Lyceum.auth_kind(), AuthKind::ApiKey);
     }
 
     /// `{vendor_short}` is a documented format placeholder and now also rides

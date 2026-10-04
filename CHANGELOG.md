@@ -9,6 +9,11 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Added
+
+- **Lyceum Technology balance provider.** Lyceum's credit amounts are shown as
+  USD balances; no quota percentage or reset is inferred.
+
 ## [1.31.0] — 2026-10-03
 
 ### Added

@@ -100,6 +100,7 @@ pub fn has_local_credentials(vendor: VendorId, config: &Config) -> bool {
         }
         VendorId::Ollama => key_present(config, vendor),
         VendorId::OrcaRouter => key_present(config, vendor),
+        VendorId::Lyceum => key_present(config, vendor),
         // File-exists only, like Grok Bot: parsing the JSON here would be
         // wasted work — the fetch reads the same file and reports honestly.
         VendorId::ModelStudio => crate::modelstudio::config_path(&config.modelstudio)
@@ -442,6 +443,16 @@ pub fn run_once_with(
 mod tests {
     use super::*;
     use tempfile::TempDir;
+
+    #[test]
+    fn lyceum_credential_detection_uses_inline_key_without_home_or_network() {
+        let mut config = Config::default();
+        config.lyceum.api_key_env.clear(); // prevents reading any ambient variable
+        config.lyceum.api_key = Some("synthetic-key".into());
+        assert!(has_local_credentials(VendorId::Lyceum, &config));
+        config.lyceum.api_key = None;
+        assert!(!has_local_credentials(VendorId::Lyceum, &config));
+    }
 
     fn probe_in(present: &[VendorId]) -> impl Fn(VendorId) -> bool + '_ {
         move |vendor| present.contains(&vendor)
