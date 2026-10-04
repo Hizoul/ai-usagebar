@@ -1577,7 +1577,6 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
   assert.deepEqual(view(null, 'left'), {text: '', left: false, percent: null});
 }
 
-// The panel lists the metrics that are on, so a switched-off one draws no meter.
 {
   const zai = zaiReport(18);
   const panel = (hidden) => Array.from(model.panelEntry(zai, hidden, {}).sections.map(row => row.label));
@@ -1597,7 +1596,6 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
   assert.deepEqual(rows({supergrok: ['Breakdown / Chat']}), ['Credits'], 'a group with no row left loses its heading');
 }
 
-// Antigravity's groups are heading rows, not a field: the same label under two headings stays distinct.
 {
   const agy = model.parseReport(JSON.stringify({entries: [{id: 'antigravity', sections: [
     {type: 'spacer'},
@@ -1630,7 +1628,6 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
   assert.deepEqual(Array.from(model.metricKeys(twice), item => item.key), ['Pool', 'Pool #2'], 'a repeated label is numbered');
 }
 
-// Settings offers one switch per metric, and Cursor's follow its pool switches.
 {
   const zai = zaiReport(18);
   const choices = (hidden) => Array.from(model.metricChoices(zai, hidden, {}),
