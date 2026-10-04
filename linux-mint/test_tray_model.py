@@ -30,6 +30,13 @@ class TrayModelTest(unittest.TestCase):
         self.assertEqual(meter_color(row, projected), "red")
         self.assertEqual(metric_pace({**row, "window_secs": None}, NOW, "en_US"), None)
 
+    def test_cursor_report_paces_each_pool_against_the_billing_cycle(self):
+        fixture = json.loads((Path(__file__).resolve().parent.parent / "tests/fixtures/cursor_paced_report.json").read_text())
+        ahead, under = list(report_sections(fixture["entries"][0]))
+        self.assertEqual(metric_pace(ahead, NOW, "en_US"), ("behind", "🔥 Limit in 2d 3h"))
+        self.assertEqual(metric_pace(under, NOW, "en_US"), ("ahead", None))
+        self.assertEqual(metric_pace({**ahead, "window_secs": None}, NOW, "en_US"), None)
+
     def test_binary_resolution_supports_cargo_and_saved_override(self):
         with tempfile.TemporaryDirectory() as temporary_home:
             home = Path(temporary_home)

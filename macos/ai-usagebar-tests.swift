@@ -307,6 +307,23 @@ func testParserBalances() {
     assertEqual(cur?.sessionTag, "auto", "cursor session tag")
     assertEqual(cur?.weeklyTag, "premium", "cursor weekly tag")
 
+    // Both pools share the billing cycle, so the one elapsed share the widget
+    // prints on the session and weekly aliases places both pace markers. A
+    // cycle of unknown length prints no elapsed and draws no marker.
+    let curPaced = snapshot(FORMAT, vendor: "cursor",
+                            fields: fields(through: 16, set: [
+                               0: "Cursor Ultra", 1: "70", 2: "5d 0h", 3: "30", 4: "5d 0h",
+                               13: "50", 14: "50", 16: "cur"
+                            ]))
+    assertEqual(curPaced?.session?.elapsed, 50, "cursor Cursor Models marker follows the cycle")
+    assertEqual(curPaced?.weekly?.elapsed, 50, "cursor Other Models marker follows the cycle")
+    let curUnstated = snapshot(FORMAT, vendor: "cursor",
+                               fields: fields(through: 16, set: [
+                                  0: "Cursor Ultra", 1: "70", 2: "5d 0h", 3: "30", 4: "5d 0h", 16: "cur"
+                               ]))
+    assertNil(curUnstated?.session?.elapsed, "cursor with no exact cycle has no session marker")
+    assertNil(curUnstated?.weekly?.elapsed, "cursor with no exact cycle has no weekly marker")
+
     // Antigravity has two independent model pools, each with a 5h and weekly
     // window. The fourth window reuses `extra_pct`, but it is not a spend bar:
     // its model/reset/elapsed fields follow Cursor's total at the FORMAT tail.

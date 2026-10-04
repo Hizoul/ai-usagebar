@@ -16,6 +16,16 @@ vm.runInContext(source, model, {filename: 'Model.js'});
   assert.equal(model.metricMatchesWindow(entry.sections[0], 'weekly'), true);
 }
 
+{
+  const fixture = fs.readFileSync(new URL('../tests/fixtures/cursor_paced_report.json', import.meta.url), 'utf8');
+  const entry = model.parseReport(fixture).entries[0];
+  assert.equal(entry.id, 'cursor');
+  assert.equal(entry.sections[0].window_secs, 864000);
+  assert.equal(entry.sections[1].window_secs, 864000);
+  assert.equal(model.metricDetail(entry.sections[0]), 'Auto + Composer · 50% elapsed · 20pts ahead');
+  assert.equal(model.metricDetail(entry.sections[1]), 'Named / API models · on-demand off · 50% elapsed · 20pts under');
+}
+
 const i18n = {};
 vm.createContext(i18n);
 vm.runInContext(fs.readFileSync(new URL('./I18n.js', import.meta.url), 'utf8'), i18n, {

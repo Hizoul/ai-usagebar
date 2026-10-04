@@ -97,6 +97,17 @@ const englishMessages = JSON.parse(readFileSync(new URL('./messages/en.json', im
   assert.equal(pace({...row, window: undefined}, now), null);
 }
 
+{
+  const fixture = JSON.parse(readFileSync(new URL('../../tests/fixtures/cursor_paced_report.json', import.meta.url), 'utf8'));
+  const now = Date.parse('2026-09-25T12:00:00Z');
+  const [ahead, behind] = projectCards(parseHostPayload(fixture), now)[0].rows;
+  assert.equal(pace(ahead, now).elapsedPercent, 50);
+  assert.equal(pace(ahead, now).state, 'behind');
+  assert.equal(pace(behind, now).elapsedPercent, 50);
+  assert.notEqual(pace(behind, now).state, 'behind');
+  assert.equal(pace({...ahead, window: undefined}, now), null);
+}
+
 // The page declares an empty icon, so the WebView never asks the tray for /favicon.ico: the
 // custom protocol serves only the page, its script and its stylesheet, and the request logged
 // a 404 in the popover's console on every open.
