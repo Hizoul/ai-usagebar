@@ -9,6 +9,19 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Added
+
+- **Cursor billing-cycle pacing in the widget, tooltip, TUI and macOS menu bar.**
+  Each pool (Cursor Models, Other Models) is paced against the billing cycle
+  when the API states both `billingCycleStart` and `billingCycleEnd`. The widget
+  gains `{cursor_elapsed}` (aliased as `{session_elapsed}` / `{weekly_elapsed}`,
+  which is what places the macOS pace marker) and a per-pool pace family,
+  `{cursor_auto_pace*}` and `{cursor_api_pace*}`, honouring `--pace-tolerance`,
+  `--format-pace-color` and `--tooltip-pace-pts`. The tooltip marks each pool
+  with its pace glyph, and the TUI and `usage --json` footnotes add the elapsed
+  share and point delta for Quattro, GNOME and KDE. A cycle whose length the API
+  did not state is never paced against a guessed month.
+
 ## [1.31.0] — 2026-10-03
 
 ### Added

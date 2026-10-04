@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 
 use crate::countdown;
 use crate::format::{placeholders, substitute, updated_at_hm};
-use crate::pacing::PaceSeverity;
+use crate::pacing::{self, PaceSeverity, Pacing};
 use crate::pango::{color_span, escape, severity_color, severity_for};
 use crate::theme::Theme;
 use crate::tooltip::{Line as TooltipLine, render_bordered};
@@ -24,12 +24,79 @@ pub const DEFAULT_FORMAT: &str = "{cursor_auto_pct}·{cursor_api_pct}%";
 /// Override with `--icon`.
 const DEFAULT_ICON: &str = "❯";
 
+/// Placeholder names of one pool's pace family, in the order
+/// [`pace_entries`] fills them: ratio glyph, ratio label, point glyph, point
+/// label, signed point delta.
+const AUTO_PACE_KEYS: [&str; 5] = [
+    "cursor_auto_pace",
+    "cursor_auto_pace_pct",
+    "cursor_auto_pace_indicator",
+    "cursor_auto_pace_pts",
+    "cursor_auto_pace_delta",
+];
+const API_PACE_KEYS: [&str; 5] = [
+    "cursor_api_pace",
+    "cursor_api_pace_pct",
+    "cursor_api_pace_indicator",
+    "cursor_api_pace_pts",
+    "cursor_api_pace_delta",
+];
+
+/// Whether the elapsed share of the billing cycle is knowable. An unlimited
+/// plan has no cap to pace against, and a cycle whose start the API did not
+/// send has no exact length — [`CursorSnapshot::cycle_window`] never guesses
+/// a month, so neither does the pace.
+fn has_cycle_pace(snap: &CursorSnapshot) -> bool {
+    !snap.unlimited && snap.cycle_window().is_some()
+}
+
+/// Pace of one pool against the billing cycle. Both pools share the cycle, so
+/// only the usage differs. A cycle of unknown length is neutral.
+fn pool_pacing(snap: &CursorSnapshot, pct: i32, tolerance: u32, now: DateTime<Utc>) -> Pacing {
+    match snap.cycle_window() {
+        Some(window) if !snap.unlimited => pacing::calc(pct, snap.reset_at, now, window, tolerance),
+        _ => Pacing::neutral(),
+    }
+}
+
+fn pace_entries(
+    keys: [&'static str; 5],
+    pace: Pacing,
+    unlimited: bool,
+) -> [(&'static str, String); 5] {
+    // An unlimited plan resolves to empty strings (the missing-placeholder
+    // convention) rather than a neutral pace for a cap that does not exist.
+    let shown = |value: String| if unlimited { String::new() } else { value };
+    [
+        (keys[0], shown(pace.ratio_pace.glyph().into())),
+        (keys[1], shown(pace.ratio_label)),
+        (keys[2], shown(pace.point_pace.glyph().into())),
+        (keys[3], shown(pace.point_label)),
+        (keys[4], shown(pace.delta.to_string())),
+    ]
+}
+
 pub fn build_placeholders(
     snap: &CursorSnapshot,
     now: DateTime<Utc>,
 ) -> HashMap<&'static str, String> {
+    build_placeholders_with_tolerance(snap, pacing::DEFAULT_TOLERANCE, now)
+}
+
+fn build_placeholders_with_tolerance(
+    snap: &CursorSnapshot,
+    tolerance: u32,
+    now: DateTime<Utc>,
+) -> HashMap<&'static str, String> {
     let reset = countdown::format(snap.reset_at, now);
-    placeholders(vec![
+    let auto_pace = pool_pacing(snap, snap.auto_pct, tolerance, now);
+    let elapsed = if has_cycle_pace(snap) {
+        auto_pace.elapsed_pct.to_string()
+    } else {
+        String::new()
+    };
+    let api_pace = pool_pacing(snap, snap.api_pct, tolerance, now);
+    let mut pairs = vec![
         ("icon", DEFAULT_ICON.to_string()),
         ("vendor_short", VendorId::Cursor.short_name().to_string()),
         // Cross-vendor aliases: the two pools map onto the two generic windows
@@ -38,14 +105,19 @@ pub fn build_placeholders(
         ("plan", format!("Cursor {}", snap.plan)),
         ("session_pct", snap.auto_pct.to_string()),
         ("session_reset", reset.clone()),
+        // Both pools reset with the billing cycle, so one elapsed share serves
+        // both aliases — it is what places the macOS pace marker.
+        ("session_elapsed", elapsed.clone()),
         ("weekly_pct", snap.api_pct.to_string()),
         ("weekly_reset", reset.clone()),
+        ("weekly_elapsed", elapsed.clone()),
         // Cursor-specific placeholders.
         ("cursor_plan", snap.plan.clone()),
         ("cursor_auto_pct", snap.auto_pct.to_string()),
         ("cursor_api_pct", snap.api_pct.to_string()),
         ("cursor_total_pct", snap.total_pct.to_string()),
         ("cursor_reset", reset),
+        ("cursor_elapsed", elapsed),
         (
             "cursor_on_demand",
             if snap.on_demand_enabled { "on" } else { "off" }.to_string(),
@@ -54,7 +126,10 @@ pub fn build_placeholders(
             "cursor_unlimited",
             if snap.unlimited { "yes" } else { "no" }.to_string(),
         ),
-    ])
+    ];
+    pairs.extend(pace_entries(AUTO_PACE_KEYS, auto_pace, snap.unlimited));
+    pairs.extend(pace_entries(API_PACE_KEYS, api_pace, snap.unlimited));
+    placeholders(pairs)
 }
 
 /// Severity keys on the binding pool. An unlimited plan has no cap, so it stays
@@ -79,18 +154,23 @@ pub fn render(
         .format
         .clone()
         .unwrap_or_else(|| DEFAULT_FORMAT.to_string());
-    let values = build_placeholders(snap, now);
+    let values = build_placeholders_with_tolerance(snap, opts.pace_tolerance, now);
+    let pango_values = pace_colored(&values, snap, theme, opts, now);
 
     let mut text = if snap.unlimited && opts.format.is_none() {
         "unlimited".to_string()
     } else {
-        substitute(&format, &values)
+        substitute(&format, &pango_values)
     };
     if outcome.stale {
         text.push_str(" ⏸");
     }
 
-    let wrapper_color = severity_color(severity(snap), theme).to_string();
+    let wrapper_color = if opts.format_pace_color && format.contains("_pace") {
+        theme.fg.clone()
+    } else {
+        severity_color(severity(snap), theme).to_string()
+    };
     let icon_prefix = match opts.icon.as_deref() {
         Some(ic) if !ic.is_empty() => format!("{ic} "),
         _ => String::new(),
@@ -98,9 +178,9 @@ pub fn render(
     let bar_text = color_span(&wrapper_color, &format!("{icon_prefix}{text}"));
 
     let tooltip = if let Some(fmt) = opts.tooltip_format.as_deref() {
-        substitute(fmt, &values)
+        substitute(fmt, &pango_values)
     } else {
-        render_tooltip(outcome, snap, theme, now)
+        render_tooltip(outcome, snap, theme, opts, now)
     };
 
     WaybarOutput {
@@ -110,21 +190,91 @@ pub fn render(
     }
 }
 
-fn pool_line(lines: &mut Vec<TooltipLine>, theme: &Theme, label: &str, pct: i32) {
+/// `--format-pace-color`: wrap every pace placeholder in the colour of its
+/// own point delta, so each pool is coloured by its own pace.
+fn pace_colored(
+    values: &HashMap<&'static str, String>,
+    snap: &CursorSnapshot,
+    theme: &Theme,
+    opts: &RenderOpts,
+    now: DateTime<Utc>,
+) -> HashMap<&'static str, String> {
+    let mut colored = values.clone();
+    if !opts.format_pace_color || snap.unlimited {
+        return colored;
+    }
+    for (keys, pct) in [
+        (AUTO_PACE_KEYS, snap.auto_pct),
+        (API_PACE_KEYS, snap.api_pct),
+    ] {
+        let pace = pool_pacing(snap, pct, opts.pace_tolerance, now);
+        let color = severity_color(pacing::pace_severity(pace.delta), theme);
+        for key in keys {
+            if let Some(value) = colored.get_mut(key) {
+                *value = color_span(color, value);
+            }
+        }
+    }
+    colored
+}
+
+/// The pace glyph after a pool's "used" line, in the same ratio/point
+/// convention as every other tooltip (`--tooltip-pace-pts` picks the points).
+/// `None` when the billing cycle has no exact length: no glyph beats a
+/// fabricated `→`.
+fn pool_glyph(
+    snap: &CursorSnapshot,
+    pct: i32,
+    opts: &RenderOpts,
+    now: DateTime<Utc>,
+) -> Option<&'static str> {
+    if !has_cycle_pace(snap) {
+        return None;
+    }
+    let pace = pool_pacing(snap, pct, opts.pace_tolerance, now);
+    Some(if opts.tooltip_pace_pts {
+        pace.point_pace.glyph()
+    } else {
+        pace.ratio_pace.glyph()
+    })
+}
+
+fn pool_line(
+    lines: &mut Vec<TooltipLine>,
+    theme: &Theme,
+    label: &str,
+    pct: i32,
+    glyph: Option<&str>,
+) {
     let fg = &theme.fg;
     let color = severity_color(severity_for(pct), theme);
+    let glyph = glyph.map(|g| format!(" {g}")).unwrap_or_default();
     lines.push(TooltipLine::Body(format!(
         " <span foreground='{fg}'>  󰢻  {label}</span>"
     )));
     lines.push(TooltipLine::Body(format!(
-        "   <span font_weight='bold' foreground='{color}'>{pct}%</span> used"
+        "   <span font_weight='bold' foreground='{color}'>{pct}%</span> used{glyph}"
     )));
+}
+
+/// The reset line, plus how far through the billing cycle we are when
+/// `--tooltip-pace-pts` asks for the elapsed marker. The bar-less tooltip has
+/// no bar to draw that marker in, so the share is spelled out once here — both
+/// pools reset together.
+fn reset_text(snap: &CursorSnapshot, opts: &RenderOpts, now: DateTime<Utc>) -> String {
+    let reset = countdown::format(snap.reset_at, now);
+    if !opts.tooltip_pace_pts || !has_cycle_pace(snap) {
+        return format!("Resets {reset}");
+    }
+    let elapsed = pool_pacing(snap, snap.auto_pct, opts.pace_tolerance, now).elapsed_pct;
+    format!("Resets {reset} · {elapsed}% elapsed")
 }
 
 fn render_tooltip(
     outcome: &VendorOutcome,
     snap: &CursorSnapshot,
     theme: &Theme,
+    opts: &RenderOpts,
     now: DateTime<Utc>,
 ) -> String {
     let blue = &theme.blue;
@@ -144,12 +294,20 @@ fn render_tooltip(
             " <span foreground='{fg}'>  󰐾  Unlimited plan</span>"
         )));
     } else {
-        pool_line(&mut lines, theme, "Cursor Models", snap.auto_pct);
+        let auto_glyph = pool_glyph(snap, snap.auto_pct, opts, now);
+        pool_line(
+            &mut lines,
+            theme,
+            "Cursor Models",
+            snap.auto_pct,
+            auto_glyph,
+        );
         lines.push(TooltipLine::Body(format!(
             " <span foreground='{dim}'>     Auto + Composer</span>"
         )));
         lines.push(TooltipLine::Body("".into()));
-        pool_line(&mut lines, theme, "Other Models", snap.api_pct);
+        let api_glyph = pool_glyph(snap, snap.api_pct, opts, now);
+        pool_line(&mut lines, theme, "Other Models", snap.api_pct, api_glyph);
         lines.push(TooltipLine::Body(format!(
             " <span foreground='{dim}'>     Named / API models · on-demand {}</span>",
             if snap.on_demand_enabled { "on" } else { "off" }
@@ -158,8 +316,8 @@ fn render_tooltip(
 
     lines.push(TooltipLine::Body("".into()));
     lines.push(TooltipLine::Body(format!(
-        " <span foreground='{dim}'>  󰃰  Resets {}</span>",
-        escape(&countdown::format(snap.reset_at, now))
+        " <span foreground='{dim}'>  󰃰  {}</span>",
+        escape(&reset_text(snap, opts, now))
     )));
 
     if let Some((code, msg)) = outcome.last_error.as_ref()
@@ -348,9 +506,167 @@ mod tests {
             "cursor_reset",
             "cursor_on_demand",
             "cursor_unlimited",
-        ] {
+            "session_elapsed",
+            "weekly_elapsed",
+            "cursor_elapsed",
+        ]
+        .into_iter()
+        .chain(AUTO_PACE_KEYS)
+        .chain(API_PACE_KEYS)
+        {
             assert!(values.contains_key(key), "missing placeholder {key}");
         }
+    }
+
+    /// A 10-day cycle, half gone: Cursor Models at 70% runs ahead, Other
+    /// Models at 30% runs behind.
+    fn paced_snap() -> CursorSnapshot {
+        CursorSnapshot {
+            auto_pct: 70,
+            api_pct: 30,
+            total_pct: 50,
+            reset_at: Some(now() + chrono::Duration::days(5)),
+            cycle_start: Some(now() - chrono::Duration::days(5)),
+            ..sample_snap()
+        }
+    }
+
+    #[test]
+    fn each_pool_is_paced_against_the_billing_cycle() {
+        let values = build_placeholders(&paced_snap(), now());
+        for key in ["session_elapsed", "weekly_elapsed", "cursor_elapsed"] {
+            assert_eq!(values[key], "50", "{key}");
+        }
+        assert_eq!(values["cursor_auto_pace"], "↑");
+        assert_eq!(values["cursor_auto_pace_indicator"], "↑");
+        assert_eq!(values["cursor_auto_pace_pct"], "40% ahead");
+        assert_eq!(values["cursor_auto_pace_pts"], "20pts ahead");
+        assert_eq!(values["cursor_auto_pace_delta"], "20");
+        assert_eq!(values["cursor_api_pace"], "↓");
+        assert_eq!(values["cursor_api_pace_indicator"], "↓");
+        assert_eq!(values["cursor_api_pace_pct"], "40% under");
+        assert_eq!(values["cursor_api_pace_pts"], "20pts under");
+        assert_eq!(values["cursor_api_pace_delta"], "-20");
+    }
+
+    #[test]
+    fn pace_follows_the_tolerance_the_widget_was_given() {
+        let snap = paced_snap();
+        let outcome = sample_outcome(snap.clone());
+        let mut o = opts();
+        o.format = Some("{cursor_auto_pace} {cursor_auto_pace_indicator}".into());
+        let strict = render(&outcome, &snap, &Theme::default(), &o, now());
+        assert!(strict.text.contains("↑ ↑"), "{}", strict.text);
+        // 70% against 50% elapsed is a 140% ratio: inside a 50-point band the
+        // ratio glyph calms down while the point glyph still reports the gap.
+        o.pace_tolerance = 50;
+        let tolerant = render(&outcome, &snap, &Theme::default(), &o, now());
+        assert!(tolerant.text.contains("→ ↑"), "{}", tolerant.text);
+    }
+
+    #[test]
+    fn pace_color_paints_each_pool_by_its_own_delta() {
+        let snap = paced_snap();
+        let theme = Theme::default();
+        let mut o = opts();
+        o.format = Some("{cursor_auto_pace}{cursor_api_pace}".into());
+        o.format_pace_color = true;
+        let out = render(&sample_outcome(snap.clone()), &snap, &theme, &o, now());
+        assert!(
+            out.text.contains(&format!("foreground='{}'>↑", theme.red)),
+            "{}",
+            out.text
+        );
+        assert!(
+            out.text
+                .contains(&format!("foreground='{}'>↓", theme.green)),
+            "{}",
+            out.text
+        );
+        // The pace colours own the text, so the severity wrapper steps aside.
+        assert!(
+            !out.text
+                .starts_with(&format!("<span foreground='{}'", theme.red)),
+            "{}",
+            out.text
+        );
+    }
+
+    #[test]
+    fn tooltip_marks_each_pool_and_spells_out_the_elapsed_share_in_point_mode() {
+        let snap = paced_snap();
+        let outcome = sample_outcome(snap.clone());
+        let plain = render(&outcome, &snap, &Theme::default(), &opts(), now());
+        assert!(plain.tooltip.contains("used ↑"), "{}", plain.tooltip);
+        assert!(plain.tooltip.contains("used ↓"), "{}", plain.tooltip);
+        assert!(!plain.tooltip.contains("elapsed"), "{}", plain.tooltip);
+
+        let mut o = opts();
+        o.pace_tolerance = 50;
+        o.tooltip_pace_pts = true;
+        let points = render(&outcome, &snap, &Theme::default(), &o, now());
+        // Point mode ignores the tolerance and adds the elapsed share.
+        assert!(points.tooltip.contains("used ↑"), "{}", points.tooltip);
+        assert!(points.tooltip.contains("50% elapsed"), "{}", points.tooltip);
+    }
+
+    #[test]
+    fn an_unstated_billing_cycle_is_never_paced() {
+        // `billingCycleStart` missing (an old response, or a cache written
+        // before it was stored): the cycle length is unknown, and a guessed
+        // month would put a pace on the bar as if it were exact.
+        let snap = CursorSnapshot {
+            cycle_start: None,
+            ..paced_snap()
+        };
+        let values = build_placeholders(&snap, now());
+        for key in ["session_elapsed", "weekly_elapsed", "cursor_elapsed"] {
+            assert_eq!(values[key], "", "{key}");
+        }
+        assert_eq!(values["cursor_auto_pace"], "→");
+        assert_eq!(values["cursor_auto_pace_pts"], "on track");
+        assert_eq!(values["cursor_api_pace_delta"], "0");
+
+        let outcome = sample_outcome(snap.clone());
+        let plain = render(&outcome, &snap, &Theme::default(), &opts(), now());
+        let mut o = opts();
+        o.tooltip_pace_pts = true;
+        let points = render(&outcome, &snap, &Theme::default(), &o, now());
+        assert_eq!(plain.tooltip, points.tooltip, "no marker without a window");
+        assert!(!plain.tooltip.contains('→'), "{}", plain.tooltip);
+    }
+
+    #[test]
+    fn an_unordered_billing_cycle_is_never_paced() {
+        let snap = CursorSnapshot {
+            cycle_start: Some(now() + chrono::Duration::days(6)),
+            ..paced_snap()
+        };
+        assert_eq!(build_placeholders(&snap, now())["cursor_elapsed"], "");
+    }
+
+    #[test]
+    fn an_unlimited_plan_has_no_pace_to_report() {
+        let snap = CursorSnapshot {
+            unlimited: true,
+            ..paced_snap()
+        };
+        let values = build_placeholders(&snap, now());
+        for key in ["session_elapsed", "cursor_elapsed"]
+            .into_iter()
+            .chain(AUTO_PACE_KEYS)
+            .chain(API_PACE_KEYS)
+        {
+            assert_eq!(values[key], "", "{key} must render empty");
+        }
+        let out = render(
+            &sample_outcome(snap.clone()),
+            &snap,
+            &Theme::default(),
+            &opts(),
+            now(),
+        );
+        assert!(!out.tooltip.contains('↑'), "{}", out.tooltip);
     }
 
     #[test]
