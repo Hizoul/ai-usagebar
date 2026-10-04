@@ -15,7 +15,8 @@ Each release is also published at
   in the panel Settings (`brandIcons`, on by default) draws each provider's own
   mark in the top bar and the panel hero. Off restores the generic robot icon
   the bar used before the marks: one robot for a single provider, and the
-  provider's short code on each chip when Show all providers is on.
+  provider's short code leading each chip's label when Show all providers is
+  on. The codes are wider than the marks, so a long row can reach the clock.
 
 - **Omarchy Quattro: choose which metrics the bar shows, and read them as used
   or left.** A new **Metrics** section in the panel Settings expands per
@@ -45,6 +46,14 @@ Each release is also published at
   shows the current value (the provider switches show `on/total`), and what you
   typed in a folded section is still saved. The Display switches are listed as
   usage value, logos, provider name, color-coding, then all providers.
+
+### Fixed
+
+- **Omarchy Quattro: a provider with no mark no longer runs its short code into
+  the value.** Command Code, which has no logo, drew its code centred in the
+  one-glyph icon box, where three letters overflowed into the gap and read
+  `cmd5%`. The code now leads the label with a space (`cmd 5%`) and is not
+  repeated when the provider name is also on.
 
 ## [1.32.0] — 2026-10-04
 

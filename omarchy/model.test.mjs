@@ -1698,18 +1698,29 @@ assert.equal(model.cursorPoolOf(null), '');
   assert.equal(generic[0].brand, '');
   assert.equal(generic[0].icon, '󰚩');
   assert.equal(generic[0].label, '10%');
+  assert.equal(generic[0].labelOnly, false);
   const many = chips(claude, claude[0], true, false);
   assert.deepEqual(Array.from(many.map(chip => chip.brand)), ['', '']);
-  assert.deepEqual(Array.from(many.map(chip => chip.icon)), ['cld', 'gpt']);
-  assert.deepEqual(Array.from(many.map(chip => chip.label)), ['10%', '20%']);
+  assert.deepEqual(Array.from(many.map(chip => chip.icon)), ['', ''], 'no glyph box: a 3-letter tag would overflow it');
+  assert.deepEqual(Array.from(many.map(chip => chip.labelOnly)), [true, true]);
+  assert.deepEqual(Array.from(many.map(chip => chip.label)), ['cld 10%', 'gpt 20%'], 'the tag leads the label, one space from the value');
   const tagged = (all, brandIcons) =>
     model.barChips(claude, claude[0], all, true, true, false, false, false, 'auto', 'used', brandIcons);
-  assert.deepEqual(Array.from(tagged(true, false).map(chip => chip.icon + '|' + chip.label)), ['cld|10%', 'gpt|20%'],
-    'the tag is the icon, so the label does not repeat it');
+  assert.deepEqual(Array.from(tagged(true, false).map(chip => chip.label)), ['cld 10%', 'gpt 20%'],
+    'the tag is already leading the label, so it is not repeated');
   const lone = tagged(false, false)[0];
   assert.equal(lone.icon, '󰚩');
   assert.equal(lone.label, 'cld 10%', 'a lone chip keeps the tag in its label');
   assert.deepEqual(Array.from(tagged(true, true).map(chip => chip.label)), ['cld 10%', 'gpt 20%']);
+  assert.deepEqual(Array.from(tagged(true, true).map(chip => chip.labelOnly)), [false, false], 'the marks keep their own box');
+  const brandless = model.parseReport(JSON.stringify({entries: [
+    {id: 'commandcode', short_name: 'cmd', icon: 'X', sections: [{type: 'metric', label: 'Session', percent: 5}]}
+  ]})).entries;
+  const bare = (showProvider) =>
+    model.barChips(brandless, brandless[0], false, true, showProvider, false, false, false, 'auto', 'used', true)[0];
+  assert.equal(bare(false).label, 'cmd 5%', 'a provider with no mark leads with its tag, spaced');
+  assert.equal(bare(false).icon, '');
+  assert.equal(bare(true).label, 'cmd 5%', 'and does not repeat it when the provider name is on');
 }
 
 {
@@ -1738,6 +1749,9 @@ assert.equal(model.cursorPoolOf(null), '');
   }
   assert.doesNotMatch(settingsForm, /providersOpen|credentialsOpen/);
   assert.doesNotMatch(settingsForm, /^    PanelSectionHeader \{\s*\n\s*text: root\.tr\("section\.(display|language|bar_window|show_as|primary|providers|credentials)"\)/m);
+  assert.match(panel, /labelOnly:\s*chip\.labelOnly/);
+  assert.match(panel, /if \(showProvider \|\| chip\.labelOnly === true\)/);
+  assert.match(barWidgetSource, /visible:\s*chipHit\.chip\.labelOnly !== true/);
   assert.match(settingsForm, /signal showAsRequested\(string value\)/);
   assert.match(settingsForm, /signal metricToggleRequested\(string entryId, string key, string pool\)/);
   assert.match(settingsForm, /enabled: !root\.saving && modelData\.canToggle/);

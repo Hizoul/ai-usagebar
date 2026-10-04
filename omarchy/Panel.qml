@@ -648,6 +648,7 @@ Panel {
           id: chip.id,
           brand: chip.brand,
           icon: chip.icon,
+          labelOnly: chip.labelOnly,
           label: chip.label,
           providerPrefix: "",
           alarming: chip.alarming,
@@ -658,7 +659,7 @@ Panel {
       }
       var label = pools.text
       var providerPrefix = ""
-      if (showProvider) {
+      if (showProvider || chip.labelOnly === true) {
         var provider = Model.providerShort(rows[i])
         if (provider !== "") {
           label = provider + " " + label
@@ -679,6 +680,7 @@ Panel {
         id: chip.id,
         brand: chip.brand,
         icon: chip.icon,
+        labelOnly: chip.labelOnly,
         label: label,
         providerPrefix: providerPrefix,
         alarming: chipAlarm,

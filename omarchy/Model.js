@@ -572,22 +572,25 @@ function barChips(entries, selected, showAll, showValue, showProvider, loading, 
   if (shown.length === 0) shown = [list[0]]
   var chips = []
   var plain = brandIcons === false
-  var tagIsIcon = plain && shown.length > 1
   for (var i = 0; i < shown.length; i++) {
     var entry = shown[i]
+    var brand = plain ? "" : brandIconFile(entry)
+    var labelOnly = brand === "" && !(plain && shown.length === 1)
+    var tag = providerShort(entry)
     var label = ""
-    if (showProvider && !tagIsIcon) label = providerShort(entry)
+    if (showProvider && !labelOnly) label = tag
     if (showValue) {
       var summary = entry.error ? "!" : autoTextSafe(headline(entry, barWindow, showAs).text).trim()
       label = label === "" ? summary : (summary === "" ? label : label + " " + summary)
     }
-    var brand = plain ? "" : brandIconFile(entry)
+    if (labelOnly) label = label === "" ? tag : tag + " " + label
     chips.push({
       // The bar turns each chip into a target for its own entry.
       id: entry.id,
       brand: brand,
-      icon: brand !== "" ? providerIcon(entry)
-        : (plain && shown.length === 1 ? "󰚩" : providerShort(entry)),
+      icon: brand !== "" ? providerIcon(entry) : (labelOnly ? "" : "󰚩"),
+      tag: tag,
+      labelOnly: labelOnly,
       label: label,
       // Alert state always follows the highest-percent window, never the
       // pinned one: barWindow changes only the displayed value.

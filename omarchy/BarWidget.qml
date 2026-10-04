@@ -353,6 +353,7 @@ BarWidget {
             }
 
             BrandMark {
+              visible: chipHit.chip.labelOnly !== true
               anchors.verticalCenter: parent.verticalCenter
               brand: chipHit.chip.brand || ""
               fallback: chipHit.chip.icon || "󰚩"
