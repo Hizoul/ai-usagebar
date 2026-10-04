@@ -119,12 +119,13 @@ try {
   assert.match(menu, /Barra de menus/);
   assert.doesNotMatch(menu, /Exibição do uso/);
   assert.match(menu, /Barra de menus mostra/);
-  assert.match(menu, /Logotipos/);
+  // An empty payload reads as the host default, the chart.
+  assert.match(menu, /Gráfico/);
   assert.doesNotMatch(menu, /Período de uso|Provedor em foco/);
   assert.doesNotMatch(menu, /Identificar provedores por|Mostrar todos os provedores|Ocultar valor de uso/);
   const menuEnglish = settingsTab('menu', settingsProps, 'en');
   assert.match(menuEnglish, /Menu Bar Shows/);
-  assert.match(menuEnglish, /Logos/);
+  assert.match(menuEnglish, /Chart/);
   assert.doesNotMatch(menuEnglish, /Usage Window|Focused Provider|Highest consumption/);
   const preferences = settingsTab('preferences');
   assert.match(preferences, /Aparência/);
@@ -147,7 +148,7 @@ try {
   const chartMenuBar = settingsTab('general', {
     ...settingsProps,
     layout: { ...emptyLayout(), popoverStyle: 'classic' },
-    payload: { ...settingsPayload, menuBarChart: true },
+    payload: { ...settingsPayload, menuBarLook: 'chart' },
   });
   assert.match(chartMenuBar, /Barra de menus mostra/);
   assert.match(chartMenuBar, /Gráfico/);
@@ -155,10 +156,19 @@ try {
   const providersMenuBar = settingsTab('general', {
     ...settingsProps,
     layout: { ...emptyLayout(), popoverStyle: 'classic' },
-    payload: { ...settingsPayload, menuBarChart: false },
+    payload: { ...settingsPayload, menuBarLook: 'logos' },
   });
   assert.match(providersMenuBar, /Logotipos/);
   assert.doesNotMatch(providersMenuBar, /Identificar provedores por|Mostrar todos os provedores|Ocultar valor de uso/);
+  // The names look is a third choice of the same picker, not a separate set of controls.
+  const namesMenuBar = settingsTab('general', {
+    ...settingsProps,
+    layout: { ...emptyLayout(), popoverStyle: 'classic' },
+    payload: { ...settingsPayload, menuBarLook: 'names' },
+  });
+  assert.match(namesMenuBar, /Barra de menus mostra/);
+  assert.match(namesMenuBar, /Nomes/);
+  assert.doesNotMatch(namesMenuBar, /Identificar provedores por|Mostrar todos os provedores|Ocultar valor de uso/);
   const footerMarkup = renderToStaticMarkup(React.createElement(TooltipProvider, {},
     React.createElement(LanguageProvider, { language: 'en' },
       React.createElement(Footer, {

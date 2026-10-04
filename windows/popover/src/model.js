@@ -41,7 +41,7 @@ export function emptyPayload(hostError) {
     nextRefreshAt: 0,
     startupEnabled: false,
     hostError: hostError || "",
-    menuBarChart: false,
+    menuBarLook: "chart",
     notificationsEnabled: true,
     notificationsThreshold: 97,
     os: "",
@@ -89,7 +89,7 @@ function normalizePayload(parsed) {
     nextRefreshAt: Number(parsed.next_refresh_at) || 0,
     startupEnabled: parsed.startup_enabled === true,
     hostError: clean(parsed.host_error, 1200),
-    menuBarChart: parsed.menu_bar_chart === true,
+    menuBarLook: normalizeMenuBarLook(parsed.menu_bar_look),
     notificationsEnabled: parsed.notifications_enabled !== false,
     notificationsThreshold: Number.isInteger(parsed.notifications_threshold) && parsed.notifications_threshold >= 1 && parsed.notifications_threshold <= 100 ? parsed.notifications_threshold : 97,
     os: normalizeOs(parsed.os),
@@ -195,6 +195,11 @@ function normalizeOs(value) {
   const os = String(value || "").toLowerCase();
   if (["macos", "windows", "linux"].includes(os)) return os;
   return "";
+}
+
+// The menu-bar look the host reports; anything else reads as the default chart.
+function normalizeMenuBarLook(value) {
+  return value === "logos" || value === "names" ? value : "chart";
 }
 
 // The host's refresh interval; anything outside the offered set reads as the

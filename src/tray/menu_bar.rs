@@ -1,7 +1,8 @@
-//! Chart or starred-metric logo strip for the macOS status item.
+//! Chart, logo or short-name strip for the macOS status item.
 //!
 //! `StripContent` owns visible groups and their values; the report supplies
-//! only the short-name fallback for providers without an embedded mark.
+//! the short name drawn in place of a mark, either because the provider has
+//! no embedded mark or because the user chose the names look.
 
 use serde_json::Value;
 
@@ -18,11 +19,63 @@ pub(super) enum StatusItemContent {
     Logos,
 }
 
+/// The menu-bar look chosen in Settings → Menu Bar → Menu Bar Shows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum MenuBarLook {
+    /// The usage bars (default).
+    Chart,
+    /// Each provider's logo followed by its starred values.
+    Logos,
+    /// Each provider's short name (`cld`, `cdx`, …) followed by its starred
+    /// values, the way the Quattro and Waybar bars tag a provider.
+    Names,
+}
+
+impl MenuBarLook {
+    /// Read `[tray] menu_bar_style`. Anything unrecognised keeps the chart, so
+    /// a config written by a newer build never blanks the status item.
+    pub(super) fn from_style(style: Option<&str>) -> Self {
+        match style {
+            Some("provider") => Self::Logos,
+            Some("names") => Self::Names,
+            _ => Self::Chart,
+        }
+    }
+
+    /// The `[tray] menu_bar_style` value persisted for this look.
+    pub(super) fn style(self) -> &'static str {
+        match self {
+            Self::Chart => "bars",
+            Self::Logos => "provider",
+            Self::Names => "names",
+        }
+    }
+
+    /// The value the popover's picker uses for this look.
+    pub(super) fn picker_value(self) -> &'static str {
+        match self {
+            Self::Chart => "chart",
+            Self::Logos => "logos",
+            Self::Names => "names",
+        }
+    }
+
+    /// Parse the popover's picker value.
+    pub(super) fn from_picker_value(value: &str) -> Option<Self> {
+        match value {
+            "chart" => Some(Self::Chart),
+            "logos" => Some(Self::Logos),
+            "names" => Some(Self::Names),
+            _ => None,
+        }
+    }
+}
+
 /// Select status-item artwork, falling back to the app icon when content is empty.
-pub(super) fn status_item_content(chart: bool, has_content: bool) -> StatusItemContent {
+pub(super) fn status_item_content(look: MenuBarLook, has_content: bool) -> StatusItemContent {
     if !has_content {
         StatusItemContent::AppIcon
-    } else if chart {
+    } else if look == MenuBarLook::Chart {
         StatusItemContent::Chart
     } else {
         StatusItemContent::Logos
@@ -65,19 +118,25 @@ pub(super) fn fallback_menu_attached(webview_built: bool) -> bool {
     !webview_built
 }
 
-/// One provider's visible logo (or short-name fallback) and starred values.
+/// One provider's visible logo (or short name) and starred values.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct LogoSegment {
     /// Lowercase provider slug used to find its embedded mark.
     pub(super) slug: String,
-    /// Report short name, used only when its embedded mark cannot be drawn.
+    /// Report short name, drawn when the mark cannot be or is not to be drawn.
     pub(super) short_name: Option<String>,
+    /// The names look: draw `short_name` even where an embedded mark exists.
+    pub(super) names_only: bool,
     /// Non-empty metric values in star order; their count is the rendered line count.
     pub(super) values: Vec<String>,
 }
 
 /// Build logo segments from the same starred metric groups used by the chart.
-pub(super) fn logo_segments(content: &StripContent, report: &Value) -> Vec<LogoSegment> {
+pub(super) fn logo_segments(
+    content: &StripContent,
+    report: &Value,
+    look: MenuBarLook,
+) -> Vec<LogoSegment> {
     content
         .groups
         .iter()
@@ -100,6 +159,7 @@ pub(super) fn logo_segments(content: &StripContent, report: &Value) -> Vec<LogoS
             Some(LogoSegment {
                 slug,
                 short_name,
+                names_only: look == MenuBarLook::Names,
                 values,
             })
         })
@@ -159,13 +219,49 @@ mod tests {
 
     #[test]
     fn empty_modes_fall_back_to_static_app_icon() {
-        assert_eq!(status_item_content(true, false), StatusItemContent::AppIcon);
+        for look in [MenuBarLook::Chart, MenuBarLook::Logos, MenuBarLook::Names] {
+            assert_eq!(
+                status_item_content(look, false),
+                StatusItemContent::AppIcon,
+                "{look:?}"
+            );
+        }
         assert_eq!(
-            status_item_content(false, false),
-            StatusItemContent::AppIcon
+            status_item_content(MenuBarLook::Chart, true),
+            StatusItemContent::Chart
         );
-        assert_eq!(status_item_content(true, true), StatusItemContent::Chart);
-        assert_eq!(status_item_content(false, true), StatusItemContent::Logos);
+        assert_eq!(
+            status_item_content(MenuBarLook::Logos, true),
+            StatusItemContent::Logos
+        );
+        // Names reuse the strip image: only the label differs from Logos.
+        assert_eq!(
+            status_item_content(MenuBarLook::Names, true),
+            StatusItemContent::Logos
+        );
+    }
+
+    #[test]
+    fn menu_bar_look_round_trips_through_config_and_picker() {
+        for look in [MenuBarLook::Chart, MenuBarLook::Logos, MenuBarLook::Names] {
+            assert_eq!(MenuBarLook::from_style(Some(look.style())), look);
+            assert_eq!(
+                MenuBarLook::from_picker_value(look.picker_value()),
+                Some(look)
+            );
+        }
+    }
+
+    /// An unset, unknown or future `menu_bar_style` keeps the chart default.
+    #[test]
+    fn menu_bar_look_defaults_to_the_chart() {
+        assert_eq!(MenuBarLook::from_style(None), MenuBarLook::Chart);
+        assert_eq!(MenuBarLook::from_style(Some("bars")), MenuBarLook::Chart);
+        assert_eq!(
+            MenuBarLook::from_style(Some("sparkles")),
+            MenuBarLook::Chart
+        );
+        assert_eq!(MenuBarLook::from_picker_value("sparkles"), None);
     }
 
     /// #249: the emergency menu attaches only when the webview is absent, so
@@ -208,7 +304,7 @@ mod tests {
         };
         let report = json!({"entries":[]});
 
-        let segments = logo_segments(&content, &report);
+        let segments = logo_segments(&content, &report, MenuBarLook::Logos);
         assert_eq!(segments.len(), 2);
         assert_eq!(segments[0].slug, "anthropic");
         assert_eq!(segments[0].values, vec![String::from("41%")]);
@@ -229,7 +325,7 @@ mod tests {
             bars: Vec::new(),
         };
 
-        let segments = logo_segments(&content, &json!({"entries":[]}));
+        let segments = logo_segments(&content, &json!({"entries":[]}), MenuBarLook::Logos);
         assert_eq!(segments.len(), 1);
         assert_eq!(segments[0].slug, "zai");
         assert_eq!(segments[0].values, vec![String::from("12%")]);
@@ -250,7 +346,7 @@ mod tests {
 
         assert!(content.groups.is_empty());
         assert!(content.bars.is_empty());
-        assert!(logo_segments(&content, &report).is_empty());
+        assert!(logo_segments(&content, &report, MenuBarLook::Logos).is_empty());
     }
 
     #[test]
@@ -267,10 +363,29 @@ mod tests {
             {"id":"unknown@work", "short_name":"unk"}
         ]});
 
-        let segments = logo_segments(&content, &report);
+        let segments = logo_segments(&content, &report, MenuBarLook::Logos);
         assert_eq!(segments[0].slug, "unknown");
         assert!(super::super::marks::mark_svg(&segments[0].slug).is_none());
         assert_eq!(segments[0].short_name.as_deref(), Some("unk"));
+    }
+
+    /// The names look draws the short name even for a provider that has a
+    /// mark; the logos look keeps the mark and flags nothing.
+    #[test]
+    fn names_look_flags_every_segment_and_keeps_the_short_name() {
+        let content = StripContent {
+            groups: vec![("anthropic".into(), "Claude".into(), vec![metric("41%")])],
+            bars: Vec::new(),
+        };
+        let report = json!({"entries":[{"id":"anthropic", "short_name":"cld"}]});
+
+        let names = logo_segments(&content, &report, MenuBarLook::Names);
+        assert!(names[0].names_only);
+        assert_eq!(names[0].short_name.as_deref(), Some("cld"));
+        assert!(super::super::marks::mark_svg(&names[0].slug).is_some());
+
+        let logos = logo_segments(&content, &report, MenuBarLook::Logos);
+        assert!(!logos[0].names_only);
     }
 
     #[test]

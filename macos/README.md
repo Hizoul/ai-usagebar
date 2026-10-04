@@ -9,9 +9,10 @@ pace notes, the reset popover, the row menu and account switching.
 
 The menu-bar item shows the metrics you star in each provider (up to two):
 **Settings → Menu Bar → Menu Bar Shows** draws them as the usage **Chart**
-(the default) or as **Logos**, each starred provider's logo followed by its
-value, two starred metrics stacked. With nothing starred it shows the app
-icon. Left-click opens the popover; right-click opens the Options menu.
+(the default), as **Logos**, each starred provider's logo followed by its
+value, or as **Names**, the provider's short name (`cld`, `cdx`, …) in place of
+the logo, the way the Quattro and Waybar bars tag a provider. Two starred
+metrics stack in both. With nothing starred it shows the app icon. Left-click opens the popover; right-click opens the Options menu.
 
 ```bash
 cargo build --release --bin ai-usagebar-tray

@@ -120,6 +120,7 @@ import { getLocale, experimentalStaticLocale } from "../runtime.js"
 /** @typedef {{}} MonthlyInputs */
 /** @typedef {{}} Monthly_LowercaseInputs */
 /** @typedef {{}} MoreInputs */
+/** @typedef {{}} NamesInputs */
 /** @typedef {{}} NativeInputs */
 /** @typedef {{}} New_UpdateInputs */
 /** @typedef {{}} New_Version_ReadyInputs */
@@ -1924,7 +1925,7 @@ export const menu_bar_shows = /** @type {((inputs?: Menu_Bar_ShowsInputs, option
 /**
 * | output |
 * | --- |
-* | "Both show the metrics you star in each provider." |
+* | "All three show the metrics you star in each provider." |
 *
 * @param {Menu_Bar_Shows_HintInputs} inputs
 * @param {{ locale?: "en" | "pt-BR" | "ko" }} options
@@ -2040,6 +2041,21 @@ export const more = /** @type {((inputs?: MoreInputs, options?: { locale?: "en" 
 	if (locale === "pt-BR") return __pt_br2.more(inputs)
 	if (locale === "ko") return __ko.more(inputs)
 	return __en.more(inputs)
+});
+/**
+* | output |
+* | --- |
+* | "Names" |
+*
+* @param {NamesInputs} inputs
+* @param {{ locale?: "en" | "pt-BR" | "ko" }} options
+* @returns {LocalizedString}
+*/
+export const names = /** @type {((inputs?: NamesInputs, options?: { locale?: "en" | "pt-BR" | "ko" }) => LocalizedString) & import('../runtime.js').MessageMetadata<NamesInputs, { locale?: "en" | "pt-BR" | "ko" }, {}>} */ ((inputs = {}, options = {}) => {
+	const locale = experimentalStaticLocale ?? options.locale ?? getLocale()
+	if (locale === "pt-BR") return __pt_br2.names(inputs)
+	if (locale === "ko") return __ko.names(inputs)
+	return __en.names(inputs)
 });
 /**
 * | output |

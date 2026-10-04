@@ -219,9 +219,9 @@ export function Settings({
         <Section title={m.menu_bar()}>
           <SettingRow hint={m.menu_bar_shows_hint()} label={m.menu_bar_shows()}>
             <Picker
-              options={[["chart", m.chart()], ["logos", m.logos()]]}
-              value={payload.menuBarChart ? "chart" : "logos"}
-              onChange={(value) => sendCommand("set-menu-bar-chart", { value: value === "chart" })}
+              options={[["chart", m.chart()], ["logos", m.logos()], ["names", m.names()]]}
+              value={payload.menuBarLook}
+              onChange={(value) => sendCommand("set-menu-bar-look", { value })}
             />
           </SettingRow>
         </Section>

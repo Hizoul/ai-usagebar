@@ -118,6 +118,7 @@
 /** @typedef {{}} MonthlyInputs */
 /** @typedef {{}} Monthly_LowercaseInputs */
 /** @typedef {{}} MoreInputs */
+/** @typedef {{}} NamesInputs */
 /** @typedef {{}} NativeInputs */
 /** @typedef {{}} New_UpdateInputs */
 /** @typedef {{}} New_Version_ReadyInputs */
@@ -703,7 +704,7 @@ export const menu_bar_shows = /** @type {(inputs: Menu_Bar_ShowsInputs) => Local
 };
 
 export const menu_bar_shows_hint = /** @type {(inputs: Menu_Bar_Shows_HintInputs) => LocalizedString} */ () => {
-	return /** @type {LocalizedString} */ (`Both show the metrics you star in each provider.`)
+	return /** @type {LocalizedString} */ (`All three show the metrics you star in each provider.`)
 };
 
 export const metric_plural = /** @type {(inputs: Metric_PluralInputs) => LocalizedString} */ () => {
@@ -732,6 +733,10 @@ export const monthly_lowercase = /** @type {(inputs: Monthly_LowercaseInputs) =>
 
 export const more = /** @type {(inputs: MoreInputs) => LocalizedString} */ () => {
 	return /** @type {LocalizedString} */ (`more`)
+};
+
+export const names = /** @type {(inputs: NamesInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`Names`)
 };
 
 export const native = /** @type {(inputs: NativeInputs) => LocalizedString} */ () => {

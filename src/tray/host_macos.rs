@@ -43,7 +43,7 @@ use super::browse;
 use super::hotkey::{self, HotkeyBinding};
 use super::icon::{Severity, tray_icon_rgba};
 use super::marks;
-use super::menu_bar::{self, LogoSegment, StatusItemContent};
+use super::menu_bar::{self, LogoSegment, MenuBarLook, StatusItemContent};
 use super::options_menu::{self, OptionsAction, OptionsLabels};
 use super::panel::{
     CLICK_LOCK_MS, CORNER_RADIUS, CocoaRect, FALLBACK_WORK_AREA_HEIGHT, PopoverPlacement,
@@ -170,7 +170,7 @@ struct TrayState {
     stars: Stars,
     strip_order: Vec<String>,
     strip_order_known: bool,
-    menu_bar_chart: bool,
+    menu_bar_look: MenuBarLook,
     menu_bar_logo_key: Option<LogoStripKey>,
     notifications_enabled: bool,
     notifications_threshold: u8,
@@ -243,7 +243,7 @@ fn run_loop() -> Result<(), String> {
     let _ = cmd_tx.send(WorkerCmd::Refresh);
 
     let empty = wrap_report("{}", &facts_snapshot(&facts), now_ms(), None);
-    let menu_bar_chart = config.tray.menu_bar_style.as_deref() != Some("provider");
+    let menu_bar_look = MenuBarLook::from_style(config.tray.menu_bar_style.as_deref());
     let tray = build_tray()?;
 
     let theme = Theme::Light;
@@ -283,7 +283,7 @@ fn run_loop() -> Result<(), String> {
         stars: Stars::new(),
         strip_order: Vec::new(),
         strip_order_known: false,
-        menu_bar_chart,
+        menu_bar_look,
         menu_bar_logo_key: None,
         notifications_enabled: config.notifications.enabled,
         notifications_threshold: config.notifications.threshold,
@@ -557,13 +557,13 @@ fn apply_strip_icon(state: &mut TrayState) {
     let tooltip = menu_bar::tooltip(&content);
     let _ = state.tray.set_tooltip(Some(tooltip.as_str()));
     state.tray.set_title(Some(""));
-    let segments = menu_bar::logo_segments(&content, &state.payload);
-    let has_content = if state.menu_bar_chart {
+    let segments = menu_bar::logo_segments(&content, &state.payload, state.menu_bar_look);
+    let has_content = if state.menu_bar_look == MenuBarLook::Chart {
         !content.bars.is_empty()
     } else {
         !segments.is_empty()
     };
-    match menu_bar::status_item_content(state.menu_bar_chart, has_content) {
+    match menu_bar::status_item_content(state.menu_bar_look, has_content) {
         StatusItemContent::AppIcon => {
             state.menu_bar_logo_key = None;
             set_static_status_icon(state);
@@ -741,7 +741,7 @@ fn push_to_webview(state: &TrayState) {
 
 fn popover_payload(state: &TrayState) -> String {
     let mut payload = state.payload.clone();
-    payload["menu_bar_chart"] = json!(state.menu_bar_chart);
+    payload["menu_bar_look"] = json!(state.menu_bar_look.picker_value());
     payload["notifications_enabled"] = json!(state.notifications_enabled);
     payload["notifications_threshold"] = json!(state.notifications_threshold);
     host_payload(&payload)
@@ -947,13 +947,14 @@ fn handle_ipc(state: &mut TrayState, body: &str, control_flow: &mut ControlFlow)
                 push_to_webview(state);
             }
         }
-        "set-menu-bar-chart" => {
-            if let Some(enabled) = value.get("value").and_then(Value::as_bool) {
-                state.menu_bar_chart = enabled;
-                persist_menu_bar_value(
-                    "menu_bar_style",
-                    (if enabled { "bars" } else { "provider" }).into(),
-                );
+        "set-menu-bar-look" => {
+            let look = value
+                .get("value")
+                .and_then(Value::as_str)
+                .and_then(MenuBarLook::from_picker_value);
+            if let Some(look) = look {
+                state.menu_bar_look = look;
+                persist_menu_bar_value("menu_bar_style", look.style().into());
                 apply_strip_icon(state);
                 push_to_webview(state);
             }
@@ -1466,7 +1467,11 @@ fn logo_strip_image(segments: &[LogoSegment]) -> Retained<NSImage> {
     let items: Vec<LogoStripItem> = segments
         .iter()
         .map(|segment| {
-            let mark = marks::mark_svg(&segment.slug).and_then(svg_image);
+            let mark = if segment.names_only {
+                None
+            } else {
+                marks::mark_svg(&segment.slug).and_then(svg_image)
+            };
             let fallback_name = NSString::from_str(segment.short_name.as_deref().unwrap_or(""));
             let label_width = if mark.is_some() {
                 LOGO_MARK_BOX

@@ -109,8 +109,8 @@ const portugueseMessages = JSON.parse(readFileSync(new URL('./messages/pt-BR.jso
 assert.deepEqual(Object.keys(portugueseMessages).sort(), Object.keys(englishMessages).sort());
 assert.ok(Object.values(englishMessages).every((value) => typeof value === 'string' && value.trim()));
 assert.ok(Object.values(portugueseMessages).every((value) => typeof value === 'string' && value.trim()));
-assert.equal(englishMessages.menu_bar_shows_hint, "Both show the metrics you star in each provider.");
-assert.equal(portugueseMessages.menu_bar_shows_hint, "Os dois mostram as métricas marcadas com estrela em cada provedor.");
+assert.equal(englishMessages.menu_bar_shows_hint, "All three show the metrics you star in each provider.");
+assert.equal(portugueseMessages.menu_bar_shows_hint, "Os três mostram as métricas marcadas com estrela em cada provedor.");
 for (const key of ['focused_provider', 'highest_consumption', 'usage_window']) {
   assert.equal(Object.hasOwn(englishMessages, key), false);
   assert.equal(Object.hasOwn(portugueseMessages, key), false);
@@ -135,7 +135,7 @@ const report = {
   menu_bar_show_all: false,
   menu_bar_hide_value: true,
   menu_bar_names: 'short',
-  menu_bar_chart: true,
+  menu_bar_look: 'names',
   accent: { light: '#123456', dark: '#ABCDEF' },
   primary: 'anthropic',
   entries: [
@@ -174,7 +174,12 @@ assert.equal(payload.startupEnabled, true);
 assert.equal(Object.hasOwn(payload, 'menuBarShowAll'), false);
 assert.equal(Object.hasOwn(payload, 'menuBarHideValue'), false);
 assert.equal(Object.hasOwn(payload, 'menuBarNames'), false);
-assert.equal(payload.menuBarChart, true);
+assert.equal(payload.menuBarLook, 'names');
+// ASSERT: an unknown or missing look reads as the default chart, never as a blank one.
+assert.equal(parseHostPayload({ menu_bar_look: 'sparkles' }).menuBarLook, 'chart');
+assert.equal(parseHostPayload({}).menuBarLook, 'chart');
+assert.equal(emptyPayload('').menuBarLook, 'chart');
+assert.equal(parseHostPayload({ menu_bar_look: 'logos' }).menuBarLook, 'logos');
 assert.deepEqual(payload.accent, { light: '#123456', dark: '#abcdef' });
 // ASSERT: malformed, partial, and non-object accent data cannot set either CSS color.
 assert.equal(parseHostPayload({ accent: { light: '#112233', dark: 'bad' } }).accent, null);

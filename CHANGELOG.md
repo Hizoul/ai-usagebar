@@ -9,6 +9,15 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Added
+
+- **The macOS menu bar can show each provider's short name.** Settings → Menu
+  Bar → Menu Bar Shows gains **Names** next to Chart and Logos
+  (`[tray] menu_bar_style = "names"`): the provider's short name (`cld`, `cdx`,
+  …) followed by the values of its starred metrics, the tag the Quattro and
+  Waybar bars already use. The chart stays the default, and every look shows
+  exactly the starred metrics.
+
 ## [1.31.0] — 2026-10-03
 
 ### Added
