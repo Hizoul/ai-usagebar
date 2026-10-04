@@ -490,6 +490,22 @@ mod tests {
         assert_eq!(out.tooltip, "S:42 W:15");
     }
 
+    #[test]
+    fn api_plan_is_pango_escaped_in_custom_formats() {
+        let mut snap = sample_snap();
+        snap.plan = "Coding & Analysis <pro>".into();
+        let oc = outcome(snap.clone());
+        let mut o = opts();
+        o.format = Some("{plan}".into());
+        o.tooltip_format = Some("{zai_plan}".into());
+
+        let out = render(&oc, &snap, &Theme::default(), &o, Utc::now());
+        assert!(!out.text.contains(" & "));
+        assert!(!out.tooltip.contains('<'));
+        assert!(out.text.contains("Coding &amp; Analysis &lt;pro&gt;"));
+        assert_eq!(out.tooltip, "Coding &amp; Analysis &lt;pro&gt;");
+    }
+
     fn fixed_now() -> DateTime<Utc> {
         use chrono::TimeZone;
         Utc.with_ymd_and_hms(2026, 8, 25, 12, 0, 0).unwrap()
