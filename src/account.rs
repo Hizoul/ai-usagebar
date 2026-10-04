@@ -1673,8 +1673,7 @@ fn add_codex(label: &str, login: bool, adopt: bool) -> i32 {
     }
     println!("Opening `codex login` for {shown:?}; your default Codex login is untouched.");
     println!();
-    let mut command = std::process::Command::new("codex");
-    command.arg("login").env("CODEX_HOME", &codex_home);
+    let mut command = codex_login_command(&codex_home);
     match command.status() {
         Ok(status) if status.success() => {
             let _ = restamp_config(&registration.config_path);
@@ -1698,6 +1697,15 @@ fn add_codex(label: &str, login: bool, adopt: bool) -> i32 {
             1
         }
     }
+}
+
+fn codex_login_command(codex_home: &Path) -> std::process::Command {
+    let mut command = std::process::Command::new("codex");
+    command.arg("login").env("CODEX_HOME", codex_home);
+    for var in crate::vendor::vendor_secret_env_vars_to_remove(&[]) {
+        command.env_remove(var);
+    }
+    command
 }
 
 fn register_codex_at(config_path: &Path, label: &str, home: &Path) -> Result<RegisteredCodex> {
