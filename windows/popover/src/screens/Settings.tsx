@@ -224,6 +224,15 @@ export function Settings({
               onChange={(value) => sendCommand("set-menu-bar-look", { value })}
             />
           </SettingRow>
+          {payload.menuBarLook === "name" ? (
+            <SettingRow hint={m.menu_bar_short_name_hint()} label={m.menu_bar_short_name()}>
+              <Switch
+                checked={payload.menuBarShortName}
+                aria-label={m.menu_bar_short_name()}
+                onCheckedChange={(on) => sendCommand("set-menu-bar-short-name", { value: on === true })}
+              />
+            </SettingRow>
+          ) : null}
         </Section>
         </div>
       ) : null}

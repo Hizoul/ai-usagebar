@@ -180,6 +180,11 @@ assert.equal(parseHostPayload({ menu_bar_look: 'sparkles' }).menuBarLook, 'chart
 assert.equal(parseHostPayload({}).menuBarLook, 'chart');
 assert.equal(emptyPayload('').menuBarLook, 'chart');
 assert.equal(parseHostPayload({ menu_bar_look: 'logos' }).menuBarLook, 'logos');
+// The name look's short name is on unless the host says otherwise.
+assert.equal(parseHostPayload({}).menuBarShortName, true);
+assert.equal(emptyPayload('').menuBarShortName, true);
+assert.equal(parseHostPayload({ menu_bar_short_name: false }).menuBarShortName, false);
+assert.equal(parseHostPayload({ menu_bar_short_name: 'no' }).menuBarShortName, true);
 assert.deepEqual(payload.accent, { light: '#123456', dark: '#abcdef' });
 // ASSERT: malformed, partial, and non-object accent data cannot set either CSS color.
 assert.equal(parseHostPayload({ accent: { light: '#112233', dark: 'bad' } }).accent, null);

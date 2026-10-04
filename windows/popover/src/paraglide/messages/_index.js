@@ -111,6 +111,8 @@ import { getLocale, experimentalStaticLocale } from "../runtime.js"
 /** @typedef {{}} Mcp_ToolsInputs */
 /** @typedef {{}} MenuInputs */
 /** @typedef {{}} Menu_BarInputs */
+/** @typedef {{}} Menu_Bar_Short_NameInputs */
+/** @typedef {{}} Menu_Bar_Short_Name_HintInputs */
 /** @typedef {{}} Menu_Bar_ShowsInputs */
 /** @typedef {{}} Menu_Bar_Shows_HintInputs */
 /** @typedef {{}} Metric_PluralInputs */
@@ -1906,6 +1908,36 @@ export const menu_bar = /** @type {((inputs?: Menu_BarInputs, options?: { locale
 	if (locale === "pt-BR") return __pt_br2.menu_bar(inputs)
 	if (locale === "ko") return __ko.menu_bar(inputs)
 	return __en.menu_bar(inputs)
+});
+/**
+* | output |
+* | --- |
+* | "Show Short Name" |
+*
+* @param {Menu_Bar_Short_NameInputs} inputs
+* @param {{ locale?: "en" | "pt-BR" | "ko" }} options
+* @returns {LocalizedString}
+*/
+export const menu_bar_short_name = /** @type {((inputs?: Menu_Bar_Short_NameInputs, options?: { locale?: "en" | "pt-BR" | "ko" }) => LocalizedString) & import('../runtime.js').MessageMetadata<Menu_Bar_Short_NameInputs, { locale?: "en" | "pt-BR" | "ko" }, {}>} */ ((inputs = {}, options = {}) => {
+	const locale = experimentalStaticLocale ?? options.locale ?? getLocale()
+	if (locale === "pt-BR") return __pt_br2.menu_bar_short_name(inputs)
+	if (locale === "ko") return __ko.menu_bar_short_name(inputs)
+	return __en.menu_bar_short_name(inputs)
+});
+/**
+* | output |
+* | --- |
+* | "Beside the logo in the Name look. A provider without a logo always shows its name." |
+*
+* @param {Menu_Bar_Short_Name_HintInputs} inputs
+* @param {{ locale?: "en" | "pt-BR" | "ko" }} options
+* @returns {LocalizedString}
+*/
+export const menu_bar_short_name_hint = /** @type {((inputs?: Menu_Bar_Short_Name_HintInputs, options?: { locale?: "en" | "pt-BR" | "ko" }) => LocalizedString) & import('../runtime.js').MessageMetadata<Menu_Bar_Short_Name_HintInputs, { locale?: "en" | "pt-BR" | "ko" }, {}>} */ ((inputs = {}, options = {}) => {
+	const locale = experimentalStaticLocale ?? options.locale ?? getLocale()
+	if (locale === "pt-BR") return __pt_br2.menu_bar_short_name_hint(inputs)
+	if (locale === "ko") return __ko.menu_bar_short_name_hint(inputs)
+	return __en.menu_bar_short_name_hint(inputs)
 });
 /**
 * | output |

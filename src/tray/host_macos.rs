@@ -172,6 +172,8 @@ struct TrayState {
     strip_order: Vec<String>,
     strip_order_known: bool,
     menu_bar_look: MenuBarLook,
+    /// `[tray] menu_bar_short_name`: the name look's short name beside the mark.
+    menu_bar_short_name: bool,
     /// Provider id the popover has selected; the name look draws this one.
     selected_provider: Option<String>,
     menu_bar_logo_key: Option<LogoStripKey>,
@@ -287,6 +289,7 @@ fn run_loop() -> Result<(), String> {
         strip_order: Vec::new(),
         strip_order_known: false,
         menu_bar_look,
+        menu_bar_short_name: config.tray.menu_bar_short_name(),
         selected_provider: None,
         menu_bar_logo_key: None,
         notifications_enabled: config.notifications.enabled,
@@ -566,6 +569,7 @@ fn apply_strip_icon(state: &mut TrayState) {
         &state.payload,
         state.menu_bar_look,
         state.selected_provider.as_deref(),
+        state.menu_bar_short_name,
     );
     let has_content = if state.menu_bar_look == MenuBarLook::Chart {
         !content.bars.is_empty()
@@ -751,6 +755,7 @@ fn push_to_webview(state: &TrayState) {
 fn popover_payload(state: &TrayState) -> String {
     let mut payload = state.payload.clone();
     payload["menu_bar_look"] = json!(state.menu_bar_look.picker_value());
+    payload["menu_bar_short_name"] = json!(state.menu_bar_short_name);
     payload["notifications_enabled"] = json!(state.notifications_enabled);
     payload["notifications_threshold"] = json!(state.notifications_threshold);
     host_payload(&payload)
@@ -964,6 +969,14 @@ fn handle_ipc(state: &mut TrayState, body: &str, control_flow: &mut ControlFlow)
             if let Some(look) = look {
                 state.menu_bar_look = look;
                 persist_menu_bar_value("menu_bar_style", look.style().into());
+                apply_strip_icon(state);
+                push_to_webview(state);
+            }
+        }
+        "set-menu-bar-short-name" => {
+            if let Some(show) = value.get("value").and_then(Value::as_bool) {
+                state.menu_bar_short_name = show;
+                persist_menu_bar_value("menu_bar_short_name", show.into());
                 apply_strip_icon(state);
                 push_to_webview(state);
             }

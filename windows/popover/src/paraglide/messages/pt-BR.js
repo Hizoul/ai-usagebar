@@ -109,6 +109,8 @@
 /** @typedef {{}} Mcp_ToolsInputs */
 /** @typedef {{}} MenuInputs */
 /** @typedef {{}} Menu_BarInputs */
+/** @typedef {{}} Menu_Bar_Short_NameInputs */
+/** @typedef {{}} Menu_Bar_Short_Name_HintInputs */
 /** @typedef {{}} Menu_Bar_ShowsInputs */
 /** @typedef {{}} Menu_Bar_Shows_HintInputs */
 /** @typedef {{}} Metric_PluralInputs */
@@ -697,6 +699,14 @@ export const menu = /** @type {(inputs: MenuInputs) => LocalizedString} */ () =>
 
 export const menu_bar = /** @type {(inputs: Menu_BarInputs) => LocalizedString} */ () => {
 	return /** @type {LocalizedString} */ (`Barra de menus`)
+};
+
+export const menu_bar_short_name = /** @type {(inputs: Menu_Bar_Short_NameInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`Mostrar nome curto`)
+};
+
+export const menu_bar_short_name_hint = /** @type {(inputs: Menu_Bar_Short_Name_HintInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`Ao lado do logotipo no modo Nome. Um provedor sem logotipo sempre mostra o nome.`)
 };
 
 export const menu_bar_shows = /** @type {(inputs: Menu_Bar_ShowsInputs) => LocalizedString} */ () => {

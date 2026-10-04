@@ -109,6 +109,8 @@
 /** @typedef {{}} Mcp_ToolsInputs */
 /** @typedef {{}} MenuInputs */
 /** @typedef {{}} Menu_BarInputs */
+/** @typedef {{}} Menu_Bar_Short_NameInputs */
+/** @typedef {{}} Menu_Bar_Short_Name_HintInputs */
 /** @typedef {{}} Menu_Bar_ShowsInputs */
 /** @typedef {{}} Menu_Bar_Shows_HintInputs */
 /** @typedef {{}} Metric_PluralInputs */
@@ -697,6 +699,14 @@ export const menu = /** @type {(inputs: MenuInputs) => LocalizedString} */ () =>
 
 export const menu_bar = /** @type {(inputs: Menu_BarInputs) => LocalizedString} */ () => {
 	return /** @type {LocalizedString} */ (`Menu Bar`)
+};
+
+export const menu_bar_short_name = /** @type {(inputs: Menu_Bar_Short_NameInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`Show Short Name`)
+};
+
+export const menu_bar_short_name_hint = /** @type {(inputs: Menu_Bar_Short_Name_HintInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`Beside the logo in the Name look. A provider without a logo always shows its name.`)
 };
 
 export const menu_bar_shows = /** @type {(inputs: Menu_Bar_ShowsInputs) => LocalizedString} */ () => {

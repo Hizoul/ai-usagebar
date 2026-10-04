@@ -16,7 +16,8 @@ percentage of the provider selected in the popover (the Native style's tabs;
 the `[ui] primary` provider, then the first one with a value, until you pick
 one). Like Quattro's default window, a spent weekly limit shows `100%` even
 while the 5h session reads `0%`. A selected provider with nothing starred
-uses its first two bounded metrics. With
+uses its first two bounded metrics. **Show Short Name** turns the name off,
+leaving the logo and the value; a provider with no logo keeps its name. With
 nothing starred it shows the app icon. Left-click opens the popover; right-click opens the Options menu.
 
 ```bash

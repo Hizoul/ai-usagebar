@@ -109,6 +109,9 @@
 # selected in the popover. Chart and logos show the metrics starred in each provider (up
 # to two). Settings → Menu Bar → Menu Bar Shows sets it.
 # menu_bar_style = "bars"
+# The "name" chip's short name; false leaves just the logo and the value. A
+# provider with no logo keeps its name. Settings → Menu Bar → Show Short Name.
+# menu_bar_short_name = true
 
 # Quota-threshold desktop notifications, fired after a fresh fetch when a
 # window crosses the threshold (Linux notify-send or macOS Notification Center;

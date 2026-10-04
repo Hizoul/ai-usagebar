@@ -156,16 +156,18 @@ fn focused_group_id<'a>(
 
 /// Build logo segments from the same starred metric groups used by the chart.
 /// The name look keeps one provider, `selected` or its fallbacks, and one
-/// value, like the Quattro bar's `icon SHORT 54%` chip; the logos look keeps
+/// value, like the Quattro bar's `icon SHORT 54%` chip, with the short name
+/// beside the mark unless `show_short_name` is off; the logos look keeps
 /// every group with up to two stacked values.
 pub(super) fn logo_segments(
     content: &StripContent,
     report: &Value,
     look: MenuBarLook,
     selected: Option<&str>,
+    show_short_name: bool,
 ) -> Vec<LogoSegment> {
     if look == MenuBarLook::Name {
-        return name_segment(content, report, selected)
+        return name_segment(content, report, selected, show_short_name)
             .into_iter()
             .collect();
     }
@@ -183,25 +185,39 @@ fn name_segment(
     content: &StripContent,
     report: &Value,
     selected: Option<&str>,
+    show_short_name: bool,
 ) -> Option<LogoSegment> {
     let starred = |id: &str| content.groups.iter().any(|(group, _, _)| group == id);
     if let Some((id, _, metrics)) = selected
         .filter(|id| !starred(id))
         .and_then(|id| default_group(report, id))
     {
-        return name_chip(&id, &metrics, report);
+        return name_chip(&id, &metrics, report, show_short_name);
     }
     let focus = focused_group_id(&content.groups, selected, report)?;
     let (id, _, metrics) = content.groups.iter().find(|(id, _, _)| id == focus)?;
-    name_chip(id, metrics, report)
+    name_chip(id, metrics, report, show_short_name)
 }
 
 /// The chip shows the provider's highest-percent metric, like the Quattro
 /// bar's default `auto` window (`omarchy/Model.js` `maxPercent`): a spent
 /// weekly window must not hide behind an idle 5h session reading 0%.
-fn name_chip(id: &str, metrics: &[StripMetric], report: &Value) -> Option<LogoSegment> {
+/// Without `show_short_name` the mark stands alone, like the logos look,
+/// which still falls back to the name for a provider with no mark.
+fn name_chip(
+    id: &str,
+    metrics: &[StripMetric],
+    report: &Value,
+    show_short_name: bool,
+) -> Option<LogoSegment> {
     let highest = highest_metric(metrics)?;
-    segment(id, std::slice::from_ref(highest), report, 1, true)
+    segment(
+        id,
+        std::slice::from_ref(highest),
+        report,
+        1,
+        show_short_name,
+    )
 }
 
 /// The bounded metric with the largest used fraction, the first one on a
@@ -387,7 +403,7 @@ mod tests {
         };
         let report = json!({"entries":[]});
 
-        let segments = logo_segments(&content, &report, MenuBarLook::Logos, None);
+        let segments = logo_segments(&content, &report, MenuBarLook::Logos, None, true);
         assert_eq!(segments.len(), 2);
         assert_eq!(segments[0].slug, "anthropic");
         assert_eq!(segments[0].values, vec![String::from("41%")]);
@@ -408,7 +424,13 @@ mod tests {
             bars: Vec::new(),
         };
 
-        let segments = logo_segments(&content, &json!({"entries":[]}), MenuBarLook::Logos, None);
+        let segments = logo_segments(
+            &content,
+            &json!({"entries":[]}),
+            MenuBarLook::Logos,
+            None,
+            true,
+        );
         assert_eq!(segments.len(), 1);
         assert_eq!(segments[0].slug, "zai");
         assert_eq!(segments[0].values, vec![String::from("12%")]);
@@ -429,7 +451,7 @@ mod tests {
 
         assert!(content.groups.is_empty());
         assert!(content.bars.is_empty());
-        assert!(logo_segments(&content, &report, MenuBarLook::Logos, None).is_empty());
+        assert!(logo_segments(&content, &report, MenuBarLook::Logos, None, true).is_empty());
     }
 
     #[test]
@@ -446,7 +468,7 @@ mod tests {
             {"id":"unknown@work", "short_name":"unk"}
         ]});
 
-        let segments = logo_segments(&content, &report, MenuBarLook::Logos, None);
+        let segments = logo_segments(&content, &report, MenuBarLook::Logos, None, true);
         assert_eq!(segments[0].slug, "unknown");
         assert!(super::super::marks::mark_svg(&segments[0].slug).is_none());
         assert_eq!(segments[0].short_name.as_deref(), Some("unk"));
@@ -462,13 +484,43 @@ mod tests {
         };
         let report = json!({"entries":[{"id":"anthropic", "short_name":"cld"}]});
 
-        let chip = logo_segments(&content, &report, MenuBarLook::Name, None);
+        let chip = logo_segments(&content, &report, MenuBarLook::Name, None, true);
         assert!(chip[0].with_name);
         assert_eq!(chip[0].short_name.as_deref(), Some("cld"));
         assert!(super::super::marks::mark_svg(&chip[0].slug).is_some());
 
-        let logos = logo_segments(&content, &report, MenuBarLook::Logos, None);
+        let logos = logo_segments(&content, &report, MenuBarLook::Logos, None, true);
         assert!(!logos[0].with_name);
+    }
+
+    /// With the short name turned off the chip is the mark and the value; a
+    /// provider with no mark still gets its name, since nothing else would
+    /// tell which provider the value belongs to.
+    #[test]
+    fn name_look_can_leave_out_the_short_name() {
+        let content = StripContent {
+            groups: vec![
+                ("kimi".into(), "Kimi".into(), vec![metric("42%")]),
+                ("unknown".into(), "Unknown".into(), vec![metric("8%")]),
+            ],
+            bars: Vec::new(),
+        };
+        let report = json!({"primary":null,"entries":[
+            {"id":"kimi", "short_name":"kmi"},
+            {"id":"unknown", "short_name":"unk"}
+        ]});
+
+        let chip = logo_segments(&content, &report, MenuBarLook::Name, Some("kimi"), false);
+        assert!(!chip[0].with_name);
+        assert!(super::super::marks::mark_svg(&chip[0].slug).is_some());
+        assert_eq!(chip[0].values, vec![String::from("42%")]);
+
+        let shown = logo_segments(&content, &report, MenuBarLook::Name, Some("kimi"), true);
+        assert!(shown[0].with_name);
+
+        let unmarked = logo_segments(&content, &report, MenuBarLook::Name, Some("unknown"), false);
+        assert!(super::super::marks::mark_svg(&unmarked[0].slug).is_none());
+        assert_eq!(unmarked[0].short_name.as_deref(), Some("unk"));
     }
 
     fn two_groups() -> StripContent {
@@ -491,15 +543,33 @@ mod tests {
     fn name_look_shows_only_the_selected_provider_and_its_first_value() {
         let report = json!({"primary":"anthropic","entries":[]});
 
-        let chip = logo_segments(&two_groups(), &report, MenuBarLook::Name, Some("openai"));
+        let chip = logo_segments(
+            &two_groups(),
+            &report,
+            MenuBarLook::Name,
+            Some("openai"),
+            true,
+        );
         assert_eq!(chip.len(), 1);
         assert_eq!(chip[0].slug, "openai");
         assert_eq!(chip[0].values, vec![String::from("100%")]);
 
-        let claude = logo_segments(&two_groups(), &report, MenuBarLook::Name, Some("anthropic"));
+        let claude = logo_segments(
+            &two_groups(),
+            &report,
+            MenuBarLook::Name,
+            Some("anthropic"),
+            true,
+        );
         assert_eq!(claude[0].values, vec![String::from("54%")]);
 
-        let logos = logo_segments(&two_groups(), &report, MenuBarLook::Logos, Some("openai"));
+        let logos = logo_segments(
+            &two_groups(),
+            &report,
+            MenuBarLook::Logos,
+            Some("openai"),
+            true,
+        );
         assert_eq!(logos.len(), 2);
         assert_eq!(logos[0].values.len(), 2);
     }
@@ -512,7 +582,7 @@ mod tests {
         let with_primary = json!({"primary":"openai","entries":[]});
         let no_primary = json!({"primary":null,"entries":[]});
         let slug = |report: &Value, selected: Option<&str>| {
-            logo_segments(&two_groups(), report, MenuBarLook::Name, selected)[0]
+            logo_segments(&two_groups(), report, MenuBarLook::Name, selected, true)[0]
                 .slug
                 .clone()
         };
@@ -539,13 +609,19 @@ mod tests {
                 {"type":"metric","label":"Weekly usage","percent":7,"value":"7%"}]},
         ]});
 
-        let chip = logo_segments(&content, &report, MenuBarLook::Name, Some("supergrok"));
+        let chip = logo_segments(
+            &content,
+            &report,
+            MenuBarLook::Name,
+            Some("supergrok"),
+            true,
+        );
         assert_eq!(chip.len(), 1);
         assert_eq!(chip[0].slug, "supergrok");
         assert_eq!(chip[0].short_name.as_deref(), Some("sgk"));
         assert_eq!(chip[0].values, vec![String::from("7%")]);
 
-        let unselected = logo_segments(&content, &report, MenuBarLook::Name, None);
+        let unselected = logo_segments(&content, &report, MenuBarLook::Name, None, true);
         assert_eq!(unselected[0].slug, "zai");
     }
 
@@ -562,7 +638,7 @@ mod tests {
         };
         let report = json!({"primary":null,"entries":[]});
 
-        let segments = logo_segments(&content, &report, MenuBarLook::Name, Some("cursor"));
+        let segments = logo_segments(&content, &report, MenuBarLook::Name, Some("cursor"), true);
         assert_eq!(segments.len(), 1);
         assert_eq!(segments[0].slug, "zai");
     }
@@ -625,7 +701,7 @@ mod tests {
             )],
             bars: Vec::new(),
         };
-        let chip = logo_segments(&spent_weekly, &report, MenuBarLook::Name, Some("zai"));
+        let chip = logo_segments(&spent_weekly, &report, MenuBarLook::Name, Some("zai"), true);
         assert_eq!(chip[0].values, vec![String::from("100%")]);
 
         let balance = super::super::strip::StripMetric {
@@ -640,10 +716,10 @@ mod tests {
             )],
             bars: Vec::new(),
         };
-        let chip = logo_segments(&mixed, &report, MenuBarLook::Name, None);
+        let chip = logo_segments(&mixed, &report, MenuBarLook::Name, None, true);
         assert_eq!(chip[0].values, vec![String::from("12%")]);
 
-        let logos = logo_segments(&spent_weekly, &report, MenuBarLook::Logos, None);
+        let logos = logo_segments(&spent_weekly, &report, MenuBarLook::Logos, None, true);
         assert_eq!(
             logos[0].values,
             vec![String::from("0%"), String::from("100%")]

@@ -116,6 +116,9 @@ pub struct TrayConfig {
     /// macOS menu-bar presentation: `bars` (default), `provider` (logos) or
     /// `name` (the selected provider's logo, short name and value).
     pub menu_bar_style: Option<String>,
+    /// Whether the `name` style draws the short name beside the logo.
+    /// `None` → shown. A provider with no logo shows its name regardless.
+    pub menu_bar_short_name: Option<bool>,
 }
 
 /// Poll intervals the tray offers, in minutes. The provider cache TTL is
@@ -151,6 +154,10 @@ impl TrayConfig {
 
     pub fn updates(&self) -> UpdateMode {
         self.updates.unwrap_or_default()
+    }
+
+    pub fn menu_bar_short_name(&self) -> bool {
+        self.menu_bar_short_name.unwrap_or(true)
     }
 }
 
@@ -5629,6 +5636,19 @@ enabled = true
 
     fn config_enabled(path: &std::path::Path, vendor: VendorId) -> bool {
         Config::load_from(path).unwrap().is_enabled(vendor)
+    }
+
+    #[test]
+    fn menu_bar_short_name_defaults_on_and_persists_as_a_bool() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("config.toml");
+        std::fs::write(&path, "[tray]\n").unwrap();
+        assert!(Config::load_from(&path).unwrap().tray.menu_bar_short_name());
+
+        set_tray_value(&path, "menu_bar_short_name", Some(false.into())).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(text, "[tray]\nmenu_bar_short_name = false\n");
+        assert!(!Config::load_from(&path).unwrap().tray.menu_bar_short_name());
     }
 
     #[test]

@@ -19,7 +19,9 @@ Each release is also published at
   selected in the popover. Like Quattro's default window, a spent weekly limit
   reads `100%` even while the 5h session reads `0%`. Until one is picked it
   follows `[ui] primary`, then the first provider with a value. The chart
-  stays the default.
+  stays the default. **Show Short Name** (`[tray] menu_bar_short_name =
+  false`) drops the name when the logo already says which provider it is; a
+  provider with no logo keeps its name.
 
 ### Changed
 

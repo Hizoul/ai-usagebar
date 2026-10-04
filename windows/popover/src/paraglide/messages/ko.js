@@ -109,6 +109,8 @@
 /** @typedef {{}} Mcp_ToolsInputs */
 /** @typedef {{}} MenuInputs */
 /** @typedef {{}} Menu_BarInputs */
+/** @typedef {{}} Menu_Bar_Short_NameInputs */
+/** @typedef {{}} Menu_Bar_Short_Name_HintInputs */
 /** @typedef {{}} Menu_Bar_ShowsInputs */
 /** @typedef {{}} Menu_Bar_Shows_HintInputs */
 /** @typedef {{}} Metric_PluralInputs */
@@ -697,6 +699,14 @@ export const menu = /** @type {(inputs: MenuInputs) => LocalizedString} */ () =>
 
 export const menu_bar = /** @type {(inputs: Menu_BarInputs) => LocalizedString} */ () => {
 	return /** @type {LocalizedString} */ (`메뉴 막대`)
+};
+
+export const menu_bar_short_name = /** @type {(inputs: Menu_Bar_Short_NameInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`짧은 이름 표시`)
+};
+
+export const menu_bar_short_name_hint = /** @type {(inputs: Menu_Bar_Short_Name_HintInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`이름 보기에서 로고 옆에 표시합니다. 로고가 없는 제공자는 항상 이름을 보여 줍니다.`)
 };
 
 export const menu_bar_shows = /** @type {(inputs: Menu_Bar_ShowsInputs) => LocalizedString} */ () => {

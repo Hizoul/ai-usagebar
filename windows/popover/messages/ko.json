@@ -108,6 +108,8 @@
   "mcp_tools": "MCP 도구",
   "menu": "메뉴",
   "menu_bar": "메뉴 막대",
+  "menu_bar_short_name": "짧은 이름 표시",
+  "menu_bar_short_name_hint": "이름 보기에서 로고 옆에 표시합니다. 로고가 없는 제공자는 항상 이름을 보여 줍니다.",
   "menu_bar_shows": "메뉴 막대 표시",
   "menu_bar_shows_hint": "차트와 로고는 모든 제공자의 별표 지표를, 이름은 선택한 제공자의 지표를 보여 줍니다.",
   "metric_plural": "개 지표",

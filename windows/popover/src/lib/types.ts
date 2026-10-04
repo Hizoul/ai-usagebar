@@ -250,6 +250,8 @@ export interface Payload {
   hostError: string;
   /** macOS menu-bar look the host draws. */
   menuBarLook: MenuBarLook;
+  /** Whether the name look draws the short name beside the logo. */
+  menuBarShortName: boolean;
   notificationsEnabled: boolean;
   notificationsThreshold: number;
   /** Host OS: macos, windows, or linux. */
