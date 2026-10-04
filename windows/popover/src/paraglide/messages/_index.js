@@ -122,7 +122,6 @@ import { getLocale, experimentalStaticLocale } from "../runtime.js"
 /** @typedef {{}} MonthlyInputs */
 /** @typedef {{}} Monthly_LowercaseInputs */
 /** @typedef {{}} MoreInputs */
-/** @typedef {{}} NameInputs */
 /** @typedef {{}} NativeInputs */
 /** @typedef {{}} New_UpdateInputs */
 /** @typedef {{}} New_Version_ReadyInputs */
@@ -169,6 +168,7 @@ import { getLocale, experimentalStaticLocale } from "../runtime.js"
 /** @typedef {{}} ProviderInputs */
 /** @typedef {{}} Provider_Is_UnavailableInputs */
 /** @typedef {{}} ProvidersInputs */
+/** @typedef {{}} QuattroInputs */
 /** @typedef {{}} QuitInputs */
 /** @typedef {{}} Quota_AlertsInputs */
 /** @typedef {{}} Quota_Alerts_HintInputs */
@@ -1927,7 +1927,7 @@ export const menu_bar_short_name = /** @type {((inputs?: Menu_Bar_Short_NameInpu
 /**
 * | output |
 * | --- |
-* | "Beside the logo in the Name look. A provider without a logo always shows its name." |
+* | "Beside the logo in the Quattro look. A provider without a logo always shows its name." |
 *
 * @param {Menu_Bar_Short_Name_HintInputs} inputs
 * @param {{ locale?: "en" | "pt-BR" | "ko" }} options
@@ -1957,7 +1957,7 @@ export const menu_bar_shows = /** @type {((inputs?: Menu_Bar_ShowsInputs, option
 /**
 * | output |
 * | --- |
-* | "Chart and Logos show every provider's starred metrics. Name shows the selected provider's highest usage." |
+* | "Chart and Logos show every provider's starred metrics. Quattro shows the selected provider's highest usage." |
 *
 * @param {Menu_Bar_Shows_HintInputs} inputs
 * @param {{ locale?: "en" | "pt-BR" | "ko" }} options
@@ -2073,21 +2073,6 @@ export const more = /** @type {((inputs?: MoreInputs, options?: { locale?: "en" 
 	if (locale === "pt-BR") return __pt_br2.more(inputs)
 	if (locale === "ko") return __ko.more(inputs)
 	return __en.more(inputs)
-});
-/**
-* | output |
-* | --- |
-* | "Name" |
-*
-* @param {NameInputs} inputs
-* @param {{ locale?: "en" | "pt-BR" | "ko" }} options
-* @returns {LocalizedString}
-*/
-export const name = /** @type {((inputs?: NameInputs, options?: { locale?: "en" | "pt-BR" | "ko" }) => LocalizedString) & import('../runtime.js').MessageMetadata<NameInputs, { locale?: "en" | "pt-BR" | "ko" }, {}>} */ ((inputs = {}, options = {}) => {
-	const locale = experimentalStaticLocale ?? options.locale ?? getLocale()
-	if (locale === "pt-BR") return __pt_br2.name(inputs)
-	if (locale === "ko") return __ko.name(inputs)
-	return __en.name(inputs)
 });
 /**
 * | output |
@@ -2778,6 +2763,21 @@ export const providers = /** @type {((inputs?: ProvidersInputs, options?: { loca
 	if (locale === "pt-BR") return __pt_br2.providers(inputs)
 	if (locale === "ko") return __ko.providers(inputs)
 	return __en.providers(inputs)
+});
+/**
+* | output |
+* | --- |
+* | "Quattro" |
+*
+* @param {QuattroInputs} inputs
+* @param {{ locale?: "en" | "pt-BR" | "ko" }} options
+* @returns {LocalizedString}
+*/
+export const quattro = /** @type {((inputs?: QuattroInputs, options?: { locale?: "en" | "pt-BR" | "ko" }) => LocalizedString) & import('../runtime.js').MessageMetadata<QuattroInputs, { locale?: "en" | "pt-BR" | "ko" }, {}>} */ ((inputs = {}, options = {}) => {
+	const locale = experimentalStaticLocale ?? options.locale ?? getLocale()
+	if (locale === "pt-BR") return __pt_br2.quattro(inputs)
+	if (locale === "ko") return __ko.quattro(inputs)
+	return __en.quattro(inputs)
 });
 /**
 * | output |

@@ -879,7 +879,7 @@ On macOS, Chart (default) shows the starred metrics:
 <img src="screenshots/macos-menu-bar-chart.png" width="40" alt="Menu bar item in Chart mode"> ·
 Logos shows one highest-usage percentage per starred provider (lowest remaining
 in Left), excluding hidden metrics, just like Quattro's auto window. ·
-Name: one chip with the selected provider's logo, short name and highest percentage.
+Quattro: one chip with the selected provider's logo, short name and highest percentage.
 
 ### Desktop integrations
 

@@ -66,7 +66,7 @@ pub struct StripMetric {
     pub left_value: Option<String>,
     /// The report named this metric's own figure as its headline
     /// (`headline = "value"`, a prepaid balance): a figure, not a quota
-    /// window, so it never wins the highest-window race the Name chip runs.
+    /// window, so it never wins the highest-window race the Quattro chip runs.
     pub value_headline: bool,
     /// Under a group heading (SuperGrok's product slices, the Claude entry's
     /// CLI sessions): a breakdown, not a quota window of its own.
@@ -279,13 +279,13 @@ pub fn content_from_payload(payload: &Value, stars: &Stars, order: &[String]) ->
 
 /// Every quota window of one payload entry that has a value, stars aside,
 /// the set the Quattro bar's `selectMetric` picks from: grouped rows only
-/// when the entry has nothing else. The name look draws its chip from this,
+/// when the entry has nothing else. The Quattro look draws its chip from this,
 /// so it agrees with the popover tab that selects it, whichever window is
 /// the busiest (Z.AI's third, monthly MCP window counts like its 5h and
 /// weekly ones). A metric whose key is in `hidden` (switched off in the
 /// popover's Customize) is left out, as the popover tab leaves it out; with
 /// every metric hidden the entry has nothing to show. Only the macOS menu bar
-/// draws the name look, so other hosts compile it unused.
+/// draws the Quattro look, so other hosts compile it unused.
 #[cfg_attr(not(any(target_os = "macos", test)), allow(dead_code))]
 pub fn quota_group(payload: &Value, id: &str, hidden: &[String]) -> Option<StripGroup> {
     let entry = payload
@@ -825,7 +825,7 @@ mod tests {
     }
 
     /// A metric switched off in the popover's Customize is not a quota window
-    /// the name look can pick; with the windows hidden a grouped row stands
+    /// the Quattro look can pick; with the windows hidden a grouped row stands
     /// in, and with everything hidden the entry has nothing to show.
     #[test]
     fn quota_group_leaves_out_hidden_metrics() {

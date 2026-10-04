@@ -21,12 +21,12 @@ with `swift macos/render-icon.swift` after changing that artwork.
 from up to two starred metrics per provider, or **Logos**, each starred
 provider's logo followed by one readable percentage. Logos takes the highest
 usage across that provider's visible quota windows, like Quattro's default
-`auto` window and the Name chip. In **Left** this is the lowest remaining
+`auto` window and the Quattro chip. In **Left** this is the lowest remaining
 percentage: 25% monthly remaining stays `25%` even after the weekly allowance
 resets to 100%. A more-used short/session or model-specific window can win too;
 switch it off in Customize to exclude it. Balances remain amounts. All the
 individual readings remain in the popover.
-**Name** draws one chip like the Quattro
+**Quattro** draws one chip like the Quattro
 bar: the logo, the short name (`cld`, `cdx`, …) and the highest percentage
 of the provider selected in the popover (the Native style's tabs; the
 `[ui] primary` provider, then the first one with a value, until you pick one).
@@ -35,7 +35,7 @@ windows, starred or not, the same value its tab shows: a spent weekly limit
 reads `100%` even while the 5h session reads `0%`. A metric hidden in
 Customize does not count. **Show Short Name** turns the name off,
 leaving the logo and the value; a provider with no logo keeps its name. The
-Logos and Name values follow **Preferences → Show Usage As**, like the popover's
+Logos and Quattro values follow **Preferences → Show Usage As**, like the popover's
 tabs and meters: what is left, by default, or what is used. With
 nothing starred it shows the app icon. Left-click opens the popover; right-click opens the Options menu.
 

@@ -124,8 +124,8 @@ const portugueseMessages = JSON.parse(readFileSync(new URL('./messages/pt-BR.jso
 assert.deepEqual(Object.keys(portugueseMessages).sort(), Object.keys(englishMessages).sort());
 assert.ok(Object.values(englishMessages).every((value) => typeof value === 'string' && value.trim()));
 assert.ok(Object.values(portugueseMessages).every((value) => typeof value === 'string' && value.trim()));
-assert.equal(englishMessages.menu_bar_shows_hint, "Chart and Logos show every provider's starred metrics. Name shows the selected provider's highest usage.");
-assert.equal(portugueseMessages.menu_bar_shows_hint, "Gráfico e Logotipos mostram as métricas marcadas de todos os provedores. Nome mostra o maior uso do provedor selecionado.");
+assert.equal(englishMessages.menu_bar_shows_hint, "Chart and Logos show every provider's starred metrics. Quattro shows the selected provider's highest usage.");
+assert.equal(portugueseMessages.menu_bar_shows_hint, "Gráfico e Logotipos mostram as métricas marcadas de todos os provedores. Quattro mostra o maior uso do provedor selecionado.");
 for (const key of ['focused_provider', 'highest_consumption', 'usage_window']) {
   assert.equal(Object.hasOwn(englishMessages, key), false);
   assert.equal(Object.hasOwn(portugueseMessages, key), false);
@@ -150,7 +150,7 @@ const report = {
   menu_bar_show_all: false,
   menu_bar_hide_value: true,
   menu_bar_names: 'short',
-  menu_bar_look: 'name',
+  menu_bar_look: 'quattro',
   accent: { light: '#123456', dark: '#ABCDEF' },
   primary: 'anthropic',
   entries: [
@@ -189,13 +189,16 @@ assert.equal(payload.startupEnabled, true);
 assert.equal(Object.hasOwn(payload, 'menuBarShowAll'), false);
 assert.equal(Object.hasOwn(payload, 'menuBarHideValue'), false);
 assert.equal(Object.hasOwn(payload, 'menuBarNames'), false);
-assert.equal(payload.menuBarLook, 'name');
+assert.equal(payload.menuBarLook, 'quattro');
 // ASSERT: an unknown or missing look reads as the default chart, never as a blank one.
 assert.equal(parseHostPayload({ menu_bar_look: 'sparkles' }).menuBarLook, 'chart');
 assert.equal(parseHostPayload({}).menuBarLook, 'chart');
 assert.equal(emptyPayload('').menuBarLook, 'chart');
 assert.equal(parseHostPayload({ menu_bar_look: 'logos' }).menuBarLook, 'logos');
-// The name look's short name is on unless the host says otherwise.
+assert.equal(parseHostPayload({ menu_bar_look: 'quattro' }).menuBarLook, 'quattro');
+// The host only reports `quattro`; the 1.32.0 spelling is read on the Rust side, so `name` is unknown here.
+assert.equal(parseHostPayload({ menu_bar_look: 'name' }).menuBarLook, 'chart');
+// The Quattro look's short name is on unless the host says otherwise.
 assert.equal(parseHostPayload({}).menuBarShortName, true);
 assert.equal(emptyPayload('').menuBarShortName, true);
 assert.equal(parseHostPayload({ menu_bar_short_name: false }).menuBarShortName, false);

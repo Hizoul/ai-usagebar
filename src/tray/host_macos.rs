@@ -109,7 +109,7 @@ struct LogoStripKey {
 /// One premeasured provider segment captured by the AppKit drawing block.
 struct LogoStripItem {
     mark: Option<Retained<NSImage>>,
-    /// The short name, drawn after the mark (name look) or in its place.
+    /// The short name, drawn after the mark (Quattro look) or in its place.
     name: Option<Retained<NSString>>,
     values: Vec<Retained<NSString>>,
     label_width: f64,
@@ -170,14 +170,14 @@ struct TrayState {
     strip_order: Vec<String>,
     strip_order_known: bool,
     menu_bar_look: MenuBarLook,
-    /// `[tray] menu_bar_short_name`: the name look's short name beside the mark.
+    /// `[tray] menu_bar_short_name`: the Quattro look's short name beside the mark.
     menu_bar_short_name: bool,
     /// The popover's Used/Left reading, from its `strip` IPC.
     usage_reading: UsageReading,
     /// Metrics hidden in the popover's Customize, from its `strip` IPC; the
-    /// name look's highest window leaves them out.
+    /// Quattro look's highest window leaves them out.
     hidden_rows: HiddenRows,
-    /// Provider id the popover has selected; the name look draws this one.
+    /// Provider id the popover has selected; the Quattro look draws this one.
     selected_provider: Option<String>,
     menu_bar_logo_key: Option<LogoStripKey>,
     notifications_enabled: bool,
@@ -987,7 +987,7 @@ fn handle_ipc(state: &mut TrayState, body: &str, control_flow: &mut ControlFlow)
         "select-provider" => {
             let id = value.get("id").and_then(Value::as_str).unwrap_or("");
             state.selected_provider = (!id.is_empty()).then(|| id.to_owned());
-            if state.menu_bar_look == MenuBarLook::Name {
+            if state.menu_bar_look == MenuBarLook::Quattro {
                 apply_strip_icon(state);
             }
         }

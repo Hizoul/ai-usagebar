@@ -2,7 +2,7 @@
 //!
 //! `StripContent` owns visible groups and their values; the report supplies
 //! the short name drawn in place of a mark, either because the provider has
-//! no embedded mark or because the user chose the name look.
+//! no embedded mark or because the user chose the Quattro look.
 
 use serde_json::Value;
 
@@ -26,18 +26,19 @@ pub(super) enum MenuBarLook {
     Chart,
     /// Each starred provider's logo followed by its highest quota usage.
     Logos,
-    /// One selected provider's short name (`cld`, `cdx`, …) and highest
-    /// quota usage, the way the Quattro and Waybar bars tag a provider.
-    Name,
+    /// One selected provider's logo, short name (`cld`, `cdx`, …) and highest
+    /// quota usage, the way the Quattro bar tags a provider.
+    Quattro,
 }
 
 impl MenuBarLook {
     /// Read `[tray] menu_bar_style`. Anything unrecognised keeps the chart, so
-    /// a config written by a newer build never blanks the status item.
+    /// a config written by a newer build never blanks the status item. `name`
+    /// is what 1.32.0 called the Quattro look and is still read as it.
     pub(super) fn from_style(style: Option<&str>) -> Self {
         match style {
             Some("provider") => Self::Logos,
-            Some("name") => Self::Name,
+            Some("quattro" | "name") => Self::Quattro,
             _ => Self::Chart,
         }
     }
@@ -47,7 +48,7 @@ impl MenuBarLook {
         match self {
             Self::Chart => "bars",
             Self::Logos => "provider",
-            Self::Name => "name",
+            Self::Quattro => "quattro",
         }
     }
 
@@ -56,16 +57,16 @@ impl MenuBarLook {
         match self {
             Self::Chart => "chart",
             Self::Logos => "logos",
-            Self::Name => "name",
+            Self::Quattro => "quattro",
         }
     }
 
-    /// Parse the popover's picker value.
+    /// Parse the popover's picker value; `name` is the 1.32.0 spelling.
     pub(super) fn from_picker_value(value: &str) -> Option<Self> {
         match value {
             "chart" => Some(Self::Chart),
             "logos" => Some(Self::Logos),
-            "name" => Some(Self::Name),
+            "quattro" | "name" => Some(Self::Quattro),
             _ => None,
         }
     }
@@ -155,7 +156,7 @@ pub(super) struct LogoSegment {
     /// Report short name, drawn when the mark cannot be drawn, or beside it
     /// when `with_name` is set.
     pub(super) short_name: Option<String>,
-    /// The name look: draw `short_name` after the mark rather than only
+    /// The Quattro look: draw `short_name` after the mark rather than only
     /// where the mark is missing.
     pub(super) with_name: bool,
     /// One non-empty summary value, displayed on a single line.
@@ -163,7 +164,7 @@ pub(super) struct LogoSegment {
 }
 
 /// Build logo segments from the same starred metric groups used by the chart.
-/// The name look keeps one provider, `selected` or its fallbacks, and its
+/// The Quattro look keeps one provider, `selected` or its fallbacks, and its
 /// highest window, like the Quattro bar's `icon SHORT 54%` chip, with the short name
 /// beside the mark unless `show_short_name` is off. Logos keeps every starred
 /// provider, with one value for its highest visible quota usage. `hidden`
@@ -177,7 +178,7 @@ pub(super) fn logo_segments(
     reading: UsageReading,
     hidden: &HiddenRows,
 ) -> Vec<LogoSegment> {
-    if look == MenuBarLook::Name {
+    if look == MenuBarLook::Quattro {
         return name_segment(content, report, selected, show_short_name, reading, hidden)
             .into_iter()
             .collect();
@@ -193,7 +194,7 @@ pub(super) fn logo_segments(
         .collect()
 }
 
-/// The name look's one chip, for the popover's selected provider, else the
+/// The Quattro look's one chip, for the popover's selected provider, else the
 /// report's `primary`, else the first starred group, skipping any without a
 /// value. Its value comes from every quota window of that provider, stars
 /// aside and hidden metrics left out, like the Quattro bar and the popover
@@ -402,7 +403,7 @@ mod tests {
                 "anthropic".into(),
                 hidden_keys.into_iter().map(String::from).collect(),
             )]);
-            for look in [MenuBarLook::Logos, MenuBarLook::Name] {
+            for look in [MenuBarLook::Logos, MenuBarLook::Quattro] {
                 let segments = logo_segments(
                     &content,
                     &report,
@@ -419,7 +420,7 @@ mod tests {
 
     #[test]
     fn empty_modes_fall_back_to_static_app_icon() {
-        for look in [MenuBarLook::Chart, MenuBarLook::Logos, MenuBarLook::Name] {
+        for look in [MenuBarLook::Chart, MenuBarLook::Logos, MenuBarLook::Quattro] {
             assert_eq!(
                 status_item_content(look, false),
                 StatusItemContent::AppIcon,
@@ -434,16 +435,16 @@ mod tests {
             status_item_content(MenuBarLook::Logos, true),
             StatusItemContent::Logos
         );
-        // Name reuses the strip image: only the label differs from Logos.
+        // Quattro reuses the strip image: only the label differs from Logos.
         assert_eq!(
-            status_item_content(MenuBarLook::Name, true),
+            status_item_content(MenuBarLook::Quattro, true),
             StatusItemContent::Logos
         );
     }
 
     #[test]
     fn menu_bar_look_round_trips_through_config_and_picker() {
-        for look in [MenuBarLook::Chart, MenuBarLook::Logos, MenuBarLook::Name] {
+        for look in [MenuBarLook::Chart, MenuBarLook::Logos, MenuBarLook::Quattro] {
             assert_eq!(MenuBarLook::from_style(Some(look.style())), look);
             assert_eq!(
                 MenuBarLook::from_picker_value(look.picker_value()),
@@ -462,6 +463,19 @@ mod tests {
             MenuBarLook::Chart
         );
         assert_eq!(MenuBarLook::from_picker_value("sparkles"), None);
+    }
+
+    /// 1.32.0 persisted this look as `name`; a config or a popover still
+    /// saying so keeps the look instead of falling back to the chart.
+    #[test]
+    fn the_1_32_0_name_spelling_still_selects_the_quattro_look() {
+        assert_eq!(MenuBarLook::from_style(Some("name")), MenuBarLook::Quattro);
+        assert_eq!(
+            MenuBarLook::from_picker_value("name"),
+            Some(MenuBarLook::Quattro)
+        );
+        assert_eq!(MenuBarLook::Quattro.style(), "quattro");
+        assert_eq!(MenuBarLook::Quattro.picker_value(), "quattro");
     }
 
     /// #249: the emergency menu attaches only when the webview is absent, so
@@ -630,7 +644,7 @@ mod tests {
         }
     }
 
-    /// The name look keeps the mark and adds the short name beside it; the
+    /// The Quattro look keeps the mark and adds the short name beside it; the
     /// logos look keeps the mark alone.
     #[test]
     fn name_look_adds_the_short_name_beside_the_mark() {
@@ -640,7 +654,7 @@ mod tests {
         let chip = logo_segments(
             &content,
             &report,
-            MenuBarLook::Name,
+            MenuBarLook::Quattro,
             None,
             true,
             UsageReading::Used,
@@ -676,7 +690,7 @@ mod tests {
         let chip = logo_segments(
             &content,
             &report,
-            MenuBarLook::Name,
+            MenuBarLook::Quattro,
             Some("kimi"),
             false,
             UsageReading::Used,
@@ -689,7 +703,7 @@ mod tests {
         let shown = logo_segments(
             &content,
             &report,
-            MenuBarLook::Name,
+            MenuBarLook::Quattro,
             Some("kimi"),
             true,
             UsageReading::Used,
@@ -700,7 +714,7 @@ mod tests {
         let unmarked = logo_segments(
             &content,
             &report,
-            MenuBarLook::Name,
+            MenuBarLook::Quattro,
             Some("unknown"),
             false,
             UsageReading::Used,
@@ -740,7 +754,7 @@ mod tests {
             logo_segments(
                 &two_groups(),
                 &report,
-                MenuBarLook::Name,
+                MenuBarLook::Quattro,
                 selected,
                 true,
                 UsageReading::Used,
@@ -776,7 +790,7 @@ mod tests {
             logo_segments(
                 &two_groups(),
                 report,
-                MenuBarLook::Name,
+                MenuBarLook::Quattro,
                 selected,
                 true,
                 UsageReading::Used,
@@ -792,7 +806,7 @@ mod tests {
         assert_eq!(slug(&two_entries(None), Some("gone")), "anthropic");
     }
 
-    /// Stars do not decide the name look: a selected provider with nothing
+    /// Stars do not decide the Quattro look: a selected provider with nothing
     /// starred draws its own chip, never the primary's.
     #[test]
     fn name_look_shows_a_selected_provider_that_has_no_star() {
@@ -805,7 +819,7 @@ mod tests {
         let chip = logo_segments(
             &content,
             &report,
-            MenuBarLook::Name,
+            MenuBarLook::Quattro,
             Some("supergrok"),
             true,
             UsageReading::Used,
@@ -819,7 +833,7 @@ mod tests {
         let unselected = logo_segments(
             &content,
             &report,
-            MenuBarLook::Name,
+            MenuBarLook::Quattro,
             None,
             true,
             UsageReading::Used,
@@ -829,7 +843,7 @@ mod tests {
     }
 
     /// A provider with no value, or one whose fetch failed, is not a
-    /// candidate, so the name look never draws a bare name with no number.
+    /// candidate, so the Quattro look never draws a bare name with no number.
     #[test]
     fn name_look_skips_a_selected_provider_without_a_value() {
         let report = json!({"primary":null,"entries":[
@@ -844,7 +858,7 @@ mod tests {
             let segments = logo_segments(
                 &content,
                 &report,
-                MenuBarLook::Name,
+                MenuBarLook::Quattro,
                 Some(selected),
                 true,
                 UsageReading::Used,
@@ -912,7 +926,7 @@ mod tests {
             logo_segments(
                 &starred(&["zai"]),
                 &report,
-                MenuBarLook::Name,
+                MenuBarLook::Quattro,
                 Some("zai"),
                 true,
                 UsageReading::Used,
@@ -956,7 +970,7 @@ mod tests {
             logo_segments(
                 &content,
                 &report,
-                MenuBarLook::Name,
+                MenuBarLook::Quattro,
                 Some(selected),
                 true,
                 UsageReading::Used,
@@ -993,7 +1007,7 @@ mod tests {
             logo_segments(
                 &content,
                 &report,
-                MenuBarLook::Name,
+                MenuBarLook::Quattro,
                 Some(selected),
                 true,
                 reading,
@@ -1037,7 +1051,7 @@ mod tests {
             logo_segments(
                 &content,
                 &report,
-                MenuBarLook::Name,
+                MenuBarLook::Quattro,
                 Some(selected),
                 true,
                 reading,
@@ -1088,7 +1102,7 @@ mod tests {
             logo_segments(
                 &starred(&["zai"]),
                 report,
-                MenuBarLook::Name,
+                MenuBarLook::Quattro,
                 Some("zai"),
                 true,
                 reading,
@@ -1165,12 +1179,12 @@ mod tests {
             )
         };
 
-        let chip = segments(MenuBarLook::Name, &hidden);
+        let chip = segments(MenuBarLook::Quattro, &hidden);
         assert_eq!(chip.len(), 1);
         assert_eq!(chip[0].slug, "anthropic");
         assert_eq!(chip[0].values, vec![String::from("54%")]);
         assert_eq!(
-            segments(MenuBarLook::Name, &HiddenRows::new())[0].slug,
+            segments(MenuBarLook::Quattro, &HiddenRows::new())[0].slug,
             "openai"
         );
         assert_eq!(segments(MenuBarLook::Logos, &hidden).len(), 1);
@@ -1180,7 +1194,7 @@ mod tests {
         let alone = logo_segments(
             &starred(&["openai"]),
             &only,
-            MenuBarLook::Name,
+            MenuBarLook::Quattro,
             Some("openai"),
             true,
             UsageReading::Used,

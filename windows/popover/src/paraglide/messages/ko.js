@@ -120,7 +120,6 @@
 /** @typedef {{}} MonthlyInputs */
 /** @typedef {{}} Monthly_LowercaseInputs */
 /** @typedef {{}} MoreInputs */
-/** @typedef {{}} NameInputs */
 /** @typedef {{}} NativeInputs */
 /** @typedef {{}} New_UpdateInputs */
 /** @typedef {{}} New_Version_ReadyInputs */
@@ -167,6 +166,7 @@
 /** @typedef {{}} ProviderInputs */
 /** @typedef {{}} Provider_Is_UnavailableInputs */
 /** @typedef {{}} ProvidersInputs */
+/** @typedef {{}} QuattroInputs */
 /** @typedef {{}} QuitInputs */
 /** @typedef {{}} Quota_AlertsInputs */
 /** @typedef {{}} Quota_Alerts_HintInputs */
@@ -706,7 +706,7 @@ export const menu_bar_short_name = /** @type {(inputs: Menu_Bar_Short_NameInputs
 };
 
 export const menu_bar_short_name_hint = /** @type {(inputs: Menu_Bar_Short_Name_HintInputs) => LocalizedString} */ () => {
-	return /** @type {LocalizedString} */ (`이름 보기에서 로고 옆에 표시합니다. 로고가 없는 제공자는 항상 이름을 보여 줍니다.`)
+	return /** @type {LocalizedString} */ (`Quattro 보기에서 로고 옆에 표시합니다. 로고가 없는 제공자는 항상 이름을 보여 줍니다.`)
 };
 
 export const menu_bar_shows = /** @type {(inputs: Menu_Bar_ShowsInputs) => LocalizedString} */ () => {
@@ -714,7 +714,7 @@ export const menu_bar_shows = /** @type {(inputs: Menu_Bar_ShowsInputs) => Local
 };
 
 export const menu_bar_shows_hint = /** @type {(inputs: Menu_Bar_Shows_HintInputs) => LocalizedString} */ () => {
-	return /** @type {LocalizedString} */ (`차트와 로고는 모든 제공자의 별표 지표를, 이름은 선택한 제공자의 가장 높은 사용량을 보여 줍니다.`)
+	return /** @type {LocalizedString} */ (`차트와 로고는 모든 제공자의 별표 지표를, Quattro는 선택한 제공자의 가장 높은 사용량을 보여 줍니다.`)
 };
 
 export const metric_plural = /** @type {(inputs: Metric_PluralInputs) => LocalizedString} */ () => {
@@ -743,10 +743,6 @@ export const monthly_lowercase = /** @type {(inputs: Monthly_LowercaseInputs) =>
 
 export const more = /** @type {(inputs: MoreInputs) => LocalizedString} */ () => {
 	return /** @type {LocalizedString} */ (`더 보기`)
-};
-
-export const name = /** @type {(inputs: NameInputs) => LocalizedString} */ () => {
-	return /** @type {LocalizedString} */ (`이름`)
 };
 
 export const native = /** @type {(inputs: NativeInputs) => LocalizedString} */ () => {
@@ -931,6 +927,10 @@ export const provider_is_unavailable = /** @type {(inputs: Provider_Is_Unavailab
 
 export const providers = /** @type {(inputs: ProvidersInputs) => LocalizedString} */ () => {
 	return /** @type {LocalizedString} */ (`제공자`)
+};
+
+export const quattro = /** @type {(inputs: QuattroInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`Quattro`)
 };
 
 export const quit = /** @type {(inputs: QuitInputs) => LocalizedString} */ () => {
