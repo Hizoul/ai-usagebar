@@ -79,7 +79,15 @@ pub fn render(
         .format
         .clone()
         .unwrap_or_else(|| DEFAULT_FORMAT.to_string());
-    let values = build_placeholders(snap, now);
+    let mut values = build_placeholders(snap, now);
+    // Both sinks fed by this map (bar text and --tooltip-format) are Pango
+    // markup. The plan label is API-controlled, so escape its aliases at the
+    // projection boundary. The default tooltip escapes the raw snapshot.
+    for key in ["plan", "cursor_plan"] {
+        if let Some(value) = values.get_mut(key) {
+            *value = escape(value);
+        }
+    }
 
     let mut text = if snap.unlimited && opts.format.is_none() {
         "unlimited".to_string()
