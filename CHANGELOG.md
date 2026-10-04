@@ -92,6 +92,11 @@ Each release is also published at
   longest label in the dropdown plus one space, and the percentages are
   right-aligned so the reset column stays straight.
 
+- **The usage goal reads like the bar above it.** With the popover showing
+  what is left, the goal still showed the share of the window that had passed,
+  so a session with `7% left` and 10 minutes to go sat above `Goal now 97%`.
+  The goal now follows the Used/Left reading, like the pace tick: `3%` left
+  there, and the same `97%` once the bar shows what is used.
 ### Security
 
 - **Subprocess environment scrubbing extended to `codex login`.** Running

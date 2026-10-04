@@ -653,6 +653,15 @@ function clampPercent(value) {
   return Math.max(0, Math.min(100, number));
 }
 
+// The goal in the meter's reading: the share that should be spent by now in
+// Used mode, the share that should still remain in Left mode. Reading it as
+// spent beside a meter that shows what is left put `97%` next to `7% left`.
+export function usageGoalPercent(goal, showAs) {
+  if (!goal) return null;
+  const elapsed = clampPercent(goal.percent);
+  return showAs === "used" ? elapsed : 100 - elapsed;
+}
+
 // Where the "you should be here" tick sits on the meter, as a percent of its
 // width. The meter fills with what is consumed in Used mode and with what
 // remains in Left mode, so the tick follows the same reading.
