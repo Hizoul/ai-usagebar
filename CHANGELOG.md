@@ -51,6 +51,9 @@ Each release is also published at
   false`) drops the name when the logo already says which provider it is; a
   provider with no logo keeps its name.
 
+- **Lyceum Technology balance provider.** Lyceum's credit amounts are shown as
+  USD balances; no quota percentage or reset is inferred.
+
 ### Changed
 
 - **macOS: Claude Desktop and Claude Code account switching moved into

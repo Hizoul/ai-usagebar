@@ -11,7 +11,7 @@
 # Valid: anthropic | anthropic_api | openai | copilot | zai | openrouter | deepseek
 #        | kimi | kilo | novita | moonshot | grok | supergrok | grokbot | antigravity
 #        | cursor | minimax | kiro | nous | opencode-go | commandcode | ollama
-#        | orcarouter | modelstudio
+#        | orcarouter | modelstudio | lyceum
 # When unset, the TUI opens on the Overview (all vendors at once); set this to
 # open directly on a vendor's tab instead.
 # primary = "anthropic"
@@ -266,7 +266,7 @@ api_key_env = "OPENROUTER_API_KEY"
 # management_api_key_env = "OPENROUTER_WORK_MANAGEMENT_API_KEY"  # optional
 #
 # The same array works for [zai], [deepseek], [deepinfra], [kilo], [novita],
-# [moonshot], [grok], [minimax], and [orcarouter] — e.g.
+# [moonshot], [grok], [minimax], [orcarouter], and [lyceum] — e.g.
 # [[deepinfra.accounts]] — with the same show_default_account switch.
 # Region/team/organization/display settings stay per provider. See
 # docs/api-key-accounts.md.
@@ -385,6 +385,15 @@ api_key_env = "NOVITA_API_KEY"     # checked first; if set + non-empty, used
 # api_key = "..."                  # fallback; chmod 600 the file if you use it
 # display_limit = 200              # tank size in USD; see the group note above
 # headline = "amount"              # "amount" | "percent"
+
+[lyceum]
+# Disabled by default; this reads only the credits endpoint, not inference.
+enabled = false
+api_key_env = "LYCEUM_API_KEY"
+# api_key = "..."                  # fallback; chmod 600 the file if used
+# [[lyceum.accounts]]              # optional named account
+# label = "work"
+# api_key_env = "LYCEUM_WORK_API_KEY"
 
 [orcarouter]
 # Disabled by default — enable once you've set a key (env var or inline).

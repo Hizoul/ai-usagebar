@@ -15,12 +15,12 @@ metrics expand to an empty string unless noted otherwise.
 | DeepInfra | `dif` | | |
 | Kimi | `kmi` | Kilo | `klo` |
 | Novita | `nvt` | Moonshot | `msh` |
-| Grok | `grk` | SuperGrok | `sgk` |
+| Lyceum | `lyc` | Grok | `grk` |
 | Anthropic API | `aac` | Antigravity | `agy` |
 | Cursor | `cur` | MiniMax | `mmx` |
 | Kiro CLI | `kir` | Nous Research | `nrs` |
 | OpenCode Go | `ocg` | Command Code | `cmc` |
-| Ollama Cloud | `oll` | | |
+| Ollama Cloud | `oll` | SuperGrok | `sgk` |
 
 The same codes ride the `ai-usagebar usage --json` report as each entry's
 `short_name`, so a native frontend can draw a Waybar-style provider tag without
@@ -439,3 +439,10 @@ render `—` when the window exists but has no timestamp, or stay empty when
 the window is absent. `{oll_cost}` is the dollar figure the settings page
 reports for the last four weeks of activity. `{session_pct}` and
 `{weekly_pct}` alias the session and weekly windows.
+
+## Lyceum
+
+`{lyceum_balance}`, `{lyceum_used}`, and `{lyceum_remaining}` are the USD
+balance values returned by Lyceum, formatted with `$` and two decimal places.
+Lyceum reports no quota percentage or reset, so the shared session/weekly
+percentage placeholders are empty and reset placeholders are neutral.

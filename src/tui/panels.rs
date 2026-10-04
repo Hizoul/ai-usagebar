@@ -338,6 +338,10 @@ pub fn compact_cells(snapshot: &VendorSnapshot) -> (String, Vec<(String, PaceSev
         }
         VendorSnapshot::Kilo(s) => (String::new(), vec![usd_cell(s.balance)]),
         VendorSnapshot::Novita(s) => (String::new(), vec![usd_cell(s.available)]),
+        VendorSnapshot::Lyceum(s) => (
+            String::new(),
+            vec![(usd(s.available_credits), PaceSeverity::Low)],
+        ),
         VendorSnapshot::Moonshot(s) => (String::new(), vec![money_cell(s.available, &s.currency)]),
         VendorSnapshot::Grok(s) => (String::new(), vec![usd_cell(s.balance)]),
         VendorSnapshot::SuperGrok(s) => (s.plan.clone(), vec![pct(s.period.short(), s.weekly_pct)]),
@@ -531,6 +535,7 @@ pub fn headline_pct(snapshot: &VendorSnapshot) -> Option<i32> {
         | VendorSnapshot::Deepinfra(_)
         | VendorSnapshot::Kilo(_)
         | VendorSnapshot::Novita(_)
+        | VendorSnapshot::Lyceum(_)
         | VendorSnapshot::Moonshot(_)
         | VendorSnapshot::Grok(_) => None,
     }
@@ -598,6 +603,7 @@ pub(crate) fn sections_with_metadata_for(
                 VendorSnapshot::Kimi(s) => kimi_sections(s, now, pace_tolerance),
                 VendorSnapshot::Kilo(s) => kilo_sections(s, prefs),
                 VendorSnapshot::Novita(s) => novita_sections(s, prefs),
+                VendorSnapshot::Lyceum(s) => lyceum_sections(s),
                 VendorSnapshot::Moonshot(s) => moonshot_sections(s, prefs),
                 VendorSnapshot::Grok(s) => grok_sections(s, prefs),
                 VendorSnapshot::SuperGrok(s) => supergrok_sections(s, now),
@@ -1508,6 +1514,24 @@ fn novita_sections(s: &crate::usage::NovitaSnapshot, prefs: DisplayPrefs) -> Sec
     v
 }
 
+fn lyceum_sections(s: &crate::usage::LyceumSnapshot) -> SectionBuilder {
+    SectionBuilder::new(vec![
+        Section::Title {
+            left: crate::vendor::VendorId::Lyceum.display_name().into(),
+            right: None,
+        },
+        Section::Spacer,
+        Section::Text {
+            label: "Available balance".into(),
+            value: usd(s.available_credits),
+        },
+        Section::Text {
+            label: "Amount used".into(),
+            value: usd(s.used_credits),
+        },
+    ])
+}
+
 fn moonshot_sections(s: &crate::usage::MoonshotSnapshot, prefs: DisplayPrefs) -> SectionBuilder {
     let cur = &s.currency;
     let fmt = |v: f64| money(v, cur);
@@ -2205,6 +2229,28 @@ mod tests {
 
     fn now() -> DateTime<Utc> {
         Utc.with_ymd_and_hms(2026, 5, 23, 12, 0, 0).unwrap()
+    }
+
+    #[test]
+    fn lyceum_panel_shows_usd_balance_without_a_quota_percentage() {
+        let snapshot = VendorSnapshot::Lyceum(crate::usage::LyceumSnapshot {
+            available_credits: 42.5,
+            used_credits: 7.5,
+            total_credits_used: 7.5,
+            remaining_credits: 42.5,
+            monthly_free_credits: 0.0,
+            purchased_credits: 50.0,
+        });
+        let sections = sections_for(&ready(snapshot.clone()), now(), 5);
+        assert!(sections.iter().any(|section| matches!(section, Section::Text { label, value } if label == "Available balance" && value == "$42.50")));
+        assert!(
+            !sections
+                .iter()
+                .any(|section| matches!(section, Section::Metric { .. }))
+        );
+        assert_eq!(headline_pct(&snapshot), None);
+        let (_, cells) = compact_cells(&snapshot);
+        assert_eq!(cells[0].0, "$42.50");
     }
 
     fn ready(snapshot: VendorSnapshot) -> TabState {

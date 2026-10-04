@@ -993,6 +993,12 @@ async fn build_outcome(client: &Client, config: &Config, tab: &TabId) -> Result<
             .await?;
             Ok(outcome.into())
         }
+        VendorId::Lyceum => {
+            let (api_key, cache) = api_key_and_cache(config, vendor, tab.account.as_deref())?;
+            let outcome =
+                crate::lyceum::fetch::fetch_snapshot(client, &api_key, &cache, DEFAULT_TTL).await?;
+            Ok(outcome.into())
+        }
     }
 }
 

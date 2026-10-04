@@ -40,6 +40,7 @@ pub mod jwt;
 pub mod kilo;
 pub mod kimi;
 pub mod kiro;
+pub mod lyceum;
 pub mod minimax;
 pub mod modelstudio;
 pub mod moonshot;

@@ -463,6 +463,7 @@ pub enum VendorSnapshot {
     Ollama(OllamaSnapshot),
     OrcaRouter(OrcaRouterSnapshot),
     ModelStudio(ModelStudioSnapshot),
+    Lyceum(LyceumSnapshot),
     /// A `[[custom]]` provider. Which one is not in the snapshot: the caller
     /// that fetched it holds the `CustomProviderConfig`, and the cache
     /// directory is keyed by its `id`.
@@ -616,6 +617,18 @@ pub struct NovitaSnapshot {
 }
 
 impl Eq for NovitaSnapshot {}
+
+/// Lyceum's platform credit balance is denominated in USD, not a percentage quota.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct LyceumSnapshot {
+    pub available_credits: f64,
+    pub used_credits: f64,
+    pub total_credits_used: f64,
+    pub remaining_credits: f64,
+    pub monthly_free_credits: f64,
+    pub purchased_credits: f64,
+}
+impl Eq for LyceumSnapshot {}
 
 /// Moonshot / Kimi — account balance from `/v1/users/me/balance`. Currency is
 /// USD (`api.moonshot.ai`) or CNY (`api.moonshot.cn`); there's no currency

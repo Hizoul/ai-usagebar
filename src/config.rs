@@ -71,6 +71,7 @@ pub struct Config {
     pub ollama: OllamaConfig,
     pub orcarouter: OrcaRouterConfig,
     pub modelstudio: ModelStudioConfig,
+    pub lyceum: LyceumConfig,
     /// Quota-threshold desktop notifications (`[notifications]`).
     pub notifications: NotificationsConfig,
     /// User-defined providers, one `[[custom]]` table each.
@@ -1412,7 +1413,7 @@ pub struct NovitaConfig {
 
 impl Default for NovitaConfig {
     fn default() -> Self {
-        // Opt-in like DeepSeek/Kilo: needs an explicit API key.
+        // Opt-in like DeepSeek/Kilo/Novita: needs an explicit API key.
         Self {
             enabled: false,
             accounts: Vec::new(),
@@ -1421,6 +1422,27 @@ impl Default for NovitaConfig {
             api_key: None,
             display_limit: None,
             headline: Headline::Amount,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(default)]
+pub struct LyceumConfig {
+    pub enabled: bool,
+    pub accounts: Vec<ApiKeyAccount>,
+    pub show_default_account: bool,
+    pub api_key_env: String,
+    pub api_key: Option<String>,
+}
+impl Default for LyceumConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            accounts: Vec::new(),
+            show_default_account: true,
+            api_key_env: "LYCEUM_API_KEY".into(),
+            api_key: None,
         }
     }
 }
@@ -2166,6 +2188,7 @@ impl Config {
             self.opencode_go.api_key.as_deref(),
             self.ollama.api_key.as_deref(),
             self.orcarouter.api_key.as_deref(),
+            self.lyceum.api_key.as_deref(),
             self.antigravity.oauth_client_secret.as_deref(),
         ]
         .into_iter()
@@ -2267,6 +2290,7 @@ impl Config {
             VendorId::Ollama => self.ollama.enabled,
             VendorId::OrcaRouter => self.orcarouter.enabled,
             VendorId::ModelStudio => self.modelstudio.enabled,
+            VendorId::Lyceum => self.lyceum.enabled,
         }
     }
 
@@ -2292,6 +2316,7 @@ impl Config {
             VendorId::OpenCodeGo => &self.opencode_go.api_key_env,
             VendorId::Ollama => &self.ollama.api_key_env,
             VendorId::OrcaRouter => &self.orcarouter.api_key_env,
+            VendorId::Lyceum => &self.lyceum.api_key_env,
             // Fixed names: OAuth-first providers whose environment override is
             // not user-renameable, and the providers with no key at all.
             VendorId::Anthropic
@@ -2327,6 +2352,7 @@ impl Config {
             VendorId::OpenCodeGo => self.opencode_go.api_key.as_deref(),
             VendorId::Ollama => self.ollama.api_key.as_deref(),
             VendorId::OrcaRouter => self.orcarouter.api_key.as_deref(),
+            VendorId::Lyceum => self.lyceum.api_key.as_deref(),
             VendorId::Anthropic
             | VendorId::Openai
             | VendorId::Copilot
@@ -2345,7 +2371,7 @@ impl Config {
     /// The API-key vendors that take a `[[<vendor>.accounts]]` array —
     /// OpenRouter's (#221), generalized. Kimi is left out on purpose: its
     /// fallback is the Kimi Code CLI's single OAuth login, not a key.
-    pub const API_KEY_ACCOUNT_VENDORS: [VendorId; 10] = [
+    pub const API_KEY_ACCOUNT_VENDORS: [VendorId; 11] = [
         VendorId::Zai,
         VendorId::Openrouter,
         VendorId::Deepseek,
@@ -2356,6 +2382,7 @@ impl Config {
         VendorId::Grok,
         VendorId::Minimax,
         VendorId::OrcaRouter,
+        VendorId::Lyceum,
     ];
 
     /// The named `[[<vendor>.accounts]]` array, or `None` for a vendor that
@@ -2372,6 +2399,7 @@ impl Config {
             VendorId::Grok => Some(&self.grok.accounts),
             VendorId::Minimax => Some(&self.minimax.accounts),
             VendorId::OrcaRouter => Some(&self.orcarouter.accounts),
+            VendorId::Lyceum => Some(&self.lyceum.accounts),
             _ => None,
         }
     }
@@ -2390,6 +2418,7 @@ impl Config {
             VendorId::Grok => self.grok.show_default_account,
             VendorId::Minimax => self.minimax.show_default_account,
             VendorId::OrcaRouter => self.orcarouter.show_default_account,
+            VendorId::Lyceum => self.lyceum.show_default_account,
             _ => true,
         }
     }
@@ -3429,16 +3458,51 @@ enabled = false
     }
 
     #[test]
+    fn lyceum_is_opt_in_and_uses_shared_api_key_account_resolution() {
+        let defaults = LyceumConfig::default();
+        assert!(!defaults.enabled);
+        assert_eq!(defaults.api_key_env, "LYCEUM_API_KEY");
+        let override_file = write_toml("[lyceum]\napi_key_env = \"LYCEUM_CUSTOM_TEST_KEY\"\n");
+        let override_config = Config::load_from(override_file.path()).unwrap();
+        assert_eq!(
+            override_config.api_key_env_for(VendorId::Lyceum),
+            "LYCEUM_CUSTOM_TEST_KEY"
+        );
+        let file = write_toml(
+            r#"[lyceum]
+enabled = true
+api_key_env = ""
+api_key = "synthetic-inline"
+[[lyceum.accounts]]
+label = "work"
+api_key = "synthetic-account"
+"#,
+        );
+        let config = Config::load_from(file.path()).unwrap();
+        assert!(config.is_enabled(VendorId::Lyceum));
+        assert_eq!(config.api_key_env_for(VendorId::Lyceum), "");
+        assert_eq!(
+            config
+                .resolve_account_api_key_for(VendorId::Lyceum, None)
+                .unwrap(),
+            "synthetic-inline"
+        );
+        assert_eq!(
+            config
+                .resolve_account_api_key_for(VendorId::Lyceum, Some("work"))
+                .unwrap(),
+            "synthetic-account"
+        );
+    }
+
+    #[test]
     fn optional_api_key_reports_absence_instead_of_failing() {
         assert_eq!(
-            optional_api_key("KIMI_API_KEY_DEFINITELY_UNSET", Some("inline")),
+            optional_api_key("9INVALID", Some("inline")),
             Some("inline".to_string())
         );
-        assert_eq!(
-            optional_api_key("KIMI_API_KEY_DEFINITELY_UNSET", None),
-            None
-        );
-        assert_eq!(optional_api_key("KIMI_API_KEY_UNSET", Some("")), None);
+        assert_eq!(optional_api_key("9INVALID", None), None);
+        assert_eq!(optional_api_key("9INVALID", Some("")), None);
         // An unusable `api_key_env` still lets an inline key through, exactly
         // as `resolve_api_key` does.
         assert_eq!(
