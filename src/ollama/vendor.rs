@@ -521,7 +521,10 @@ mod tests {
         let out = render(&outcome, &snap, &Theme::default(), &o, Utc::now());
         assert!(!out.text.contains(" & "));
         assert!(!out.tooltip.contains('<'));
-        assert!(out.text.contains("Cloud Pro &amp; Enterprise &lt;preview&gt;"));
+        assert!(
+            out.text
+                .contains("Cloud Pro &amp; Enterprise &lt;preview&gt;")
+        );
         assert_eq!(out.tooltip, "Cloud Pro &amp; Enterprise &lt;preview&gt;");
     }
 }

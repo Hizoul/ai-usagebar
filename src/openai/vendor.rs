@@ -616,7 +616,10 @@ mod tests {
         let out = render(&oc(s.clone()), &s, &Theme::default(), &o, Utc::now());
         assert!(!out.text.contains(" & "));
         assert!(!out.tooltip.contains('<'));
-        assert!(out.text.contains("ChatGPT Pro &amp; Enterprise &lt;preview&gt;"));
+        assert!(
+            out.text
+                .contains("ChatGPT Pro &amp; Enterprise &lt;preview&gt;")
+        );
         assert_eq!(out.tooltip, "ChatGPT Pro &amp; Enterprise &lt;preview&gt;");
     }
 }
