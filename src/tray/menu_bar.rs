@@ -691,9 +691,8 @@ mod tests {
         assert_eq!(slug(&two_entries(None), Some("gone")), "anthropic");
     }
 
-    /// Selecting a provider with no starred metric used to fall through to
-    /// the primary: SuperGrok selected drew Z.AI's chip. Stars do not decide
-    /// the name look, so the selection draws its own value.
+    /// Stars do not decide the name look: a selected provider with nothing
+    /// starred draws its own chip, never the primary's.
     #[test]
     fn name_look_shows_a_selected_provider_that_has_no_star() {
         let report = json!({"primary":"zai","entries":[
@@ -804,11 +803,10 @@ mod tests {
         }
     }
 
-    /// Z.AI with the weekly window spent and the 5h session idle drew
-    /// `zai 0%`. Like Quattro's `auto` window the chip shows the highest
-    /// percent among every quota window, stars aside: Z.AI's monthly MCP
-    /// window at 18% sat third, past the first-two default, and the chip read
-    /// 0% under a tab reading 18%. The logos look keeps the starred values.
+    /// Like Quattro's `auto` window the chip shows the highest percent among
+    /// every quota window, stars aside: a spent weekly window reads `100%`
+    /// over an idle 5h session, and Z.AI's third, monthly MCP window at 18%
+    /// reads `18%` over two at 0%. The logos look keeps the starred values.
     #[test]
     fn name_look_shows_the_highest_quota_window() {
         let chip = |zai: Value| {

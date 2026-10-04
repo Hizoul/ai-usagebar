@@ -246,10 +246,10 @@ pub fn content_from_payload(payload: &Value, stars: &Stars, order: &[String]) ->
 /// Every quota window of one payload entry that has a value, stars aside,
 /// the set the Quattro bar's `selectMetric` picks from: grouped rows only
 /// when the entry has nothing else. The name look draws its chip from this,
-/// so it agrees with the popover tab that selects it (Z.AI's monthly MCP
-/// window at 18% was left out by the first-two-metrics default, and the chip
-/// read 0% under a tab reading 18%). Only the macOS menu bar draws the name
-/// look, so other hosts compile it unused.
+/// so it agrees with the popover tab that selects it, whichever window is
+/// the busiest (Z.AI's third, monthly MCP window counts like its 5h and
+/// weekly ones). Only the macOS menu bar draws the name look, so other hosts
+/// compile it unused.
 #[cfg_attr(not(any(target_os = "macos", test)), allow(dead_code))]
 pub fn quota_group(payload: &Value, id: &str) -> Option<StripGroup> {
     let entry = payload

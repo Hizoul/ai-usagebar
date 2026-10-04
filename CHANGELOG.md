@@ -34,16 +34,17 @@ Each release is also published at
   only when the provider has nothing else.
 - **Tab and menu-bar percentages follow Show Usage As.** With the popover
   reading what is left (the default), the Native tabs and the macOS menu
-  bar's Logos and Name values and tooltip still showed what was used, so the
-  chip read `18%` above meters reading `82% left`. They now show the same
-  reading as the meters: the remaining share of that most-used window. The
-  Chart look still draws usage.
+  bar's Logos values and tooltip still showed what was used, so a tab read
+  `18%` above meters reading `82% left`. They now show the same reading as
+  the meters, the remaining share of that most-used window, and so does the
+  new Name chip. The Chart look still draws usage.
 
 ### Fixed
 
 - **macOS menu-bar logos are no longer drawn upside down.** The Logos look
   painted every provider mark flipped vertically; symmetric marks hid it, but
-  Z.AI's Z read as a mirrored S.
+  Z.AI's Z read as a mirrored S. Its single values also sat about a point
+  below the mark; they are now centred on it.
 
 ## [1.31.0] — 2026-10-03
 
