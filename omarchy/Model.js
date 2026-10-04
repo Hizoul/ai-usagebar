@@ -380,7 +380,8 @@ function toggleHiddenMetric(hidden, entryId, key) {
 /**
  * Returns the entry as the bar and the tooltip see it, without the metrics switched off for it, so the
  * highest-percent choice, the alert state and every echo of them never read a row the user hid.
- * `metrics_hidden` lets the headline say there is nothing to show instead of "Ready" when no meter is left.
+ * At least one metric always stays: a hidden list that would remove every metric (a hand-edited shell.json)
+ * is ignored, so the bar never goes blank.
  * The panel keeps drawing the original entry, hidden rows included, so they can be switched back on.
  * @param {Object} entry Entry from the report.
  * @param {string[]} hiddenKeys Metric keys switched off for the entry.
@@ -391,17 +392,42 @@ function visibleEntry(entry, hiddenKeys) {
   if (!entry || hidden.length === 0) return entry
   var sections = Array.isArray(entry.sections) ? entry.sections : []
   var kept = []
+  var metrics = 0
   for (var i = 0; i < sections.length; i++) {
     var section = sections[i]
-    if (section && section.type === "metric" && hidden.indexOf(metricKey(section)) >= 0) continue
+    var isMetric = section && section.type === "metric"
+    if (isMetric) metrics++
+    if (isMetric && hidden.indexOf(metricKey(section)) >= 0) continue
     kept.push(section)
   }
-  if (kept.length === sections.length) return entry
+  var keptMetrics = kept.filter(function(row) { return row && row.type === "metric" }).length
+  if (kept.length === sections.length || (metrics > 0 && keptMetrics === 0)) return entry
   var copy = {}
   for (var field in entry) copy[field] = entry[field]
   copy.sections = kept
-  copy.metrics_hidden = true
   return copy
+}
+
+/**
+ * Tells whether a metric's switch may be flipped. Showing a hidden metric is always allowed; hiding one is
+ * refused when it is the last metric of the entry still on, the rule Cursor's pools already follow.
+ * @param {Object} entry Entry from the report.
+ * @param {*} hidden Raw `hiddenMetrics` setting.
+ * @param {Object} section Metric section from the report.
+ * @returns {boolean}
+ */
+function canToggleMetric(entry, hidden, section) {
+  var key = metricKey(section)
+  if (!entry || key === "") return false
+  var off = hiddenKeysFor(hidden, entry.id)
+  if (off.indexOf(key) >= 0) return true
+  var sections = Array.isArray(entry.sections) ? entry.sections : []
+  var visible = 0
+  for (var i = 0; i < sections.length; i++) {
+    var row = sections[i]
+    if (row && row.type === "metric" && off.indexOf(metricKey(row)) < 0) visible++
+  }
+  return visible > 1
 }
 
 function barChip(entry, showValue, showProvider, barWindow, showAs) {
@@ -1065,8 +1091,6 @@ function headline(entry, barWindow, showAs) {
     if (row.type === "text" && /(balance|available|spend|prepaid)/i.test(row.label) && row.value !== "")
       return { text: row.value, percent: null, severity: "low", label: row.label }
   }
-  if (entry.metrics_hidden === true && entry.status !== "error")
-    return { text: "—", percent: null, severity: "low", label: "" }
   return { text: entry.status === "error" ? "Error" : "Ready", percent: null, severity: "low", label: "" }
 }
 

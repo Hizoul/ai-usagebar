@@ -1457,17 +1457,38 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
 
 {
   const zai = zaiReport(18);
-  const none = model.visibleEntry(zai, ['Session', 'Weekly', 'MCP tools (monthly)']);
-  assert.equal(none.sections.length, 0);
-  assert.equal(model.headline(none).text, '—');
-  assert.equal(model.headline(none).percent, null);
+  const all = ['Session', 'Weekly', 'MCP tools (monthly)'];
+  assert.equal(model.visibleEntry(zai, all), zai, 'hiding every metric is ignored, so the bar never goes blank');
+  assert.equal(model.headline(model.visibleEntry(zai, all)).text, '18%');
+  assert.equal(model.visibleEntry(zai, ['Session', 'Weekly']).sections.length, 1, 'one metric left is honored');
+  assert.equal(model.headline(model.visibleEntry(zai, ['Session', 'Weekly'])).text, '18%');
   assert.equal(model.headline({id: 'zai', sections: [], status: 'ready'}).text, 'Ready', 'an entry that never had a meter keeps Ready');
   const withBalance = model.parseReport(JSON.stringify({entries: [{id: 'zai', sections: [
     {type: 'metric', label: 'Session', percent: 40},
     {type: 'text', label: 'Balance', value: '$3.00'}
   ]}]})).entries[0];
-  assert.equal(model.headline(model.visibleEntry(withBalance, ['Session'])).text, '$3.00');
-  assert.equal(model.barChip(none, true, false, 'auto'), '󰚩  —');
+  assert.equal(model.visibleEntry(withBalance, ['Session']), withBalance, 'the only metric cannot be hidden even with a balance beside it');
+  assert.equal(model.headline(model.visibleEntry(withBalance, ['Session'])).text, '40%');
+}
+
+{
+  const zai = zaiReport(18);
+  const [session, weekly, mcp] = Array.from(zai.sections);
+  const can = (hidden, section) => model.canToggleMetric(zai, hidden, section);
+  assert.equal(can({}, session) && can({}, weekly) && can({}, mcp), true, 'with all on, any one may be hidden');
+  const two = {zai: ['Session', 'Weekly']};
+  assert.equal(can(two, mcp), false, 'the last metric still on cannot be hidden');
+  assert.equal(can(two, session), true, 'a hidden metric can always be shown again');
+  assert.equal(can(two, weekly), true);
+  assert.equal(can({zai: ['Session']}, mcp), true);
+  assert.equal(can({zai: ['Session']}, weekly), true);
+  assert.equal(can({'zai@other': ['Session', 'Weekly']}, mcp), true, 'another entry id does not count');
+  assert.equal(model.canToggleMetric(zai, {}, {type: 'metric', label: ''}), false);
+  assert.equal(model.canToggleMetric(null, {}, session), false);
+  const single = model.parseReport(JSON.stringify({entries: [{id: 'solo', sections: [
+    {type: 'metric', label: 'Only', percent: 5}
+  ]}]})).entries[0];
+  assert.equal(model.canToggleMetric(single, {}, single.sections[0]), false, 'a lone metric has no switch to flip');
 }
 
 {
@@ -1600,6 +1621,8 @@ assert.equal(model.cursorPoolOf(null), '');
   assert.match(panel, /Model\.normalizeHiddenMetrics\(setting\("hiddenMetrics",\s*\{\}\)\)/);
   assert.match(panel, /Model\.visibleEntry\(item,\s*Model\.hiddenKeysFor\(hiddenMetrics,\s*item\.id\)\)/);
   assert.match(panel, /persistWidgetSettings\(\{\s*showAs:\s*next\s*\}\)/);
+  assert.match(panel, /!Model\.canToggleMetric\(item,\s*hiddenMetrics,\s*section\)\) return/);
+  assert.match(panel, /:\s*Model\.canToggleMetric\(root\.entry,\s*root\.hiddenMetrics,\s*metricRow\.row\)/);
   assert.match(panel, /hiddenMetrics:\s*Model\.toggleHiddenMetric\(hiddenMetrics,\s*item\.id,\s*Model\.metricKey\(section\)\)/);
   assert.match(panel, /onShowAsRequested:\s*function\(value\)\s*\{\s*root\.setShowAs\(value\)\s*\}/);
   assert.match(panel, /readonly property bool hideable:\s*row !== null && \(!root\.cursorEntry \|\| poolId !== ""\)/);

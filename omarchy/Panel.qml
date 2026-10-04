@@ -263,7 +263,7 @@ Panel {
   }
 
   function toggleMetricHidden(item, section) {
-    if (!item || !section) return
+    if (!item || !section || !Model.canToggleMetric(item, hiddenMetrics, section)) return
     persistWidgetSettings({
       hiddenMetrics: Model.toggleHiddenMetric(hiddenMetrics, item.id, Model.metricKey(section))
     })
@@ -1278,7 +1278,9 @@ Panel {
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
         iconText: metricRow.hidden ? "󰈉" : "󰈈"
-        enabled: !root.cursorEntry || metricRow.hidden || root.cursorPoolCanTurnOff(metricRow.poolId)
+        enabled: root.cursorEntry
+          ? metricRow.hidden || root.cursorPoolCanTurnOff(metricRow.poolId)
+          : Model.canToggleMetric(root.entry, root.hiddenMetrics, metricRow.row)
         tooltipText: root.tr(metricRow.hidden ? "metric.show" : "metric.hide")
         foreground: root.foreground
         fontFamily: root.fontFamily

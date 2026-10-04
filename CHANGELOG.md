@@ -25,9 +25,9 @@ Each release is also published at
   dimmed, so it can be switched back on. A hidden metric is also left out of
   the highest percentage the bar and its icon alert state take, so a spent
   window you chose not to watch no longer reddens the icon or sets the number.
-  With every metric of a provider hidden the bar shows `—` (a balance still
-  wins where the provider reports one). On Cursor the eyes drive the same
-  pool switches as its buttons, so both always agree and the last pool stays on.
+  The last metric still on cannot be hidden (its eye is disabled), so the bar
+  never goes blank. On Cursor the eyes drive the same pool switches as its
+  buttons, so both always agree under the same rule.
   **Show usage as** in the panel Settings (`showAs` in the widget settings,
   `used` by default, so an existing bar reads as before) switches the bar, the
   tooltip, the hero and the panel meters between what is used and what is left

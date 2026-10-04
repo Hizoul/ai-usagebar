@@ -203,11 +203,11 @@ however full that window is. A row under a heading (SuperGrok's product slices,
 Claude's CLI sessions) stands in for the bar only when no other meter is left,
 so hiding every plain window lets such a row set the value and the alert. The
 panel keeps listing the hidden row, dimmed,
-so the eye can bring it back; with every metric of a provider hidden the bar
-shows `—`, or the balance where the provider reports one. Cursor is the
-exception: its row eyes drive the same pool switches as the buttons above
-the list (`showCursorModels` and friends), so the two always agree and the
-last pool cannot be switched off.
+so the eye can bring it back. The last metric still on cannot be hidden: its
+eye is disabled, so the bar never goes blank (a `hiddenMetrics` that would hide
+every metric, edited by hand, is ignored). Cursor's row eyes drive the same pool
+switches as the buttons above the list (`showCursorModels` and friends), so the
+two always agree, under the same rule.
 `showAs` changes only the number: Left shows what remains of the most-used
 window (Z.AI's 18% monthly window reads `82%`), and the alert state keeps
 following the used share.
