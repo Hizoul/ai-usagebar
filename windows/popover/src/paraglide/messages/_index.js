@@ -1957,7 +1957,7 @@ export const menu_bar_shows = /** @type {((inputs?: Menu_Bar_ShowsInputs, option
 /**
 * | output |
 * | --- |
-* | "Chart and Logos show every provider's starred metrics. Name shows the selected provider's." |
+* | "Chart and Logos show every provider's starred metrics. Name shows the selected provider's highest usage." |
 *
 * @param {Menu_Bar_Shows_HintInputs} inputs
 * @param {{ locale?: "en" | "pt-BR" | "ko" }} options

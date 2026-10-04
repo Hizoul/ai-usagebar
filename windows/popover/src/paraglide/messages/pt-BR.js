@@ -714,7 +714,7 @@ export const menu_bar_shows = /** @type {(inputs: Menu_Bar_ShowsInputs) => Local
 };
 
 export const menu_bar_shows_hint = /** @type {(inputs: Menu_Bar_Shows_HintInputs) => LocalizedString} */ () => {
-	return /** @type {LocalizedString} */ (`Gráfico e Logotipos mostram as métricas marcadas de todos os provedores. Nome mostra as do provedor selecionado.`)
+	return /** @type {LocalizedString} */ (`Gráfico e Logotipos mostram as métricas marcadas de todos os provedores. Nome mostra o maior uso do provedor selecionado.`)
 };
 
 export const metric_plural = /** @type {(inputs: Metric_PluralInputs) => LocalizedString} */ () => {

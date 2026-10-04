@@ -11,12 +11,12 @@ The menu-bar item shows the metrics you star in each provider (up to two):
 **Settings → Menu Bar → Menu Bar Shows** draws them as the usage **Chart**
 (the default) or as **Logos**, each starred provider's logo followed by its
 value, two starred metrics stacked. **Name** draws one chip like the Quattro
-bar: the logo, the short name (`cld`, `cdx`, …) and the highest starred
-percentage of the provider selected in the popover (the Native style's tabs;
-the `[ui] primary` provider, then the first one with a value, until you pick
-one). Like Quattro's default window, a spent weekly limit shows `100%` even
-while the 5h session reads `0%`. A selected provider with nothing starred
-uses its first two bounded metrics. **Show Short Name** turns the name off,
+bar: the logo, the short name (`cld`, `cdx`, …) and the highest percentage
+of the provider selected in the popover (the Native style's tabs; the
+`[ui] primary` provider, then the first one with a value, until you pick one).
+Like Quattro's default window, it takes the highest of all the provider's
+windows, starred or not, the same value its tab shows: a spent weekly limit
+reads `100%` even while the 5h session reads `0%`. **Show Short Name** turns the name off,
 leaving the logo and the value; a provider with no logo keeps its name. With
 nothing starred it shows the app icon. Left-click opens the popover; right-click opens the Options menu.
 

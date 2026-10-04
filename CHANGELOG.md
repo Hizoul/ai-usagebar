@@ -14,10 +14,12 @@ Each release is also published at
 - **The macOS menu bar can show one provider like the Quattro bar.** Settings →
   Menu Bar → Menu Bar Shows gains **Name** next to Chart and Logos
   (`[tray] menu_bar_style = "name"`): a single chip with the provider's logo,
-  its short name (`cld`, `cdx`, …) and the highest percentage you starred in
-  it (its first two bounded metrics when nothing is starred), for the provider
-  selected in the popover. Like Quattro's default window, a spent weekly limit
-  reads `100%` even while the 5h session reads `0%`. Until one is picked it
+  its short name (`cld`, `cdx`, …) and its highest quota window, for the
+  provider selected in the popover. Like Quattro's default window, the value
+  is the highest percentage among all of the provider's windows, starred or
+  not, so it matches the provider's tab: a spent weekly limit reads `100%`
+  even while the 5h session reads `0%`, and Z.AI's monthly MCP window counts
+  as much as its 5h and weekly ones. Until one is picked it
   follows `[ui] primary`, then the first provider with a value. The chart
   stays the default. **Show Short Name** (`[tray] menu_bar_short_name =
   false`) drops the name when the logo already says which provider it is; a

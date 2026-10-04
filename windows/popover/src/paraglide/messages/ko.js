@@ -714,7 +714,7 @@ export const menu_bar_shows = /** @type {(inputs: Menu_Bar_ShowsInputs) => Local
 };
 
 export const menu_bar_shows_hint = /** @type {(inputs: Menu_Bar_Shows_HintInputs) => LocalizedString} */ () => {
-	return /** @type {LocalizedString} */ (`차트와 로고는 모든 제공자의 별표 지표를, 이름은 선택한 제공자의 지표를 보여 줍니다.`)
+	return /** @type {LocalizedString} */ (`차트와 로고는 모든 제공자의 별표 지표를, 이름은 선택한 제공자의 가장 높은 사용량을 보여 줍니다.`)
 };
 
 export const metric_plural = /** @type {(inputs: Metric_PluralInputs) => LocalizedString} */ () => {
