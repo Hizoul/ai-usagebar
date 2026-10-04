@@ -239,7 +239,9 @@ pub fn content_from_payload(payload: &Value, stars: &Stars, order: &[String]) ->
 /// One payload entry's group as if nothing were starred: its first bounded
 /// metrics. The name look draws this for a selected provider that has no
 /// starred metric, so selecting it shows that provider rather than the
-/// fallback (SuperGrok selected used to show Z.AI's chip).
+/// fallback (SuperGrok selected used to show Z.AI's chip). Only the macOS
+/// menu bar draws the name look, so other hosts compile it unused.
+#[cfg_attr(not(any(target_os = "macos", test)), allow(dead_code))]
 pub fn default_group(payload: &Value, id: &str) -> Option<StripGroup> {
     let entry = payload
         .get("entries")?
