@@ -6,7 +6,7 @@
 
 use serde_json::Value;
 
-use super::strip::{StripContent, StripMetric, quota_group};
+use super::strip::{HiddenRows, StripContent, StripMetric, quota_group};
 
 /// Artwork needed for the current status-item content.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -166,7 +166,9 @@ pub(super) struct LogoSegment {
 /// The name look keeps one provider, `selected` or its fallbacks, and its
 /// highest window, like the Quattro bar's `icon SHORT 54%` chip, with the short name
 /// beside the mark unless `show_short_name` is off; the logos look keeps
-/// every group with up to two stacked values.
+/// every group with up to two stacked values. `hidden` holds the metrics the
+/// popover's Customize switched off, which the name look's highest window
+/// leaves out.
 pub(super) fn logo_segments(
     content: &StripContent,
     report: &Value,
@@ -174,9 +176,10 @@ pub(super) fn logo_segments(
     selected: Option<&str>,
     show_short_name: bool,
     reading: UsageReading,
+    hidden: &HiddenRows,
 ) -> Vec<LogoSegment> {
     if look == MenuBarLook::Name {
-        return name_segment(content, report, selected, show_short_name, reading)
+        return name_segment(content, report, selected, show_short_name, reading, hidden)
             .into_iter()
             .collect();
     }
@@ -190,13 +193,16 @@ pub(super) fn logo_segments(
 /// The name look's one chip, for the popover's selected provider, else the
 /// report's `primary`, else the first starred group, skipping any without a
 /// value. Its value comes from every quota window of that provider, stars
-/// aside, like the Quattro bar and the popover tab that selects it.
+/// aside and hidden metrics left out, like the Quattro bar and the popover
+/// tab that selects it. A provider whose every metric is hidden has no value
+/// and is skipped the same way.
 fn name_segment(
     content: &StripContent,
     report: &Value,
     selected: Option<&str>,
     show_short_name: bool,
     reading: UsageReading,
+    hidden: &HiddenRows,
 ) -> Option<LogoSegment> {
     let primary = report.get("primary").and_then(Value::as_str);
     let starred = content.groups.iter().map(|(id, _, _)| id.as_str());
@@ -205,7 +211,8 @@ fn name_segment(
         .flatten()
         .chain(starred)
         .find_map(|id| {
-            let (id, _, metrics) = quota_group(report, id)?;
+            let hidden_keys = hidden.get(id).map(Vec::as_slice).unwrap_or_default();
+            let (id, _, metrics) = quota_group(report, id, hidden_keys)?;
             name_chip(&id, &metrics, report, show_short_name, reading)
         })
 }
@@ -425,6 +432,7 @@ mod tests {
             None,
             true,
             UsageReading::Used,
+            &HiddenRows::new(),
         );
         assert_eq!(segments.len(), 2);
         assert_eq!(segments[0].slug, "anthropic");
@@ -453,6 +461,7 @@ mod tests {
             None,
             true,
             UsageReading::Used,
+            &HiddenRows::new(),
         );
         assert_eq!(segments.len(), 1);
         assert_eq!(segments[0].slug, "zai");
@@ -481,7 +490,8 @@ mod tests {
                 MenuBarLook::Logos,
                 None,
                 true,
-                UsageReading::Used
+                UsageReading::Used,
+                &HiddenRows::new()
             )
             .is_empty()
         );
@@ -508,6 +518,7 @@ mod tests {
             None,
             true,
             UsageReading::Used,
+            &HiddenRows::new(),
         );
         assert_eq!(segments[0].slug, "unknown");
         assert!(super::super::marks::mark_svg(&segments[0].slug).is_none());
@@ -551,6 +562,7 @@ mod tests {
             None,
             true,
             UsageReading::Used,
+            &HiddenRows::new(),
         );
         assert!(chip[0].with_name);
         assert_eq!(chip[0].short_name.as_deref(), Some("cld"));
@@ -563,6 +575,7 @@ mod tests {
             None,
             true,
             UsageReading::Used,
+            &HiddenRows::new(),
         );
         assert!(!logos[0].with_name);
     }
@@ -585,6 +598,7 @@ mod tests {
             Some("kimi"),
             false,
             UsageReading::Used,
+            &HiddenRows::new(),
         );
         assert!(!chip[0].with_name);
         assert!(super::super::marks::mark_svg(&chip[0].slug).is_some());
@@ -597,6 +611,7 @@ mod tests {
             Some("kimi"),
             true,
             UsageReading::Used,
+            &HiddenRows::new(),
         );
         assert!(shown[0].with_name);
 
@@ -607,6 +622,7 @@ mod tests {
             Some("unknown"),
             false,
             UsageReading::Used,
+            &HiddenRows::new(),
         );
         assert!(super::super::marks::mark_svg(&unmarked[0].slug).is_none());
         assert_eq!(unmarked[0].short_name.as_deref(), Some("unk"));
@@ -646,6 +662,7 @@ mod tests {
                 selected,
                 true,
                 UsageReading::Used,
+                &HiddenRows::new(),
             )
         };
 
@@ -662,6 +679,7 @@ mod tests {
             Some("openai"),
             true,
             UsageReading::Used,
+            &HiddenRows::new(),
         );
         assert_eq!(logos.len(), 2);
         assert_eq!(logos[0].values.len(), 2);
@@ -680,6 +698,7 @@ mod tests {
                 selected,
                 true,
                 UsageReading::Used,
+                &HiddenRows::new(),
             )[0]
             .slug
             .clone()
@@ -708,6 +727,7 @@ mod tests {
             Some("supergrok"),
             true,
             UsageReading::Used,
+            &HiddenRows::new(),
         );
         assert_eq!(chip.len(), 1);
         assert_eq!(chip[0].slug, "supergrok");
@@ -721,6 +741,7 @@ mod tests {
             None,
             true,
             UsageReading::Used,
+            &HiddenRows::new(),
         );
         assert_eq!(unselected[0].slug, "zai");
     }
@@ -745,6 +766,7 @@ mod tests {
                 Some(selected),
                 true,
                 UsageReading::Used,
+                &HiddenRows::new(),
             );
             assert_eq!(segments.len(), 1);
             assert_eq!(segments[0].slug, "zai");
@@ -818,6 +840,7 @@ mod tests {
                 Some("zai"),
                 true,
                 UsageReading::Used,
+                &HiddenRows::new(),
             )[0]
             .values
             .clone()
@@ -850,6 +873,7 @@ mod tests {
             None,
             true,
             UsageReading::Used,
+            &HiddenRows::new(),
         );
         assert_eq!(logos[0].values, vec![String::from("0%")]);
     }
@@ -875,6 +899,7 @@ mod tests {
                 Some(selected),
                 true,
                 UsageReading::Used,
+                &HiddenRows::new(),
             )[0]
             .values
             .clone()
@@ -908,6 +933,7 @@ mod tests {
                 Some(selected),
                 true,
                 reading,
+                &HiddenRows::new(),
             )[0]
             .values
             .clone()
@@ -927,6 +953,7 @@ mod tests {
             None,
             true,
             UsageReading::Left,
+            &HiddenRows::new(),
         );
         assert_eq!(
             logos[0].values,
@@ -936,6 +963,125 @@ mod tests {
             tooltip(&content, UsageReading::Left),
             "zai · 100% 100%\nopenrouter · $40"
         );
+    }
+
+    /// A metric hidden in the popover's Customize never wins the chip: Z.AI
+    /// with Session and Weekly at 0% and the monthly MCP window at 18% hidden
+    /// reads `0%` used and `100%` left, as the popover tab does. Unhidden it
+    /// still reads `18%`, and a hidden window with the highest percent never
+    /// beats the visible ones, whatever they read.
+    #[test]
+    fn name_look_leaves_out_hidden_metrics() {
+        let zai = |windows: &[(&str, f64)]| json!({"primary":null, "entries":[entry("zai", "zai", windows)]});
+        let hide = |keys: &[&str]| -> HiddenRows {
+            HiddenRows::from([(
+                "zai".to_string(),
+                keys.iter().map(|k| k.to_string()).collect(),
+            )])
+        };
+        let chip = |report: &Value, hidden: &HiddenRows, reading| {
+            logo_segments(
+                &starred(&["zai"]),
+                report,
+                MenuBarLook::Name,
+                Some("zai"),
+                true,
+                reading,
+                hidden,
+            )[0]
+            .values
+            .clone()
+        };
+        let mcp_hidden = hide(&["metric:MCP tools (monthly)"]);
+        let idle = zai(&[
+            ("Session (5h)", 0.0),
+            ("Weekly", 0.0),
+            ("MCP tools (monthly)", 18.0),
+        ]);
+
+        assert_eq!(
+            chip(&idle, &mcp_hidden, UsageReading::Used),
+            vec![String::from("0%")]
+        );
+        assert_eq!(
+            chip(&idle, &mcp_hidden, UsageReading::Left),
+            vec![String::from("100%")]
+        );
+        assert_eq!(
+            chip(&idle, &HiddenRows::new(), UsageReading::Used),
+            vec![String::from("18%")]
+        );
+        // Another provider's hidden key does not touch this one.
+        let elsewhere = HiddenRows::from([(
+            "openai".to_string(),
+            vec!["metric:MCP tools (monthly)".to_string()],
+        )]);
+        assert_eq!(
+            chip(&idle, &elsewhere, UsageReading::Used),
+            vec![String::from("18%")]
+        );
+
+        let busy = zai(&[
+            ("Session (5h)", 30.0),
+            ("Weekly", 30.0),
+            ("MCP tools (monthly)", 90.0),
+        ]);
+        assert_eq!(
+            chip(&busy, &mcp_hidden, UsageReading::Used),
+            vec![String::from("30%")]
+        );
+        let weekly_busy = zai(&[
+            ("Session (5h)", 10.0),
+            ("Weekly", 55.0),
+            ("MCP tools (monthly)", 90.0),
+        ]);
+        assert_eq!(
+            chip(&weekly_busy, &mcp_hidden, UsageReading::Left),
+            vec![String::from("45%")]
+        );
+    }
+
+    /// With every metric of the selected provider hidden it has no value, so
+    /// the chip falls through to the next candidate the way a provider
+    /// without a value always has, and the logos look keeps its stars.
+    #[test]
+    fn name_look_skips_a_provider_whose_metrics_are_all_hidden() {
+        let report = two_entries(None);
+        let hidden = HiddenRows::from([("openai".to_string(), vec!["metric:Session".to_string()])]);
+        let segments = |look, hidden: &HiddenRows| {
+            logo_segments(
+                &two_groups(),
+                &report,
+                look,
+                Some("openai"),
+                true,
+                UsageReading::Used,
+                hidden,
+            )
+        };
+
+        let chip = segments(MenuBarLook::Name, &hidden);
+        assert_eq!(chip.len(), 1);
+        assert_eq!(chip[0].slug, "anthropic");
+        assert_eq!(chip[0].values, vec![String::from("54%")]);
+        assert_eq!(
+            segments(MenuBarLook::Name, &HiddenRows::new())[0].slug,
+            "openai"
+        );
+        assert_eq!(segments(MenuBarLook::Logos, &hidden).len(), 2);
+
+        let only =
+            json!({"primary":null, "entries":[entry("openai", "gpt", &[("Session", 100.0)])]});
+        let alone = logo_segments(
+            &starred(&["openai"]),
+            &only,
+            MenuBarLook::Name,
+            Some("openai"),
+            true,
+            UsageReading::Used,
+            &hidden,
+        );
+        assert!(alone.is_empty());
     }
 
     /// The popover sends `show_as` with every `strip` message; an older or

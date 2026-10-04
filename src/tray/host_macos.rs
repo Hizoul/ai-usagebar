@@ -54,8 +54,8 @@ use super::payload::{
     wrap_report,
 };
 use super::strip::{
-    BARS_PIXEL_SIDE, BARS_POINT_SIDE, Stars, bar_fill, bars_layout, bars_rgba,
-    content_from_payload, parse_strip_ipc,
+    BARS_PIXEL_SIDE, BARS_POINT_SIDE, HiddenRows, Stars, bar_fill, bars_layout, bars_rgba,
+    content_from_payload, parse_hidden_rows, parse_strip_ipc,
 };
 use super::style::PopoverStyle;
 use super::updates::Updates;
@@ -176,6 +176,9 @@ struct TrayState {
     menu_bar_short_name: bool,
     /// The popover's Used/Left reading, from its `strip` IPC.
     usage_reading: UsageReading,
+    /// Metrics hidden in the popover's Customize, from its `strip` IPC; the
+    /// name look's highest window leaves them out.
+    hidden_rows: HiddenRows,
     /// Provider id the popover has selected; the name look draws this one.
     selected_provider: Option<String>,
     menu_bar_logo_key: Option<LogoStripKey>,
@@ -293,6 +296,7 @@ fn run_loop() -> Result<(), String> {
         menu_bar_look,
         menu_bar_short_name: config.tray.menu_bar_short_name(),
         usage_reading: UsageReading::Used,
+        hidden_rows: HiddenRows::new(),
         selected_provider: None,
         menu_bar_logo_key: None,
         notifications_enabled: config.notifications.enabled,
@@ -574,6 +578,7 @@ fn apply_strip_icon(state: &mut TrayState) {
         state.selected_provider.as_deref(),
         state.menu_bar_short_name,
         state.usage_reading,
+        &state.hidden_rows,
     );
     let has_content = if state.menu_bar_look == MenuBarLook::Chart {
         !content.bars.is_empty()
@@ -998,6 +1003,7 @@ fn handle_ipc(state: &mut TrayState, body: &str, control_flow: &mut ControlFlow)
             state.strip_order = order;
             state.strip_order_known = true;
             state.usage_reading = UsageReading::from_strip_ipc(&value);
+            state.hidden_rows = parse_hidden_rows(&value);
             apply_strip_icon(state);
         }
         "open-url" => {
