@@ -296,6 +296,33 @@ assert.equal(isAlarming(openai), true, 'so is stale data');
 assert.equal(isAlarming(zai), true, 'so is an errored vendor');
 assert.equal(isAlarming(null), false);
 
+// Context sessions (the "Sessions" group) are a breakdown, not quota windows:
+// a session at 90% of its context window must not leak into the headline metric,
+// paint it critical or trigger the alarm when the quota sits lower.
+const sessionBreakdown = parseReport(JSON.stringify({entries: [{
+    id: 'anthropic', error: null,
+    sections: [
+        {type: 'metric', label: 'Session (5h)', percent: 29, value: '29%', severity: 'low'},
+        {type: 'metric', label: 'session one', group: 'Sessions', percent: 90,
+         value: '90%', severity: 'critical'},
+    ],
+}]})).entries[0];
+assert.equal(headline(sessionBreakdown).text, '29%');
+assert.equal(headline(sessionBreakdown).severity, 'low');
+assert.equal(isAlarming(sessionBreakdown), false);
+
+// A grouped row still stands in when an entry has no ungrouped metrics.
+const onlyGrouped = parseReport(JSON.stringify({entries: [{
+    id: 'anthropic', error: null,
+    sections: [
+        {type: 'metric', label: 'session one', group: 'Sessions', percent: 90,
+         value: '90%', severity: 'critical'},
+    ],
+}]})).entries[0];
+assert.equal(headline(onlyGrouped).text, '90%');
+assert.equal(headline(onlyGrouped).severity, 'critical');
+assert.equal(isAlarming(onlyGrouped), true);
+
 // Spacers are dropped: Column spacing sets the rhythm, so keeping them would
 // double it.
 assert.equal(detailRows(anthropic).length, 2);
