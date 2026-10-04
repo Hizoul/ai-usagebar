@@ -110,7 +110,8 @@ struct LogoStripKey {
 /// One premeasured provider segment captured by the AppKit drawing block.
 struct LogoStripItem {
     mark: Option<Retained<NSImage>>,
-    fallback_name: Retained<NSString>,
+    /// The short name, drawn after the mark (names look) or in its place.
+    name: Option<Retained<NSString>>,
     values: Vec<Retained<NSString>>,
     label_width: f64,
     value_width: f64,
@@ -171,6 +172,8 @@ struct TrayState {
     strip_order: Vec<String>,
     strip_order_known: bool,
     menu_bar_look: MenuBarLook,
+    /// Provider id the popover has selected; the names look draws this one.
+    selected_provider: Option<String>,
     menu_bar_logo_key: Option<LogoStripKey>,
     notifications_enabled: bool,
     notifications_threshold: u8,
@@ -284,6 +287,7 @@ fn run_loop() -> Result<(), String> {
         strip_order: Vec::new(),
         strip_order_known: false,
         menu_bar_look,
+        selected_provider: None,
         menu_bar_logo_key: None,
         notifications_enabled: config.notifications.enabled,
         notifications_threshold: config.notifications.threshold,
@@ -557,7 +561,12 @@ fn apply_strip_icon(state: &mut TrayState) {
     let tooltip = menu_bar::tooltip(&content);
     let _ = state.tray.set_tooltip(Some(tooltip.as_str()));
     state.tray.set_title(Some(""));
-    let segments = menu_bar::logo_segments(&content, &state.payload, state.menu_bar_look);
+    let segments = menu_bar::logo_segments(
+        &content,
+        &state.payload,
+        state.menu_bar_look,
+        state.selected_provider.as_deref(),
+    );
     let has_content = if state.menu_bar_look == MenuBarLook::Chart {
         !content.bars.is_empty()
     } else {
@@ -957,6 +966,13 @@ fn handle_ipc(state: &mut TrayState, body: &str, control_flow: &mut ControlFlow)
                 persist_menu_bar_value("menu_bar_style", look.style().into());
                 apply_strip_icon(state);
                 push_to_webview(state);
+            }
+        }
+        "select-provider" => {
+            let id = value.get("id").and_then(Value::as_str).unwrap_or("");
+            state.selected_provider = (!id.is_empty()).then(|| id.to_owned());
+            if state.menu_bar_look == MenuBarLook::Names {
+                apply_strip_icon(state);
             }
         }
         "strip" => {
@@ -1443,6 +1459,8 @@ fn apply_contents_scale(view: &NSView, scale: f64) {
 const LOGO_STRIP_HEIGHT: f64 = 18.0;
 /// Provider marks occupy a square that preserves their original aspect ratio.
 const LOGO_MARK_BOX: f64 = 16.0;
+/// Space between a mark and its short name, and between a label and its values.
+const LOGO_LABEL_GAP: f64 = 4.0;
 /// A single value uses the larger menu-bar text size.
 const LOGO_SINGLE_VALUE_FONT_SIZE: f64 = 12.0;
 /// Two values use a compact, tightly stacked text size.
@@ -1467,16 +1485,17 @@ fn logo_strip_image(segments: &[LogoSegment]) -> Retained<NSImage> {
     let items: Vec<LogoStripItem> = segments
         .iter()
         .map(|segment| {
-            let mark = if segment.names_only {
-                None
+            let mark = marks::mark_svg(&segment.slug).and_then(svg_image);
+            let name = (segment.with_name || mark.is_none())
+                .then(|| NSString::from_str(segment.short_name.as_deref().unwrap_or("")));
+            let mark_width = if mark.is_some() { LOGO_MARK_BOX } else { 0.0 };
+            let name_width = name
+                .as_ref()
+                .map_or(0.0, |name| text_width(name, &label_attributes));
+            let label_width = if mark_width > 0.0 && name_width > 0.0 {
+                mark_width + LOGO_LABEL_GAP + name_width
             } else {
-                marks::mark_svg(&segment.slug).and_then(svg_image)
-            };
-            let fallback_name = NSString::from_str(segment.short_name.as_deref().unwrap_or(""));
-            let label_width = if mark.is_some() {
-                LOGO_MARK_BOX
-            } else {
-                text_width(&fallback_name, &label_attributes)
+                mark_width + name_width
             };
             let values: Vec<Retained<NSString>> = segment
                 .values
@@ -1496,7 +1515,7 @@ fn logo_strip_image(segments: &[LogoSegment]) -> Retained<NSImage> {
                 .fold(0.0_f64, f64::max);
             LogoStripItem {
                 mark,
-                fallback_name,
+                name,
                 values,
                 label_width,
                 value_width,
@@ -1511,7 +1530,7 @@ fn logo_strip_image(segments: &[LogoSegment]) -> Retained<NSImage> {
         .map(|item| {
             item.label_width
                 + if item.label_width > 0.0 {
-                    4.0 + item.value_width
+                    LOGO_LABEL_GAP + item.value_width
                 } else {
                     item.value_width
                 }
@@ -1528,12 +1547,18 @@ fn logo_strip_image(segments: &[LogoSegment]) -> Retained<NSImage> {
                     x,
                     dst.origin.y + (LOGO_STRIP_HEIGHT - LOGO_MARK_BOX) / 2.0,
                 );
-            } else {
-                draw_status_text(&item.fallback_name, x, fallback_y, &label_attributes);
+            }
+            if let Some(name) = &item.name {
+                let name_x = if item.mark.is_some() {
+                    x + LOGO_MARK_BOX + LOGO_LABEL_GAP
+                } else {
+                    x
+                };
+                draw_status_text(name, name_x, fallback_y, &label_attributes);
             }
             x += item.label_width;
             if item.label_width > 0.0 {
-                x += 4.0;
+                x += LOGO_LABEL_GAP;
             }
             let stacked = item.line_count > 1;
             let value_attributes = if stacked {

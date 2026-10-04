@@ -1925,7 +1925,7 @@ export const menu_bar_shows = /** @type {((inputs?: Menu_Bar_ShowsInputs, option
 /**
 * | output |
 * | --- |
-* | "All three show the metrics you star in each provider." |
+* | "Chart and Logos show every provider's starred metrics. Names shows the selected provider's." |
 *
 * @param {Menu_Bar_Shows_HintInputs} inputs
 * @param {{ locale?: "en" | "pt-BR" | "ko" }} options

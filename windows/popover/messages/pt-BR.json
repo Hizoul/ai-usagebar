@@ -109,7 +109,7 @@
   "menu": "Barra",
   "menu_bar": "Barra de menus",
   "menu_bar_shows": "Barra de menus mostra",
-  "menu_bar_shows_hint": "Os três mostram as métricas marcadas com estrela em cada provedor.",
+  "menu_bar_shows_hint": "Gráfico e Logotipos mostram as métricas marcadas de todos os provedores. Nomes mostra as do provedor selecionado.",
   "metric_plural": "métricas",
   "metric_singular": "métrica",
   "minutes_ago": "há {minutes} min",

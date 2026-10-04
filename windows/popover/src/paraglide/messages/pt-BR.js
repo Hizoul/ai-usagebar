@@ -704,7 +704,7 @@ export const menu_bar_shows = /** @type {(inputs: Menu_Bar_ShowsInputs) => Local
 };
 
 export const menu_bar_shows_hint = /** @type {(inputs: Menu_Bar_Shows_HintInputs) => LocalizedString} */ () => {
-	return /** @type {LocalizedString} */ (`Os três mostram as métricas marcadas com estrela em cada provedor.`)
+	return /** @type {LocalizedString} */ (`Gráfico e Logotipos mostram as métricas marcadas de todos os provedores. Nomes mostra as do provedor selecionado.`)
 };
 
 export const metric_plural = /** @type {(inputs: Metric_PluralInputs) => LocalizedString} */ () => {

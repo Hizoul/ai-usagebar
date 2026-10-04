@@ -65,6 +65,12 @@ export function NativeDashboard({
     ?? cards.find((card) => card.id === payload.primary)
     ?? cards.find((card) => primaryMetric(card))
     ?? cards[0];
+  // The macOS menu bar's names look draws the provider selected here, the way the
+  // Quattro bar follows its selected entry.
+  function selectProvider(id: string) {
+    setSelectedId(id);
+    sendCommand("select-provider", { id });
+  }
   const selectedAccount = selected ? accountSwitchFor(selected.id, payload.accounts) : null;
   const updated = payload.generatedAt > 0
     ? Math.max(0, Math.floor((nowMs - payload.generatedAt) / 60_000))
@@ -114,7 +120,7 @@ export function NativeDashboard({
                     aria-pressed={active}
                     className="native-tab"
                     data-active={active}
-                    onClick={() => setSelectedId(card.id)}
+                    onClick={() => selectProvider(card.id)}
                   >
                     <ProviderIcon className="text-label-2" slug={card.id} title={card.title} size={17} />
                     <span className="native-tab-value" data-text={preview}>{preview}</span>

@@ -109,7 +109,7 @@
   "menu": "Menu",
   "menu_bar": "Menu Bar",
   "menu_bar_shows": "Menu Bar Shows",
-  "menu_bar_shows_hint": "All three show the metrics you star in each provider.",
+  "menu_bar_shows_hint": "Chart and Logos show every provider's starred metrics. Names shows the selected provider's.",
   "metric_plural": "metrics",
   "metric_singular": "metric",
   "minutes_ago": "{minutes}m ago",
