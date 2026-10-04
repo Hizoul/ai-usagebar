@@ -9,6 +9,19 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Added
+
+- **Cursor billing-cycle pacing in the widget, tooltip, TUI and macOS menu bar.**
+  Each pool (Cursor Models, Other Models) is paced against the billing cycle
+  when the API states both `billingCycleStart` and `billingCycleEnd`. The widget
+  gains `{cursor_elapsed}` (aliased as `{session_elapsed}` / `{weekly_elapsed}`,
+  which is what places the macOS pace marker) and a per-pool pace family,
+  `{cursor_auto_pace*}` and `{cursor_api_pace*}`, honouring `--pace-tolerance`,
+  `--format-pace-color` and `--tooltip-pace-pts`. The tooltip marks each pool
+  with its pace glyph, and the TUI and `usage --json` footnotes add the elapsed
+  share and point delta for Quattro, GNOME and KDE. A cycle whose length the API
+  did not state is never paced against a guessed month.
+
 ### Changed
 
 - **macOS: Claude Desktop and Claude Code account switching moved into
@@ -17,6 +30,12 @@ Each release is also published at
   Preferences gains a **Claude accounts** section with the same switch and
   add-account actions, and the dim `Desktop: … · Code: …` line under the header
   stays.
+
+- **The Cursor tooltip draws each pool as a progress bar.** Cursor Models and
+  Other Models were the only tooltip rows printing a bare "49% used"; they now
+  use the same gauge block as every other provider (label, bar with percentage,
+  reset countdown), followed by the dim line saying what the pool covers. The
+  trailing "Resets …" line is gone, since each pool now carries its own.
 
 ### Fixed
 
@@ -51,6 +70,12 @@ Each release is also published at
   under a heading now always include it (`Weekly · Gemini`) in the key and
   notification title, keeping the identity stable even when another window
   is absent. Metrics without a heading keep their names.
+
+- **macOS dropdown rows line their bars up when a label is longer than 12
+  characters.** Labels were padded only up to 12, so Cursor's "Cursor Models"
+  pushed its bar one column right of "Other Models". Every row now pads to the
+  longest label in the dropdown plus one space, and the percentages are
+  right-aligned so the reset column stays straight.
 
 ### Security
 

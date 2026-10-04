@@ -1768,6 +1768,53 @@ mod tests {
         );
     }
 
+    #[test]
+    fn cursor_json_matches_the_shared_frontend_pacing_fixture() {
+        let now = "2026-09-25T12:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let state = TabState::Ready(Box::new(ReadyTab {
+            snapshot: VendorSnapshot::Cursor(CursorSnapshot {
+                plan: "Ultra".into(),
+                auto_pct: 70,
+                api_pct: 30,
+                total_pct: 50,
+                unlimited: false,
+                on_demand_enabled: false,
+                on_demand_used_cents: None,
+                on_demand_limit_cents: None,
+                reset_at: Some(now + chrono::Duration::days(5)),
+                cycle_start: Some(now - chrono::Duration::days(5)),
+            }),
+            stale: false,
+            last_error: None,
+            fetched_at: None,
+            display: Default::default(),
+        }));
+        let projected = entry_from_state(&TabId::vendor(VendorId::Cursor), &state, now);
+        let rendered = render_json_for_primary(&[projected], None);
+        let value: serde_json::Value = serde_json::from_str(&rendered).unwrap();
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/cursor_paced_report.json"))
+                .unwrap();
+        let entry = &value["entries"][0];
+        let expected = &fixture["entries"][0];
+        assert_eq!(entry["id"], expected["id"]);
+        assert_eq!(entry["display_name"], expected["display_name"]);
+        assert_eq!(entry["plan"], expected["plan"]);
+        let metrics: Vec<_> = entry["sections"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|section| section["type"] == "metric")
+            .collect();
+        assert_eq!(metrics.len(), 2);
+        for (index, metric) in metrics.into_iter().enumerate() {
+            assert_eq!(metric, &expected["sections"][index]);
+            for field in ["percent", "detail", "reset_at", "window_secs"] {
+                assert_eq!(entry["metrics"][index][field], metric[field]);
+            }
+        }
+    }
+
     /// A rolling window's exact length rides along with its row, in both the
     /// ordered `sections` and the `metrics` convenience view, and is omitted
     /// (not `null`) for a metric that has none.

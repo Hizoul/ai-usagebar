@@ -159,8 +159,10 @@ The Preferences window needs **macOS 12+** (the menu bar itself works on
 dark menu bar; only the bar fill/empty colors are configurable.
 
 Pace markers require both a real reset and elapsed-time output. Claude, Codex,
-Z.AI, MiniMax, Antigravity and Grok Bot supply that pair; the remaining vendors render
-their generic windows without a pace marker. When available, the fixed
+Z.AI, MiniMax, Antigravity, Grok Bot and Cursor supply that pair; the remaining vendors render
+their generic windows without a pace marker. Cursor's two pools share the
+billing cycle, so both markers sit at the same elapsed position; a cycle whose
+start the API did not report draws none. When available, the fixed
 blue `│` pace marker is placed at elapsed time. Fill past the marker follows the
 point-delta colors used by the Rust widget: at
 least 10 points ahead is critical/red, 1–9 ahead is high/orange, -10 through

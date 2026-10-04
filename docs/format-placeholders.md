@@ -33,7 +33,7 @@ and Other Models to the weekly slot; both reset with the billing cycle. Kiro
 has one pool, so it maps `kiro_pct` to both percentage slots.
 
 Claude and Codex also provide `*_elapsed`, `*_pace`, and `*_bar` families.
-Z.AI, MiniMax, and OpenCode Go provide elapsed aliases plus provider-specific pace families.
+Z.AI, MiniMax, OpenCode Go, and Cursor provide elapsed aliases plus provider-specific pace families.
 Antigravity provides elapsed values plus `{session_model}`, `{weekly_model}`,
 `{scoped_model}`, and `{extra_model}` for whichever of its four windows the
 running product reports — a product that exposes only weekly buckets leaves the
@@ -334,8 +334,13 @@ also says that Priority Tier costs are omitted.
 ## Cursor
 
 `{cursor_plan}`, `{cursor_auto_pct}`, `{cursor_api_pct}`,
-`{cursor_total_pct}`, `{cursor_reset}`, `{cursor_on_demand}`,
-`{cursor_unlimited}`
+`{cursor_total_pct}`, `{cursor_reset}`, `{cursor_elapsed}`,
+`{cursor_on_demand}`, `{cursor_unlimited}`,
+`{cursor_auto_pace}`, `{cursor_auto_pace_pct}`,
+`{cursor_auto_pace_indicator}`, `{cursor_auto_pace_pts}`,
+`{cursor_auto_pace_delta}`, `{cursor_api_pace}`, `{cursor_api_pace_pct}`,
+`{cursor_api_pace_indicator}`, `{cursor_api_pace_pts}`,
+`{cursor_api_pace_delta}`
 
 - `{cursor_auto_pct}` is the Cursor Models pool (Auto and Composer).
 - `{cursor_api_pct}` is the Other Models pool (named and API models).
@@ -344,9 +349,25 @@ also says that Priority Tier costs are omitted.
   `yes`/`no`.
 - `{session_pct}`, `{weekly_pct}`, and `{plan}` alias Cursor Models, Other
   Models, and `Cursor <Plan>`.
+- `{cursor_elapsed}` is the elapsed percentage of the billing cycle, and
+  `{session_elapsed}` / `{weekly_elapsed}` alias it. Both pools reset with the
+  cycle, so the three always agree.
+- `{cursor_auto_pace*}` and `{cursor_api_pace*}` pace each pool against that
+  cycle. `{…_pace}` and `{…_pace_pct}` are the ratio glyph and label and respect
+  `--pace-tolerance`; `{…_pace_indicator}`, `{…_pace_pts}` and `{…_pace_delta}`
+  are the point-delta glyph, label and signed difference.
+  `--format-pace-color` colors each pool by its own delta, and
+  `--tooltip-pace-pts` selects the point glyph in the tooltip and draws the
+  elapsed marker inside each pool's bar.
 
 A pool can exceed 100%. The default format is
 `{cursor_auto_pct}·{cursor_api_pct}%` and uses the worse pool's severity color.
+
+The cycle length comes from `billingCycleStart` and `billingCycleEnd` and is
+never assumed to be a month. When the API omits the start (older responses, and
+caches written before it was stored), `{cursor_elapsed}` and its aliases are
+empty, the pace placeholders are neutral and the tooltip draws no pace glyph.
+An unlimited plan has no cap to pace, so every one of them is empty.
 
 Cursor's dashboard also reports overage and per-member team spend; ai-usagebar
 does not. Team payloads without `individualUsage.plan` fall back to the

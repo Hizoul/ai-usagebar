@@ -307,6 +307,23 @@ func testParserBalances() {
     assertEqual(cur?.sessionTag, "auto", "cursor session tag")
     assertEqual(cur?.weeklyTag, "premium", "cursor weekly tag")
 
+    // Both pools share the billing cycle, so the one elapsed share the widget
+    // prints on the session and weekly aliases places both pace markers. A
+    // cycle of unknown length prints no elapsed and draws no marker.
+    let curPaced = snapshot(FORMAT, vendor: "cursor",
+                            fields: fields(through: 16, set: [
+                               0: "Cursor Ultra", 1: "70", 2: "5d 0h", 3: "30", 4: "5d 0h",
+                               13: "50", 14: "50", 16: "cur"
+                            ]))
+    assertEqual(curPaced?.session?.elapsed, 50, "cursor Cursor Models marker follows the cycle")
+    assertEqual(curPaced?.weekly?.elapsed, 50, "cursor Other Models marker follows the cycle")
+    let curUnstated = snapshot(FORMAT, vendor: "cursor",
+                               fields: fields(through: 16, set: [
+                                  0: "Cursor Ultra", 1: "70", 2: "5d 0h", 3: "30", 4: "5d 0h", 16: "cur"
+                               ]))
+    assertNil(curUnstated?.session?.elapsed, "cursor with no exact cycle has no session marker")
+    assertNil(curUnstated?.weekly?.elapsed, "cursor with no exact cycle has no weekly marker")
+
     // Antigravity has two independent model pools, each with a 5h and weekly
     // window. The fourth window reuses `extra_pct`, but it is not a spend bar:
     // its model/reset/elapsed fields follow Cursor's total at the FORMAT tail.
@@ -746,6 +763,19 @@ func testCompactToggle() {
                 "past the threshold → %-text regardless")
     assertEqual(overviewUsesBars(count: 4, barsMax: 4, compact: false), true,
                 "boundary: exactly barsMax still draws bars")
+}
+
+func testMenuLabelWidth() {
+    print("menuLabelWidth")
+    assertEqual(menuLabelWidth([]), 12, "no labels keeps the 12-column floor")
+    assertEqual(menuLabelWidth(["Session", "Weekly"]), 12, "short labels keep the floor")
+    // Cursor's pools: the 13-char label sets the column for the 12-char one.
+    assertEqual(menuLabelWidth(["Cursor Models", "Other Models"]), 14,
+                "a longer label widens the column for its siblings, plus one space")
+    assertEqual(menuLabelWidth(["Other Models"]), 13, "a 12-char label still keeps a gap")
+    assertEqual(rightAligned("49%", width: 4), " 49%", "a shorter value is padded on the left")
+    assertEqual(rightAligned("100%", width: 4), "100%", "the widest value is untouched")
+    assertEqual(rightAligned("1000%", width: 4), "1000%", "a wider value is never cut")
 }
 
 func testShortReset() {
@@ -1190,6 +1220,7 @@ struct TestRunner {
         testClaudeAccounts()
         testDesktopAccounts()
         testCompactToggle()
+        testMenuLabelWidth()
         testShortReset()
         testResetSeconds()
         testResetClockLabel()

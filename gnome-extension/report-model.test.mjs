@@ -16,6 +16,17 @@ const labels = rows => rows.map(row => `${row.type}:${row.label}`);
     assert.equal(missing.rows[0].elapsed, null);
 }
 
+{
+    const fixture = JSON.parse(readFileSync(new URL('../tests/fixtures/cursor_paced_report.json', import.meta.url), 'utf8'));
+    const entry = projectEntry(fixture.entries[0], Date.parse('2026-09-25T12:00:00Z'));
+    assert.equal(entry.title, 'Cursor');
+    assert.deepEqual(entry.rows.map(row => row.elapsed), [50, 50]);
+    assert.equal(entry.rows[0].detail, 'Auto + Composer · 50% elapsed · 20pts ahead');
+    assert.equal(entry.rows[1].detail, 'Named / API models · on-demand off · 50% elapsed · 20pts under');
+    const unstated = projectEntry({...fixture.entries[0], sections: fixture.entries[0].sections.map(section => ({...section, window_secs: undefined}))}, now);
+    assert.deepEqual(unstated.rows.map(row => row.elapsed), [null, null]);
+}
+
 assert.equal(finitePercent(37), 37);
 assert.equal(finitePercent('83'), 83);
 assert.equal(finitePercent(null), null);

@@ -24,6 +24,16 @@ const at = rel => fileURLToPath(new URL(rel, import.meta.url));
     assert.equal(metricDetail(detailRows(entry)[0]), '50% elapsed · 20pts ahead');
 }
 
+{
+    const fixture = readFileSync(at('../tests/fixtures/cursor_paced_report.json'), 'utf8');
+    const entry = parseReport(fixture).entries[0];
+    assert.equal(entry.id, 'cursor');
+    assert.deepEqual(detailRows(entry).map(metricDetail), [
+        'Auto + Composer · 50% elapsed · 20pts ahead',
+        'Named / API models · on-demand off · 50% elapsed · 20pts under',
+    ]);
+}
+
 // ---------------------------------------------------------------------------
 // V4 portability. Both of these shipped as real bugs during development and
 // neither is caught by Node, which accepts them happily.
