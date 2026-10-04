@@ -11,6 +11,8 @@ Each release is also published at
 
 ### Fixed
 
+### Fixed
+
 - **Release verify-version guards AUR checksum-array parity.** When sources and
   checksums drift (e.g. adding a detached signature or tarball without matching
   checksum entries), makepkg rejects the package. The release workflow's
@@ -33,6 +35,14 @@ Each release is also published at
   alarm while the 5h and weekly quotas were low. The plasmoid now reads the
   ungrouped quota rows; grouped rows only stand in when an entry has nothing
   else (fixes #332).
+
+### Security
+
+- **Subprocess environment scrubbing extended to `codex login`.** Running
+  `ai-usagebar account add <label> --codex` now drops the static
+  `VENDOR_SECRET_ENV_VARS` list and per-account custom `api_key_env` variables
+  before spawning the interactive `codex` process, matching the scrub already
+  applied to `claude` and Grok ACP subprocesses (fixes #334).
 
 ## [1.31.0] — 2026-10-03
 
