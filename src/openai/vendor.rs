@@ -172,7 +172,21 @@ pub fn render(
         .format
         .clone()
         .unwrap_or_else(|| default_format(snap).to_string());
-    let values = build_placeholders(snap, opts, now);
+    let mut values = build_placeholders(snap, opts, now);
+    // Both sinks fed by this map (bar text and --tooltip-format) are Pango
+    // markup. The plan label and model names are API-controlled, so escape
+    // their aliases at the projection boundary. The default tooltip escapes
+    // the raw snapshot.
+    for key in [
+        "plan",
+        "oai_plan",
+        "oai_extra_limits",
+        "oai_unavailable_models",
+    ] {
+        if let Some(value) = values.get_mut(key) {
+            *value = escape(value);
+        }
+    }
 
     let mut text = substitute(&format, &values);
     if outcome.stale {
