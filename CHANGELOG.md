@@ -11,8 +11,6 @@ Each release is also published at
 
 ### Fixed
 
-### Fixed
-
 - **Release verify-version guards AUR checksum-array parity.** When sources and
   checksums drift (e.g. adding a detached signature or tarball without matching
   checksum entries), makepkg rejects the package. The release workflow's
