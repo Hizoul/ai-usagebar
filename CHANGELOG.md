@@ -9,6 +9,14 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Security
+
+- **Subprocess environment scrubbing extended to `codex login`.** Running
+  `ai-usagebar account add <label> --codex` now drops the static
+  `VENDOR_SECRET_ENV_VARS` list and per-account custom `api_key_env` variables
+  before spawning the interactive `codex` process, matching the scrub already
+  applied to `claude` and Grok ACP subprocesses (fixes #334).
+
 ## [1.31.0] — 2026-10-03
 
 ### Added
