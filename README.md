@@ -306,7 +306,10 @@ Nous usage percentage is calculated from the subscription-credit pool only:
 `(monthly subscription credits - subscription credits remaining) / monthly subscription credits`.
 Top-up/purchased credits are not mixed into that percentage. When the Portal
 reports them, the tooltip and TUI show subscription credits, top-up credits, and
-total usable credits as separate values.
+total usable credits as separate values. `[nous] headline = "amount"` puts those
+credits still usable on the bar instead of the percentage, the way the
+prepaid-balance vendors do; the percentage keeps the meter, the severity colour
+and the detail line. The default is `"percent"`.
 
 Nous login is interactive because the device code is authorized in the browser.
 Leave the terminal open until it reports that login completed, then refresh the

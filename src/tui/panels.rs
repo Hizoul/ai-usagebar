@@ -137,11 +137,18 @@ impl SectionBuilder {
     }
 
     /// A metric whose vendor chose which of its two numbers goes on the bar.
-    /// Only a prepaid-balance vendor needs this; everything else is a
-    /// percentage and uses [`SectionBuilder::push_metric`].
-    fn push_metric_with_headline(&mut self, section: Section, headline: MetricHeadline) {
+    /// Only a prepaid-balance vendor (and Nous Research, whose credits are a
+    /// balance too) needs this; everything else is a percentage and uses
+    /// [`SectionBuilder::push_metric`].
+    fn push_metric_with_headline(
+        &mut self,
+        section: Section,
+        reset_at: Option<DateTime<Utc>>,
+        headline: MetricHeadline,
+    ) {
         assert!(matches!(section, Section::Metric { .. }));
         let mut row = Self::projection(section);
+        row.reset_at = reset_at;
         row.headline = headline;
         self.0.push(row);
     }
@@ -248,6 +255,7 @@ fn push_balance_headline(
             value_label,
             footnote,
         },
+        None,
         headline,
     );
 }
@@ -613,7 +621,7 @@ pub(crate) fn sections_with_metadata_for(
                 VendorSnapshot::Cursor(s) => cursor_sections(s, now, pace_tolerance),
                 VendorSnapshot::Minimax(s) => minimax_sections(s, now, pace_tolerance),
                 VendorSnapshot::Kiro(s) => kiro_sections(s, now),
-                VendorSnapshot::NousResearch(s) => nous_sections(s, now),
+                VendorSnapshot::NousResearch(s) => nous_sections(s, now, prefs),
                 VendorSnapshot::OpenCodeGo(s) => opencode_go_sections(s, now, pace_tolerance),
                 VendorSnapshot::CommandCode(s) => commandcode_sections(s, now),
                 VendorSnapshot::Ollama(s) => ollama_sections(s, now, pace_tolerance),
@@ -983,6 +991,7 @@ fn openrouter_sections(
                 usd(s.total_credits)
             ),
         },
+        None,
         balance::resolve_headline(prefs.headline, denominator),
     );
     v.push(Section::Spacer);
@@ -1234,6 +1243,7 @@ fn cursor_sections(
                 value_label: value,
                 footnote,
             },
+            None,
             MetricHeadline::Value,
         );
     }
@@ -1245,22 +1255,47 @@ fn cursor_sections(
     v
 }
 
-fn nous_sections(s: &crate::nous::types::AccountSnapshot, now: DateTime<Utc>) -> SectionBuilder {
+fn nous_sections(
+    s: &crate::nous::types::AccountSnapshot,
+    now: DateTime<Utc>,
+    prefs: DisplayPrefs,
+) -> SectionBuilder {
     let mut sections = SectionBuilder::new(vec![Section::Title {
         left: "Nous Research".into(),
         right: None,
     }]);
     if let Some(value) = s.usage_percent() {
         let pct = clamp_pct(value);
-        sections.push_metric(
+        // `[nous] headline = "amount"` puts the credits still usable on the
+        // bar, the way the prepaid-balance vendors do. The consumed percentage
+        // keeps the meter, the severity and the detail line, so a spent
+        // allocation still reads critical while the balance stays visible.
+        let balance = s
+            .total_usable_credits
+            .or(s.purchased_credits_remaining)
+            .or(s.credits_remaining);
+        let headline = match (prefs.headline, balance) {
+            (crate::balance::Headline::Amount, Some(_)) => MetricHeadline::Value,
+            _ => MetricHeadline::Percent,
+        };
+        let (label, value_label, footnote) = match headline {
+            MetricHeadline::Value => (
+                "Credits remaining".into(),
+                format!("{:.2}", balance.unwrap_or_default()),
+                "usable now".into(),
+            ),
+            MetricHeadline::Percent => ("Usage".into(), format!("{pct}%"), "current period".into()),
+        };
+        sections.push_metric_with_headline(
             Section::Metric {
-                label: "Usage".into(),
+                label,
                 pct,
                 severity: severity_for(i32::from(pct)),
-                value_label: format!("{pct}%"),
-                footnote: "current period".into(),
+                value_label,
+                footnote,
             },
             s.current_period_end,
+            headline,
         );
     }
     sections.push(Section::Spacer);
@@ -2287,6 +2322,54 @@ mod tests {
         let metric = metrics.next().expect("one metric row");
         assert!(metrics.next().is_none(), "expected exactly one metric row");
         metric
+    }
+
+    fn nous_snapshot() -> crate::nous::types::AccountSnapshot {
+        crate::nous::types::AccountSnapshot {
+            plan: Some("Ultra".into()),
+            tier: Some(9),
+            monthly_credits: Some(220.0),
+            credits_remaining: Some(0.0),
+            purchased_credits_remaining: Some(12.93),
+            total_usable_credits: Some(12.93),
+            rollover_credits: Some(10.0),
+            current_period_end: None,
+        }
+    }
+
+    /// `[nous] headline = "amount"` moves the credits still usable onto the
+    /// bar; the plan-usage percentage keeps the meter and the detail line.
+    #[test]
+    fn nous_bar_headline_can_be_the_credits_balance() {
+        let percent = sections_with_metadata_for(
+            &ready(VendorSnapshot::NousResearch(nous_snapshot())),
+            now(),
+            5,
+        );
+        let metric = only_metric(&percent);
+        assert_eq!(metric.headline, MetricHeadline::Percent);
+        match &metric.section {
+            Section::Metric { value_label, .. } => assert_eq!(value_label, "100%"),
+            _ => unreachable!(),
+        }
+
+        let prefs = DisplayPrefs::balance(None, crate::balance::Headline::Amount);
+        let balance = sections_with_metadata_for(
+            &ready_with(VendorSnapshot::NousResearch(nous_snapshot()), prefs),
+            now(),
+            5,
+        );
+        let metric = only_metric(&balance);
+        assert_eq!(metric.headline, MetricHeadline::Value);
+        match &metric.section {
+            Section::Metric {
+                pct, value_label, ..
+            } => {
+                assert_eq!(*pct, 100);
+                assert_eq!(value_label, "12.93");
+            }
+            _ => unreachable!(),
+        }
     }
 
     /// Only a rolling window has a length a frontend can pace against. The

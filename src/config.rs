@@ -1027,10 +1027,25 @@ impl CopilotConfig {
     }
 }
 
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct NousConfig {
     pub enabled: bool,
+    /// Which number goes on the bar: the consumed percentage of the monthly
+    /// allocation (`percent`, the default) or the credits still usable
+    /// (`amount`). See [`DisplayPrefs`].
+    pub headline: Headline,
+}
+
+impl Default for NousConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            // A plan-usage vendor keeps its percentage; only [nous] can now
+            // ask for the credits balance instead.
+            headline: Headline::Percent,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -2489,6 +2504,9 @@ impl Config {
             // No tank: OpenRouter reports its own credits. See
             // [`OpenRouterConfig::headline`].
             VendorId::Openrouter => DisplayPrefs::balance(None, self.openrouter.headline),
+            // No user tank: the percentage's own denominator is the plan's
+            // monthly allocation, so only the headline choice applies.
+            VendorId::NousResearch => DisplayPrefs::balance(None, self.nous.headline),
             _ => DisplayPrefs::default(),
         }
     }

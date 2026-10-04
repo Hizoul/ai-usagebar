@@ -9,6 +9,17 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Added
+
+- **`[nous] headline = "amount"` puts the Nous Research credits balance on the
+  bar**, the way the prepaid-balance vendors already do, instead of the consumed
+  percentage of the monthly allocation. There is no tank to state: the plan's
+  monthly credits are the percentage's own denominator. The default stays
+  `"percent"`, and the percentage keeps the meter, the severity colour and the
+  detail line. The Omarchy panel, the KDE plasmoid and the tray popover read the
+  metric's `headline` out of `usage --json` and are unaffected by the default;
+  Waybar and GNOME are fed by the per-vendor formats and do not see it at all.
+
 ## [1.32.0] — 2026-10-04
 
 ### Added
