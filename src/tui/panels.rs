@@ -601,7 +601,7 @@ pub(crate) fn sections_with_metadata_for(
                 VendorSnapshot::Grokbot(s) => grokbot_sections(s, now, pace_tolerance),
                 VendorSnapshot::ModelStudio(s) => modelstudio_sections(s, now, pace_tolerance),
                 VendorSnapshot::Antigravity(s) => antigravity_sections(s, now),
-                VendorSnapshot::Cursor(s) => cursor_sections(s, now),
+                VendorSnapshot::Cursor(s) => cursor_sections(s, now, pace_tolerance),
                 VendorSnapshot::Minimax(s) => minimax_sections(s, now, pace_tolerance),
                 VendorSnapshot::Kiro(s) => kiro_sections(s, now),
                 VendorSnapshot::NousResearch(s) => nous_sections(s, now),
@@ -1128,7 +1128,32 @@ fn push_cursor_pool(v: &mut SectionBuilder, section: Section, s: &crate::usage::
     }
 }
 
-fn cursor_sections(s: &crate::usage::CursorSnapshot, now: DateTime<Utc>) -> SectionBuilder {
+/// A pool's footnote, with how far through the billing cycle we are and the
+/// point delta when the cycle's length is exact. Both pools share the cycle,
+/// so only the delta differs between them. An unstated cycle adds nothing: no
+/// estimate is better than one paced against a guessed month.
+fn cursor_pool_footnote(
+    base: String,
+    pct: i32,
+    s: &crate::usage::CursorSnapshot,
+    now: DateTime<Utc>,
+    tol: u32,
+) -> String {
+    let Some(window) = s.cycle_window() else {
+        return base;
+    };
+    let pace = pacing::calc(pct, s.reset_at, now, window, tol);
+    format!(
+        "{base} · {}% elapsed · {}",
+        pace.elapsed_pct, pace.point_label
+    )
+}
+
+fn cursor_sections(
+    s: &crate::usage::CursorSnapshot,
+    now: DateTime<Utc>,
+    tol: u32,
+) -> SectionBuilder {
     let mut v = SectionBuilder::new(vec![Section::Title {
         left: format!("Cursor {}", s.plan),
         right: None,
@@ -1149,7 +1174,7 @@ fn cursor_sections(s: &crate::usage::CursorSnapshot, now: DateTime<Utc>) -> Sect
                 pct: s.auto_pct.clamp(0, 100) as u16,
                 severity: severity_for(s.auto_pct),
                 value_label: format!("{}%", s.auto_pct),
-                footnote: "Auto + Composer".into(),
+                footnote: cursor_pool_footnote("Auto + Composer".into(), s.auto_pct, s, now, tol),
             },
             s,
         );
@@ -1161,9 +1186,15 @@ fn cursor_sections(s: &crate::usage::CursorSnapshot, now: DateTime<Utc>) -> Sect
                 pct: s.api_pct.clamp(0, 100) as u16,
                 severity: severity_for(s.api_pct),
                 value_label: format!("{}%", s.api_pct),
-                footnote: format!(
-                    "Named / API models · on-demand {}",
-                    if s.on_demand_enabled { "on" } else { "off" }
+                footnote: cursor_pool_footnote(
+                    format!(
+                        "Named / API models · on-demand {}",
+                        if s.on_demand_enabled { "on" } else { "off" }
+                    ),
+                    s.api_pct,
+                    s,
+                    now,
+                    tol,
                 ),
             },
             s,
@@ -2266,6 +2297,44 @@ mod tests {
             pools.iter().all(|p| p.reset_at.is_some()),
             "the reset time still travels with the row"
         );
+    }
+
+    #[test]
+    fn cursor_pool_footnotes_pace_each_pool_against_an_exact_billing_cycle() {
+        let snap = crate::usage::CursorSnapshot {
+            auto_pct: 70,
+            api_pct: 30,
+            reset_at: Some(now() + chrono::Duration::days(5)),
+            cycle_start: Some(now() - chrono::Duration::days(5)),
+            ..cursor_snap()
+        };
+        let sections = sections_for(&ready(VendorSnapshot::Cursor(snap)), now(), 5);
+        let footnotes: Vec<&str> = sections
+            .iter()
+            .filter_map(|section| match section {
+                Section::Metric { footnote, .. } => Some(footnote.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            footnotes,
+            [
+                "Auto + Composer · 50% elapsed · 20pts ahead",
+                "Named / API models · on-demand off · 50% elapsed · 20pts under",
+            ]
+        );
+    }
+
+    #[test]
+    fn cursor_pool_footnotes_skip_the_pace_when_the_cycle_is_not_exact() {
+        // No `billingCycleStart`: the footnotes stay what they were, as the
+        // window stays absent from the report.
+        let sections = sections_for(&ready(VendorSnapshot::Cursor(cursor_snap())), now(), 5);
+        for section in &sections {
+            if let Section::Metric { footnote, .. } = section {
+                assert!(!footnote.contains("elapsed"), "{footnote}");
+            }
+        }
     }
 
     #[test]

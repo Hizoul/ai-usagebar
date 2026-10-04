@@ -678,9 +678,9 @@ Each entry has
 may add `severity`, an absolute `reset_at`, and `window_secs`, the exact length
 of the reset window in seconds. `window_secs` is present only when the vendor
 states the window (rolling 5h/7d windows; Cursor's billing cycle from
-`billingCycleStart`/`billingCycleEnd`, assumed to be 30 days when the start is
-missing) and is omitted, not `null`, otherwise — a calendar month or an unstated
-window gives a frontend nothing to pace against. Cursor's On-Demand text row
+`billingCycleStart`/`billingCycleEnd`, never guessed as a month when the start
+is missing) and is omitted, not `null`, otherwise — a calendar month or an
+unstated window gives a frontend nothing to pace against. Cursor's On-Demand text row
 may also carry `used_cents`, `limit_cents`, and `percent`: the spend and the
 prepaid cap in USD cents, and how much of that cap is already used (rounded
 half up, and above 100 when spend passes the cap). Those fields are omitted,
@@ -747,6 +747,13 @@ exposes weekly pace placeholders and tooltip markers; the macOS menu bar uses
 the elapsed alias. The TUI and `usage --json` carry elapsed-time and point-delta
 notes for Quattro, GNOME, KDE and Linux Mint, while Windows keeps its own
 usage projection. Missing period bounds do not produce pace estimates.
+
+Cursor pacing works the same way, against the billing cycle: the widget exposes
+`{cursor_elapsed}` and a per-pool pace family (`{cursor_auto_pace*}`,
+`{cursor_api_pace*}`), the tooltip marks each pool, the macOS menu bar draws its
+pace marker from the elapsed alias, and the TUI and `usage --json` carry the
+elapsed-time and point-delta notes for Quattro, GNOME and KDE. A cycle whose
+start the API did not report is not paced.
 
 ### Omarchy Quattro
 
