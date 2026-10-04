@@ -55,10 +55,8 @@ pub fn render(
     // Both sinks fed by this map (bar text and --tooltip-format) are Pango
     // markup. The plan label is API-controlled, so escape its aliases at the
     // projection boundary. The default tooltip escapes the raw snapshot.
-    for key in ["plan"] {
-        if let Some(value) = values.get_mut(key) {
-            *value = escape(value);
-        }
+    if let Some(value) = values.get_mut("plan") {
+        *value = escape(value);
     }
 
     let mut text = substitute(&format, &values);
