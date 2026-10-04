@@ -48,9 +48,13 @@ function previewMetric(card: Card): MetricRow | undefined {
   return candidates.reduce((best, row) => (row.usedPercent > best.usedPercent ? row : best));
 }
 
-function providerPreview(card: Card): string {
+/** The tab's text in the layout's Used/Left reading, like the meters below it. */
+function providerPreview(card: Card, showAs: Layout["showAs"]): string {
   const metric = previewMetric(card);
-  if (metric) return metric.headline === "value" ? metric.value : `${metric.usedPercent}%`;
+  if (metric) {
+    if (metric.headline === "value") return metric.value;
+    return `${showAs === "used" ? metric.usedPercent : metric.leftPercent}%`;
+  }
   if (card.error) return "—";
   const balance = card.rows.find((row) => row.kind === "text" && /balance|credit/i.test(row.label));
   return balance?.kind === "text" ? balance.value : "—";
@@ -124,7 +128,7 @@ export function NativeDashboard({
           <div ref={wheelScrollRef} className="native-tabs native-provider-tabs" role="group" aria-label={m.providers()}>
             {cards.map((card) => {
               const active = selected?.id === card.id;
-              const preview = providerPreview(card);
+              const preview = providerPreview(card, layout.showAs);
               // Logo and value only, to fit more tabs: the name is in the hint, the label and the card below.
               return (
                 <Hint key={card.id} content={card.title}>

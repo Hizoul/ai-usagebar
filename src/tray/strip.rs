@@ -57,6 +57,10 @@ pub struct StripMetric {
     /// 0..=1 fill for bounded metrics (used fraction).
     pub fraction: f64,
     pub bounded: bool,
+    /// The remaining share as text (`82%`) for a percentage row, the way the
+    /// popover's Left reading shows it; `None` for a value headline or a row
+    /// with no percent, which read the same either way.
+    pub left_value: Option<String>,
     /// Under a group heading (SuperGrok's product slices, the Claude entry's
     /// CLI sessions): a breakdown, not a quota window of its own.
     pub grouped: bool,
@@ -350,6 +354,9 @@ fn metrics_for_entry(entry: &Value, id: &str, name: &str) -> Vec<StripMetric> {
             .map(str::to_string)
             .or_else(|| percent.map(|percent| format!("{}%", percent.round() as i64)))
             .unwrap_or_default();
+        let left_value = percent
+            .filter(|_| section.get("headline").and_then(Value::as_str) != Some("value"))
+            .map(|percent| format!("{}%", (100.0 - percent).max(0.0).round() as i64));
         let mut key = metric_key(id, raw_label, effective_group);
         let count = seen.entry(key.clone()).or_insert(0);
         *count += 1;
@@ -364,6 +371,7 @@ fn metrics_for_entry(entry: &Value, id: &str, name: &str) -> Vec<StripMetric> {
             value,
             fraction: (percent.unwrap_or(0.0) / 100.0).clamp(0.0, 1.0),
             bounded: true,
+            left_value,
             grouped: !effective_group.is_empty(),
         });
     }
@@ -762,6 +770,20 @@ mod tests {
         assert_eq!(bars[0].label, "ship the release (Sessions)");
         assert_eq!(bars[1].key, "metric:Grok Build (Breakdown)");
         assert_eq!(bars[1].label, "Grok Build (Breakdown)");
+    }
+
+    /// The Left reading's text matches the popover's `leftPercent`
+    /// (`max(0, 100 - percent)`); a value headline keeps its value.
+    #[test]
+    fn left_value_is_the_remaining_percent() {
+        let payload = json!({"entries":[{"id":"zai", "status":"ready", "sections":[
+            {"type":"metric", "label":"Weekly", "percent":18, "value":"18%"},
+            {"type":"metric", "label":"Over", "percent":130, "value":"130%"},
+            {"type":"metric", "label":"Credits", "percent":40, "value":"$4 of $10", "headline":"value"},
+            {"type":"metric", "label":"Balance", "value":"$40"}]}]});
+        let (_, _, metrics) = quota_group(&payload, "zai").unwrap();
+        let left: Vec<Option<&str>> = metrics.iter().map(|m| m.left_value.as_deref()).collect();
+        assert_eq!(left, vec![Some("82%"), Some("0%"), None, None]);
     }
 
     #[test]

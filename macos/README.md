@@ -17,7 +17,9 @@ of the provider selected in the popover (the Native style's tabs; the
 Like Quattro's default window, it takes the highest of all the provider's
 windows, starred or not, the same value its tab shows: a spent weekly limit
 reads `100%` even while the 5h session reads `0%`. **Show Short Name** turns the name off,
-leaving the logo and the value; a provider with no logo keeps its name. With
+leaving the logo and the value; a provider with no logo keeps its name. The
+Logos and Name values follow **Preferences → Show Usage As**, like the popover's
+tabs and meters: what is left, by default, or what is used. With
 nothing starred it shows the app icon. Left-click opens the popover; right-click opens the Options menu.
 
 ```bash

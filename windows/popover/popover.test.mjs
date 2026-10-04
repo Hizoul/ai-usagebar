@@ -1564,7 +1564,11 @@ assert.equal(resolvedTheme('system'), 'light');
     style: 'bars',
     stars,
     order: ['anthropic'],
+    show_as: 'left',
   });
+  // The menu bar follows the Used/Left reading, so the strip message carries it.
+  assert.equal(stripCommand({ ...seeded, showAs: 'used' }, cards).show_as, 'used');
+  assert.equal(stripCommand({ ...seeded, showAs: 'sideways' }, cards).show_as, 'left');
 }
 
 {

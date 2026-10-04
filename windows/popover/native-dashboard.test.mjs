@@ -71,7 +71,8 @@ try {
       }))));
   // Provider tabs carry the logo and value; the full name is the accessible label, never the short code.
   assert.match(nativeDashboard, /role="group" aria-label="Provedores"/);
-  assert.match(nativeDashboard, /aria-label="Claude 46%"/);
+  // The default Left reading: 46% used reads 54%, like the meter below the tabs.
+  assert.match(nativeDashboard, /aria-label="Claude 54%"/);
   assert.doesNotMatch(nativeDashboard, />cld</);
   assert.match(nativeDashboard, /data-card-id="anthropic"/);
   assert.match(nativeDashboard, /aria-expanded="true"/);
@@ -85,18 +86,25 @@ try {
     rows: [quotaRow('Session', 0), quotaRow('Weekly', 100), quotaRow('Context', 100, { grouped: true }), quotaRow('MCP', 18)],
   };
   const groupedOnly = { ...card, id: 'supergrok', title: 'SuperGrok', rows: [quotaRow('Grok Build', 7, { grouped: true })] };
-  const zaiDashboard = renderToStaticMarkup(React.createElement(TooltipProvider, {},
+  const quotaDashboard = (showAs) => renderToStaticMarkup(React.createElement(TooltipProvider, {},
     React.createElement(LanguageProvider, { language: 'pt-BR' },
       React.createElement(NativeDashboard, {
         cards: [spentWeekly, groupedOnly, { ...card, rows: [quotaRow('Session', 0), quotaRow('Context', 90, { grouped: true })] }],
-        hint: false, layout: { ...emptyLayout(), popoverStyle: 'native' }, nowMs, payload,
+        hint: false, layout: { ...emptyLayout(), popoverStyle: 'native', showAs }, nowMs, payload,
         onCustomizeProvider() {}, onDismissHint() {}, onOpenCustomize() {}, onOpenSettings() {},
         onRowAction() {}, onRowMenuOpenChange() {}, onSwitchAccount() {},
         onToggleCollapse() {}, onToggleShowAs() {},
       }))));
+  const zaiDashboard = quotaDashboard('used');
   assert.match(zaiDashboard, /aria-label="Z.AI 100%"/);
   assert.match(zaiDashboard, /aria-label="SuperGrok 7%"/);
   assert.match(zaiDashboard, /aria-label="Claude 0%"/);
+  // In the Left reading the tab shows what is left of that same most-used window: the spent
+  // weekly limit reads 0%, never the idle session's 100%.
+  const leftDashboard = quotaDashboard('left');
+  assert.match(leftDashboard, /aria-label="Z.AI 0%"/);
+  assert.match(leftDashboard, /aria-label="SuperGrok 93%"/);
+  assert.match(leftDashboard, /aria-label="Claude 100%"/);
   // A waiting release shows the same Update available card as Classic, above the provider tabs.
   const withUpdate = renderToStaticMarkup(React.createElement(TooltipProvider, {},
     React.createElement(LanguageProvider, { language: 'en' },

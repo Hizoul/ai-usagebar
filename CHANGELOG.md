@@ -32,6 +32,12 @@ Each release is also published at
   idle showed `0%`. It now shows the highest quota window, like the Quattro
   bar; grouped rows (SuperGrok's product slices, Claude's CLI sessions) count
   only when the provider has nothing else.
+- **Tab and menu-bar percentages follow Show Usage As.** With the popover
+  reading what is left (the default), the Native tabs and the macOS menu
+  bar's Logos and Name values and tooltip still showed what was used, so the
+  chip read `18%` above meters reading `82% left`. They now show the same
+  reading as the meters: the remaining share of that most-used window. The
+  Chart look still draws usage.
 
 ### Fixed
 

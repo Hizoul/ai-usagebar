@@ -1018,7 +1018,8 @@ export function stripCommand(layout, cards) {
   } else {
     for (const id of Object.keys(source)) stars[id] = source[id];
   }
-  return { style: "bars", stars, order };
+  // The menu bar's percentages follow the popover's Used/Left reading.
+  return { style: "bars", stars, order, show_as: normalizeShowAs(layout && layout.showAs) };
 }
 
 function cleanIdList(list) {

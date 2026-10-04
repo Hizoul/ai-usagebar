@@ -43,7 +43,7 @@ use super::browse;
 use super::hotkey::{self, HotkeyBinding};
 use super::icon::{Severity, tray_icon_rgba};
 use super::marks;
-use super::menu_bar::{self, LogoSegment, MenuBarLook, StatusItemContent};
+use super::menu_bar::{self, LogoSegment, MenuBarLook, StatusItemContent, UsageReading};
 use super::options_menu::{self, OptionsAction, OptionsLabels};
 use super::panel::{
     CLICK_LOCK_MS, CORNER_RADIUS, CocoaRect, FALLBACK_WORK_AREA_HEIGHT, PopoverPlacement,
@@ -174,6 +174,8 @@ struct TrayState {
     menu_bar_look: MenuBarLook,
     /// `[tray] menu_bar_short_name`: the name look's short name beside the mark.
     menu_bar_short_name: bool,
+    /// The popover's Used/Left reading, from its `strip` IPC.
+    usage_reading: UsageReading,
     /// Provider id the popover has selected; the name look draws this one.
     selected_provider: Option<String>,
     menu_bar_logo_key: Option<LogoStripKey>,
@@ -290,6 +292,7 @@ fn run_loop() -> Result<(), String> {
         strip_order_known: false,
         menu_bar_look,
         menu_bar_short_name: config.tray.menu_bar_short_name(),
+        usage_reading: UsageReading::Used,
         selected_provider: None,
         menu_bar_logo_key: None,
         notifications_enabled: config.notifications.enabled,
@@ -561,7 +564,7 @@ fn apply_facts(state: &mut TrayState) {
 
 fn apply_strip_icon(state: &mut TrayState) {
     let content = content_from_payload(&state.payload, &state.stars, &state.strip_order);
-    let tooltip = menu_bar::tooltip(&content);
+    let tooltip = menu_bar::tooltip(&content, state.usage_reading);
     let _ = state.tray.set_tooltip(Some(tooltip.as_str()));
     state.tray.set_title(Some(""));
     let segments = menu_bar::logo_segments(
@@ -570,6 +573,7 @@ fn apply_strip_icon(state: &mut TrayState) {
         state.menu_bar_look,
         state.selected_provider.as_deref(),
         state.menu_bar_short_name,
+        state.usage_reading,
     );
     let has_content = if state.menu_bar_look == MenuBarLook::Chart {
         !content.bars.is_empty()
@@ -993,6 +997,7 @@ fn handle_ipc(state: &mut TrayState, body: &str, control_flow: &mut ControlFlow)
             state.stars = stars;
             state.strip_order = order;
             state.strip_order_known = true;
+            state.usage_reading = UsageReading::from_strip_ipc(&value);
             apply_strip_icon(state);
         }
         "open-url" => {
