@@ -113,7 +113,8 @@ pub struct TrayConfig {
     pub refresh_minutes: Option<u64>,
     /// What the tray does when a newer release is published.
     pub updates: Option<UpdateMode>,
-    /// macOS menu-bar presentation: `provider` (logos) or `bars` (default).
+    /// macOS menu-bar presentation: `bars` (default), `provider` (logos) or
+    /// `name` (the selected provider's logo, short name and value).
     pub menu_bar_style: Option<String>,
 }
 
