@@ -171,7 +171,15 @@ pub fn render(
         .format
         .clone()
         .unwrap_or_else(|| default_format(snap).to_string());
-    let values = build_placeholders_with_tolerance(snap, opts.pace_tolerance, now);
+    let mut values = build_placeholders_with_tolerance(snap, opts.pace_tolerance, now);
+    // Both sinks fed by this map (bar text and --tooltip-format) are Pango
+    // markup. The plan label is configurable, so escape its aliases at the
+    // projection boundary. The default tooltip escapes the raw snapshot.
+    for key in ["plan", "oll_plan"] {
+        if let Some(value) = values.get_mut(key) {
+            *value = escape(value);
+        }
+    }
 
     let mut text = substitute(&format, &values);
     if outcome.stale {
