@@ -44,8 +44,13 @@ try {
     // The header keeps only the Customize shortcut; the per-card Reset button is gone.
     assert.doesNotMatch(header, /aria-label="Reset Claude"/);
     assert.match(header, /aria-label="Customize Claude"/);
+    // 4h of the 5h window have passed: the goal reads 20% left beside `54% restantes`,
+    // and 80% used once the meter shows what is used.
     const withGoal = sectionMarkup({ ...emptyLayout(), popoverStyle, usageGoal: true });
-    assert.match(withGoal, /Meta agora<\/span><strong class="font-semibold">80%<\/strong>/);
+    assert.match(withGoal, /Meta agora<\/span><strong class="font-semibold">20%<\/strong>/);
+    assert.match(withGoal, /class="usage-goal-meter-fill" style="width:20%"/);
+    const usedGoal = sectionMarkup({ ...emptyLayout(), popoverStyle, usageGoal: true, showAs: 'used' });
+    assert.match(usedGoal, /Meta agora<\/span><strong class="font-semibold">80%<\/strong>/);
     assert.match(withGoal, /class="usage-goal-meter[^\"]*" role="progressbar"/);
     const withoutGoal = sectionMarkup({ ...emptyLayout(), popoverStyle, usageGoal: false });
     assert.doesNotMatch(withoutGoal, /usage-goal-meter|Meta agora/);

@@ -57,6 +57,7 @@ import {
   paceTickPercent,
   paceVisible,
   usageGoal,
+  usageGoalPercent,
   prettyMetricLabel,
   shortcutFromKeyEvent,
   defaultStars,
@@ -731,6 +732,11 @@ assert.equal(resetAlternate(badStampRow, 'exact', resetNow, utc), '');
   assert.deepEqual(usageGoal(monthly, Date.parse('2026-03-31T12:00:00Z')), { percent: 100, estimated: true });
   assert.equal(usageGoal({ ...monthly, label: 'Weekly' }, end), null);
   assert.equal(usageGoal({ ...monthly, resetAt: 'bad' }, end), null);
+  // The goal reads like the meter: what should be spent in Used mode, what should remain in Left.
+  assert.equal(usageGoalPercent({ percent: 97, estimated: false }, 'used'), 97);
+  assert.equal(usageGoalPercent({ percent: 97, estimated: false }, 'left'), 3);
+  assert.equal(usageGoalPercent({ percent: 33, estimated: true }, 'left'), 67);
+  assert.equal(usageGoalPercent(null, 'left'), null);
 }
 
 // --- host payload: shortcut / updates / update / window_secs ------------------
