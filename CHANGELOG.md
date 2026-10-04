@@ -17,6 +17,14 @@ Each release is also published at
   `verify-version` job now fails the tag if `PKGBUILD` / `PKGBUILD-bin` source
   and `sha256sums` arrays or `.SRCINFO` entries differ in length (fixes #335).
 
+- **Custom format placeholders escape API-controlled plan and model names.**
+  Cursor, Z.AI, OpenAI, Kilo and Ollama substituted their plan or model
+  placeholders into the bar text and custom `--tooltip-format` unescaped,
+  which reached Waybar's Pango markup directly. Any plan or label containing
+  an `&` or `<` broke the markup. The text placeholders are now escaped at
+  the projection boundary, matching the established pattern in other vendors
+  (fixes #333).
+
 ## [1.31.0] — 2026-10-03
 
 ### Added

@@ -171,7 +171,15 @@ pub fn render(
         .format
         .clone()
         .unwrap_or_else(|| default_format(snap).to_string());
-    let values = build_placeholders_with_tolerance(snap, opts.pace_tolerance, now);
+    let mut values = build_placeholders_with_tolerance(snap, opts.pace_tolerance, now);
+    // Both sinks fed by this map (bar text and --tooltip-format) are Pango
+    // markup. The plan label is configurable, so escape its aliases at the
+    // projection boundary. The default tooltip escapes the raw snapshot.
+    for key in ["plan", "oll_plan"] {
+        if let Some(value) = values.get_mut(key) {
+            *value = escape(value);
+        }
+    }
 
     let mut text = substitute(&format, &values);
     if outcome.stale {
@@ -499,5 +507,24 @@ mod tests {
         assert!(out.tooltip.contains("Session") || out.tooltip.contains("82"));
         assert!(out.text.contains("82%"), "{}", out.text);
         assert!(out.text.contains("23%w"), "{}", out.text);
+    }
+
+    #[test]
+    fn plan_is_pango_escaped_in_custom_formats() {
+        let mut snap = sample_snap();
+        snap.plan = "Cloud Pro & Enterprise <preview>".into();
+        let outcome = sample_outcome(snap.clone());
+        let mut o = opts();
+        o.format = Some("{plan}".into());
+        o.tooltip_format = Some("{oll_plan}".into());
+
+        let out = render(&outcome, &snap, &Theme::default(), &o, Utc::now());
+        assert!(!out.text.contains(" & "));
+        assert!(!out.tooltip.contains('<'));
+        assert!(
+            out.text
+                .contains("Cloud Pro &amp; Enterprise &lt;preview&gt;")
+        );
+        assert_eq!(out.tooltip, "Cloud Pro &amp; Enterprise &lt;preview&gt;");
     }
 }

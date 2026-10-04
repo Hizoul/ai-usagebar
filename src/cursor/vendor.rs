@@ -79,7 +79,15 @@ pub fn render(
         .format
         .clone()
         .unwrap_or_else(|| DEFAULT_FORMAT.to_string());
-    let values = build_placeholders(snap, now);
+    let mut values = build_placeholders(snap, now);
+    // Both sinks fed by this map (bar text and --tooltip-format) are Pango
+    // markup. The plan label is API-controlled, so escape its aliases at the
+    // projection boundary. The default tooltip escapes the raw snapshot.
+    for key in ["plan", "cursor_plan"] {
+        if let Some(value) = values.get_mut(key) {
+            *value = escape(value);
+        }
+    }
 
     let mut text = if snap.unlimited && opts.format.is_none() {
         "unlimited".to_string()
@@ -320,6 +328,22 @@ mod tests {
             now(),
         );
         assert_eq!(out.tooltip, "auto 98 api 100 Ultra");
+    }
+
+    #[test]
+    fn api_plan_is_pango_escaped_in_custom_formats() {
+        let mut snap = sample_snap();
+        snap.plan = "Pro & Ultra <beta>".into();
+        let outcome = sample_outcome(snap.clone());
+        let mut o = opts();
+        o.format = Some("{plan}".into());
+        o.tooltip_format = Some("{cursor_plan}".into());
+
+        let out = render(&outcome, &snap, &Theme::default(), &o, now());
+        assert!(!out.text.contains(" & "));
+        assert!(!out.tooltip.contains('<'));
+        assert!(out.text.contains("Cursor Pro &amp; Ultra &lt;beta&gt;"));
+        assert_eq!(out.tooltip, "Pro &amp; Ultra &lt;beta&gt;");
     }
 
     #[test]
