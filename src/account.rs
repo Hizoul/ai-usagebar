@@ -2402,7 +2402,9 @@ mod tests {
             })
             .collect();
         assert_eq!(
-            configured.get("CODEX_HOME").and_then(|v| v.as_deref()),
+            configured
+                .get("CODEX_HOME")
+                .and_then(|v| v.as_deref()),
             Some(home.to_str().unwrap())
         );
         for var in crate::vendor::vendor_secret_env_vars_to_remove(&[]) {
@@ -2429,7 +2431,9 @@ mod tests {
             })
             .collect();
         assert_eq!(
-            configured.get("CLAUDE_CONFIG_DIR").and_then(|v| v.as_deref()),
+            configured
+                .get("CLAUDE_CONFIG_DIR")
+                .and_then(|v| v.as_deref()),
             Some(dir.to_str().unwrap())
         );
         for var in crate::vendor::vendor_secret_env_vars_to_remove(&[]) {
