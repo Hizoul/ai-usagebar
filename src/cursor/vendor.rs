@@ -7,7 +7,11 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
 use crate::countdown;
-use crate::format::{placeholders, substitute, updated_at_hm};
+use crate::display::sanitize_untrusted_line;
+use crate::format::{
+    cursor_credit_label, cursor_credit_line, cursor_credit_meter, placeholders, substitute,
+    updated_at_hm,
+};
 use crate::pacing::{self, PaceSeverity, Pacing};
 use crate::pango::{color_span, escape, severity_color, severity_for};
 use crate::theme::Theme;
@@ -126,10 +130,37 @@ fn build_placeholders_with_tolerance(
             "cursor_unlimited",
             if snap.unlimited { "yes" } else { "no" }.to_string(),
         ),
+        ("cursor_credits", credit_placeholder(snap, now)),
     ];
     pairs.extend(pace_entries(AUTO_PACE_KEYS, auto_pace, snap.unlimited));
     pairs.extend(pace_entries(API_PACE_KEYS, api_pace, snap.unlimited));
     placeholders(pairs)
+}
+
+/// One grant per segment. Empty when the account has no visible grant, so a
+/// format that includes the placeholder stays quiet.
+fn credit_placeholder(snap: &CursorSnapshot, now: DateTime<Utc>) -> String {
+    snap.credits
+        .iter()
+        .map(|grant| {
+            let line = cursor_credit_line(
+                grant.remaining_cents,
+                grant.total_cents,
+                grant.expires_at,
+                now,
+            );
+            // The bar wraps this string in Pango. A grant name is free text, so
+            // drop the characters that would close that markup. The tooltip
+            // escapes them instead and still shows the name.
+            let name: String =
+                cursor_credit_label(&sanitize_untrusted_line(grant.display_name.trim()))
+                    .chars()
+                    .filter(|ch| !matches!(ch, '<' | '>' | '&'))
+                    .collect();
+            format!("{name} · {line}")
+        })
+        .collect::<Vec<_>>()
+        .join(" | ")
 }
 
 /// Severity keys on the binding pool. An unlimited plan has no cap, so it stays
@@ -306,6 +337,43 @@ fn render_tooltip(
         push_pool(&mut lines, snap, theme, opts, now, api);
     }
 
+    for grant in &snap.credits {
+        let label = cursor_credit_label(&sanitize_untrusted_line(grant.display_name.trim()));
+        let (pct, _, _) = cursor_credit_meter(
+            grant.remaining_cents,
+            grant.total_cents,
+            grant.expires_at,
+            now,
+        );
+        let line = cursor_credit_line(
+            grant.remaining_cents,
+            grant.total_cents,
+            grant.expires_at,
+            now,
+        );
+        // Same gauge block as the two pools, but paced against nothing: a
+        // grant has its own expiry, not the billing cycle. The label is
+        // API-controlled, so it is escaped before entering the Pango sink.
+        let window = UsageWindow {
+            utilization_pct: i32::from(pct),
+            resets_at: grant.expires_at,
+            window_duration: chrono::Duration::zero(),
+        };
+        lines.push(TooltipLine::Body("".into()));
+        push_window_with_row(
+            &mut lines,
+            &escape(&label),
+            &window,
+            theme,
+            now,
+            WindowRow::default(),
+        );
+        lines.push(TooltipLine::Body(format!(
+            " <span foreground='{dim}'>     {}</span>",
+            escape(&line)
+        )));
+    }
+
     if let Some((code, msg)) = outcome.last_error.as_ref()
         && *code != 0
     {
@@ -362,6 +430,7 @@ mod tests {
             on_demand_limit_cents: None,
             reset_at: Some(now() + chrono::Duration::days(9)),
             cycle_start: None,
+            credits: Vec::new(),
         }
     }
 
@@ -415,6 +484,37 @@ mod tests {
         assert!(out.tooltip.contains("100%"));
         assert!(out.tooltip.contains("9d"));
         assert!(out.tooltip.contains('█'), "each pool is drawn as a bar");
+        assert!(!out.tooltip.contains("Credits"), "no grant, no credit row");
+    }
+
+    #[test]
+    fn tooltip_and_placeholder_show_the_spending_page_grant() {
+        let mut snap = sample_snap();
+        let expires = now() + chrono::Duration::days(30);
+        snap.credits.push(crate::usage::CursorCreditGrant {
+            remaining_cents: 2100,
+            total_cents: 2500,
+            expires_at: Some(expires),
+            display_name: "Promo\n<script>".into(),
+        });
+        let out = render(
+            &sample_outcome(snap.clone()),
+            &snap,
+            &Theme::default(),
+            &opts(),
+            now(),
+        );
+        assert!(out.text.contains("98·100%"), "the bar stays the two pools");
+        assert!(out.tooltip.contains("Credits"));
+        assert!(!out.tooltip.contains("Promo"));
+        assert!(out.tooltip.contains("16%"));
+        assert!(out.tooltip.contains("$21.00/$25.00 remaining"));
+        assert!(out.tooltip.contains("30d 0h"));
+        assert!(!out.tooltip.contains("<script>"));
+        let values = build_placeholders(&snap, now());
+        assert!(values["cursor_credits"].starts_with("Credits "));
+        assert!(values["cursor_credits"].contains("$21.00/$25.00 remaining"));
+        assert!(values["cursor_credits"].contains("30d 0h"));
     }
 
     #[test]
@@ -509,6 +609,7 @@ mod tests {
             "cursor_reset",
             "cursor_on_demand",
             "cursor_unlimited",
+            "cursor_credits",
             "session_elapsed",
             "weekly_elapsed",
             "cursor_elapsed",

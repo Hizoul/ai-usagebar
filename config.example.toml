@@ -485,7 +485,9 @@ enabled = false
 # no separate login step for ai-usagebar. Shows this billing cycle's two
 # included-usage pools — "Cursor Models" (Auto + Composer) and "Other Models"
 # (named / API) — from the undocumented cursor.com/api/usage-summary endpoint
-# (the same one the Cursor dashboard itself calls).
+# (the same one the Cursor dashboard itself calls). A spending-page credit
+# grant, when the account has one, is read from GetClientVisibleCreditGrants
+# and shown as remaining dollars; an account with no grant shows nothing extra.
 [cursor]
 # Disabled by default — enable once you've signed in to the Cursor IDE at
 # least once (it needs no key from you, but it does need that one-time login

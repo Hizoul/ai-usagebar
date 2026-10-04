@@ -20,7 +20,10 @@ use ratatui_bubbletea_theme::BubbleTheme;
 
 use crate::balance::{self, DisplayPrefs, MetricHeadline};
 use crate::countdown;
-use crate::format::{clamp_pct, local_time_hms, money, reset_credit_lines, usd};
+use crate::format::{
+    clamp_pct, cursor_credit_label, cursor_credit_meter, local_time_hms, money, reset_credit_lines,
+    usd,
+};
 use crate::pacing::{self, PaceSeverity};
 use crate::pango::severity_for;
 use crate::theme::Theme;
@@ -1203,6 +1206,30 @@ fn cursor_sections(
             v.push(Section::Spacer);
             v.push_on_demand(used, s.on_demand_limit_cents);
         }
+    }
+    for grant in &s.credits {
+        let name = cursor_credit_label(&crate::display::sanitize_untrusted_line(
+            grant.display_name.trim(),
+        ));
+        let (pct, value, footnote) = cursor_credit_meter(
+            grant.remaining_cents,
+            grant.total_cents,
+            grant.expires_at,
+            now,
+        );
+        v.push(Section::Spacer);
+        // Same shape as On-Demand: remaining dollars on the row, a bar for
+        // how much of the grant is already spent, expiry in the caption.
+        v.push_metric_with_headline(
+            Section::Metric {
+                label: name,
+                pct,
+                severity: severity_for(i32::from(pct)),
+                value_label: value,
+                footnote,
+            },
+            MetricHeadline::Value,
+        );
     }
     v.push(Section::Spacer);
     v.push(Section::Text {
@@ -3216,6 +3243,7 @@ mod tests {
             on_demand_limit_cents: None,
             reset_at: Some(now() + chrono::Duration::days(9)),
             cycle_start: None,
+            credits: Vec::new(),
         }
     }
 
@@ -3306,6 +3334,27 @@ mod tests {
         assert!(sections.iter().any(|s| matches!(
             s,
             Section::Text { label, value } if label == "Resets" && value.contains("9d")
+        )));
+    }
+
+    #[test]
+    fn cursor_credit_grant_is_a_meter_like_on_demand() {
+        let mut snapshot = cursor_snap();
+        snapshot.credits.push(crate::usage::CursorCreditGrant {
+            remaining_cents: 2100,
+            total_cents: 2500,
+            expires_at: Some(now() + chrono::Duration::days(30)),
+            display_name: "Power user grant".into(),
+        });
+        let sections = sections_for(&ready(VendorSnapshot::Cursor(snapshot)), now(), 5);
+        assert!(sections.iter().any(|section| matches!(
+            section,
+            Section::Metric { label, pct, value_label, footnote, .. }
+                if label == "Credits"
+                    && *pct == 16
+                    && value_label == "$21.00"
+                    && footnote.contains("$4.00 of $25.00 used (16%)")
+                    && footnote.contains("30d 0h")
         )));
     }
 

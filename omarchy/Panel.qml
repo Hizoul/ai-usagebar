@@ -64,6 +64,7 @@ Panel {
   readonly property bool showCursorModels: Model.booleanSetting(setting("showCursorModels", true), true)
   readonly property bool showCursorOther: Model.booleanSetting(setting("showCursorOther", true), true)
   readonly property bool showCursorOnDemand: Model.booleanSetting(setting("showCursorOnDemand", true), true)
+  readonly property bool showCursorCredits: Model.booleanSetting(setting("showCursorCredits", true), true)
   readonly property var visibleEntries: Model.filteredEntries(entries, configuredProvider)
   readonly property int entryIndex: Model.selectedIndex(visibleEntries, selectedEntryId)
   readonly property var entry: entryIndex >= 0 ? visibleEntries[entryIndex] : null
@@ -246,14 +247,26 @@ Panel {
     return {
       models: showCursorModels,
       other: showCursorOther,
-      demand: showCursorOnDemand
+      demand: showCursorOnDemand,
+      credits: showCursorCredits
     }
   }
 
   function cursorShownFlags() {
-    if (typeof Model.cursorBarFlags === "function")
-      return Model.cursorBarFlags(entry, cursorPoolFlags())
-    return cursorPoolFlags()
+    var base = typeof Model.cursorBarFlags === "function"
+      ? Model.cursorBarFlags(entry, cursorPoolFlags())
+      : cursorPoolFlags()
+    var flags = {
+      models: base.models === true,
+      other: base.other === true,
+      demand: base.demand === true,
+      credits: base.credits === true
+    }
+    // Hot reload can keep an older Model.js that has no credits flag. The
+    // grant is still in the report, so the switch follows this file.
+    if (base.credits === undefined)
+      flags.credits = showCursorCredits && creditGrantBits(entry).length > 0
+    return flags
   }
 
   function cursorPoolOn(id) {
@@ -263,18 +276,20 @@ Panel {
   function cursorPoolCanTurnOff(id) {
     var flags = cursorShownFlags()
     if (flags[id] !== true) return false
-    var count = (flags.models ? 1 : 0) + (flags.other ? 1 : 0) + (flags.demand ? 1 : 0)
+    var count = (flags.models ? 1 : 0) + (flags.other ? 1 : 0) + (flags.demand ? 1 : 0) + (flags.credits ? 1 : 0)
     return count > 1
   }
 
   function cursorPoolButtons() {
     var has = typeof Model.cursorPoolPresence === "function"
       ? Model.cursorPoolPresence(entry)
-      : { models: true, other: true, demand: true }
+      : { models: true, other: true, demand: true, credits: false }
     var rows = []
     if (has.models) rows.push({ poolId: "models", label: root.tr("pool.models") })
     if (has.other) rows.push({ poolId: "other", label: root.tr("pool.other") })
     if (has.demand) rows.push({ poolId: "demand", label: root.tr("pool.demand") })
+    if (has.credits || creditGrantBits(entry).length > 0)
+      rows.push({ poolId: "credits", label: root.tr("pool.credits") })
     return rows
   }
 
@@ -282,15 +297,26 @@ Panel {
     var saved = cursorPoolFlags()
     var shown = cursorShownFlags()
     var next = Model.toggleCursorPool(shown, id)
+    // Older Model.js ignores the credits id and hands the same flags back.
+    if (id === "credits" && next.credits === shown.credits) {
+      next = {
+        models: shown.models,
+        other: shown.other,
+        demand: shown.demand,
+        credits: !shown.credits
+      }
+      if (!next.models && !next.other && !next.demand && !next.credits) return
+    }
     if (next.models === shown.models && next.other === shown.other
-        && next.demand === shown.demand) return
+        && next.demand === shown.demand && next.credits === shown.credits) return
     var has = typeof Model.cursorPoolPresence === "function"
       ? Model.cursorPoolPresence(entry)
-      : { models: true, other: true, demand: true }
+      : { models: true, other: true, demand: true, credits: false }
     persistWidgetSettings({
       showCursorModels: has.models ? next.models : saved.models,
       showCursorOther: has.other ? next.other : saved.other,
-      showCursorOnDemand: has.demand ? next.demand : saved.demand
+      showCursorOnDemand: has.demand ? next.demand : saved.demand,
+      showCursorCredits: has.credits ? next.credits : saved.credits
     })
   }
 
@@ -433,13 +459,74 @@ Panel {
     return Model.autoTextSafe(text)
   }
 
+  // A credit grant is a metric beside the two model pools. The bar and its
+  // hover read it here, so a headline that only knows the pools still shows it.
+  function creditGrantBits(item) {
+    var sections = item && item.sections ? item.sections : []
+    var bits = []
+    for (var i = 0; i < sections.length; i++) {
+      var row = sections[i]
+      if (!row || row.type !== "metric") continue
+      var label = String(row.label || "")
+      if (label === "" || label === "Cursor Models" || label === "Other Models") continue
+      if (row.percent === null || row.percent === undefined || row.percent === "") continue
+      bits.push({
+        text: row.percent + "%",
+        line: label + " · " + row.percent + "%",
+        severity: row.severity || "low"
+      })
+    }
+    return bits
+  }
+
+  function withCreditGrants(pools, item) {
+    if (!pools || !showCursorCredits) return pools
+    var grants = creditGrantBits(item)
+    if (grants.length === 0) return pools
+    var text = String(pools.text || "")
+    var tooltip = String(pools.tooltip || pools.text || "")
+    var segments = pools.segments ? pools.segments.slice() : []
+    var tooltipRows = pools.tooltipRows ? pools.tooltipRows.slice() : []
+    if (tooltipRows.length === 0 && tooltip !== "") {
+      var prior = tooltip.split("\n")
+      for (var p = 0; p < prior.length; p++) {
+        var priorLine = prior[p].trim()
+        if (priorLine !== "") tooltipRows.push({ text: priorLine, severity: pools.severity || "low" })
+      }
+    }
+    var added = false
+    for (var i = 0; i < grants.length; i++) {
+      var bit = grants[i]
+      var name = bit.line.split(" · ")[0]
+      if (tooltip.indexOf(name + " · ") >= 0) continue
+      added = true
+      text = text === "" ? bit.text : text + " · " + bit.text
+      tooltip = tooltip === "" ? bit.line : tooltip + "\n" + bit.line
+      if (segments.length > 0) {
+        segments.push({ text: " · ", severity: "" })
+        segments.push({ text: bit.text, severity: bit.severity })
+      }
+      tooltipRows.push({ text: bit.line, severity: bit.severity })
+    }
+    if (!added) return pools
+    return {
+      text: text,
+      tooltip: tooltip,
+      severity: pools.severity,
+      allCritical: pools.allCritical === true,
+      segments: segments,
+      tooltipRows: tooltipRows
+    }
+  }
+
   // Cursor reports two model pools, and the bar must show both. Reading the
   // sections here keeps the chip correct even when a hot reload is still
   // holding an older copy of Model.js, which only kept the higher pool.
   function cursorPools(item) {
+    var pools = null
     if (typeof Model.cursorDualHeadline === "function") {
       var dual = Model.cursorDualHeadline(item, cursorPoolFlags())
-      if (dual && dual.text) return {
+      if (dual && dual.text) pools = {
         text: dual.text,
         tooltip: dual.tooltip || dual.text,
         severity: dual.severity,
@@ -448,26 +535,30 @@ Panel {
         tooltipRows: dual.tooltipRows || []
       }
     }
-    if (!item) return null
-    var id = String(item.id || "")
-    var at = id.indexOf("@")
-    if ((at < 0 ? id : id.slice(0, at)) !== "cursor") return null
-    var sections = item.sections || []
-    var auto = null
-    var api = null
-    for (var i = 0; i < sections.length; i++) {
-      var row = sections[i]
-      if (!row || row.type !== "metric") continue
-      if (row.label === "Cursor Models") auto = row.percent
-      else if (row.label === "Other Models") api = row.percent
+    if (!pools && item) {
+      var id = String(item.id || "")
+      var at = id.indexOf("@")
+      if ((at < 0 ? id : id.slice(0, at)) === "cursor") {
+        var sections = item.sections || []
+        var auto = null
+        var api = null
+        for (var i = 0; i < sections.length; i++) {
+          var row = sections[i]
+          if (!row || row.type !== "metric") continue
+          if (row.label === "Cursor Models") auto = row.percent
+          else if (row.label === "Other Models") api = row.percent
+        }
+        if (auto !== null && api !== null && auto !== undefined && api !== undefined) {
+          pools = {
+            text: auto + "% · " + api + "%",
+            tooltip: "Cursor Models " + auto + "% · Other Models " + api + "%",
+            segments: [],
+            tooltipRows: []
+          }
+        }
+      }
     }
-    if (auto === null || api === null || auto === undefined || api === undefined) return null
-    return {
-      text: auto + "% · " + api + "%",
-      tooltip: "Cursor Models " + auto + "% · Other Models " + api + "%",
-      segments: [],
-      tooltipRows: []
-    }
+    return withCreditGrants(pools, item)
   }
 
   function panelHeadline(item) {
