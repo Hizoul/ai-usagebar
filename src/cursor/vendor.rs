@@ -331,6 +331,22 @@ mod tests {
     }
 
     #[test]
+    fn api_plan_is_pango_escaped_in_custom_formats() {
+        let mut snap = sample_snap();
+        snap.plan = "Pro & Ultra <beta>".into();
+        let outcome = sample_outcome(snap.clone());
+        let mut o = opts();
+        o.format = Some("{plan}".into());
+        o.tooltip_format = Some("{cursor_plan}".into());
+
+        let out = render(&outcome, &snap, &Theme::default(), &o, now());
+        assert!(!out.text.contains(" & "));
+        assert!(!out.tooltip.contains('<'));
+        assert!(out.text.contains("Cursor Pro &amp; Ultra &lt;beta&gt;"));
+        assert_eq!(out.tooltip, "Pro &amp; Ultra &lt;beta&gt;");
+    }
+
+    #[test]
     fn generic_windows_map_to_the_two_pools() {
         let values = build_placeholders(&sample_snap(), now());
         assert_eq!(values["session_pct"], "98"); // Cursor Models (auto)
