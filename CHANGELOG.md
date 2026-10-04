@@ -25,6 +25,15 @@ Each release is also published at
   the projection boundary, matching the established pattern in other vendors
   (fixes #333).
 
+- **KDE plasmoid: a full Claude Code session no longer stands in for quota.**
+  With `[context] enabled = true`, each recent session reaches the Claude entry
+  as a grouped "Sessions" row whose percent is how full its context window is.
+  The headline picked the highest percent over every row, so a session at 90%
+  became the plasmoid's headline value, coloured it critical and triggered the
+  alarm while the 5h and weekly quotas were low. The plasmoid now reads the
+  ungrouped quota rows; grouped rows only stand in when an entry has nothing
+  else (fixes #332).
+
 ## [1.31.0] — 2026-10-03
 
 ### Added

@@ -145,6 +145,7 @@ function normalizeSection(raw) {
         return {
             type: 'metric',
             label: safeText(raw.label, 120),
+            group: safeText(raw && raw.group, 80),
             value: safeText(raw.value, 40),
             percent: percent,
             detail: safeText(raw.detail, 400),
@@ -285,17 +286,30 @@ export function headline(entry) {
     if (!entry)
         return {text: '', percent: null, severity: 'low', label: ''};
     let best = null;
-    for (const s of entry.sections)
-        if (s.type === 'metric' && s.percent !== null && (!best || s.percent > best.percent))
-            best = s;
-    if (best) {
+    let grouped = null;
+    for (const s of entry.sections) {
+        if (s.type === 'metric' && s.percent !== null) {
+            // A grouped row sits under its own heading below the meters (the
+            // Claude entry's context sessions, SuperGrok's product slices).
+            // It is not a quota window, so it stands in only when the entry
+            // has nothing else.
+            if (s.group) {
+                if (!grouped || s.percent > grouped.percent)
+                    grouped = s;
+            } else if (!best || s.percent > best.percent) {
+                best = s;
+            }
+        }
+    }
+    const chosen = best || grouped;
+    if (chosen) {
         // An older report omits the field; a metric is a percentage by default.
-        const showsValue = best.headline === 'value' && best.value !== '';
+        const showsValue = chosen.headline === 'value' && chosen.value !== '';
         return {
-            text: showsValue ? best.value : `${best.percent}%`,
-            percent: best.percent,
-            severity: best.severity,
-            label: best.label,
+            text: showsValue ? chosen.value : `${chosen.percent}%`,
+            percent: chosen.percent,
+            severity: chosen.severity,
+            label: chosen.label,
         };
     }
     for (const s of entry.sections)
