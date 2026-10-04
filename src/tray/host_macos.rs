@@ -1676,12 +1676,21 @@ fn draw_fitted_mark(image: &NSImage, x: f64, y: f64) {
         ),
         size: NSSize::new(width, height),
     };
-    image.drawInRect_fromRect_operation_fraction(
-        destination,
-        source,
-        NSCompositingOperation::SourceOver,
-        1.0,
-    );
+    // The strip is drawn in a flipped context so text lays out top-down.
+    // Plain `drawInRect:fromRect:operation:fraction:` ignores that and paints
+    // the mark upside down, which only showed on asymmetric marks (Z.AI's Z
+    // read as a mirrored S); `respectFlipped` keeps it upright.
+    // SAFETY: no hints dictionary is passed, so its generic type is moot.
+    unsafe {
+        image.drawInRect_fromRect_operation_fraction_respectFlipped_hints(
+            destination,
+            source,
+            NSCompositingOperation::SourceOver,
+            1.0,
+            true,
+            None,
+        );
+    }
 }
 
 fn template_bars_image(fractions: &[f64]) -> Option<Retained<NSImage>> {
