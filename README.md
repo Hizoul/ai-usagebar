@@ -174,7 +174,14 @@ three-letter code Waybar's `{vendor_short}` prints, so a bar cycling several
 providers says which one it is showing. Use **Top bar usage window** to pin the
 bar to one quota window — auto (highest), 5-hour, weekly, or monthly — instead
 of always showing the highest percent; the tooltip and panel hero echo the
-pinned value while panel rows and alert state still follow the highest quota.
+pinned value while panel rows list every window. **Show usage as** reads
+percentages as what is used (the default) or what is left of the same window.
+**Show provider logos** draws each provider's own mark; turn it off for the
+generic robot icon. Every metric row in the panel has an eye that hides that
+metric from the bar and the tooltip, per provider or account; a hidden metric
+is also left out of the highest percent that sets the bar value and the alert
+state, which follows the used share in either reading. The settings page is an
+accordion: one section open at a time, the first open by default.
 
 The source-built `ai-usagebar` AUR package can replace `ai-usagebar-bin` in
 the first command.
@@ -781,7 +788,14 @@ The widget reads the providers and accounts already enabled in
 - QML settings can pin the bar to one quota window — auto (highest),
   5-hour, weekly, or monthly — instead of always showing the highest
   percent. The tooltip and panel hero echo the pinned value; panel rows
-  and alert state still follow the highest quota.
+  list every window.
+- QML settings can read percentages as what is used (the default) or what is
+  left of the same window, and can turn the provider logos off for the generic
+  robot icon. Both apply immediately.
+- Each panel metric row has an eye that hides it from the bar and the tooltip
+  for that provider or account. A hidden metric is ignored when the bar picks
+  the highest percent and when it decides whether the icon is alarming, which
+  follows the used share in either reading.
 - Right-click launches the TUI.
 - Middle-click or the mouse wheel switches providers.
 - The selected provider or named account is remembered across shell reloads

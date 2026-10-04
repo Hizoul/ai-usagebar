@@ -22,6 +22,10 @@ Column {
   property string uiLocale: "en"
   property string uiLocaleSetting: "auto"
   property string barWindow: "auto"
+  property string showAs: "used"
+  property bool brandIcons: true
+  property string openSection: "display"
+  property int keyPendingCount: 0
   readonly property color dim: Qt.darker(foreground, 1.45)
 
   property var snapshot: ({ primary_choices: [], keys: [], vendors: [] })
@@ -55,6 +59,8 @@ Column {
   signal colorCodeUsageRequested(bool enabled)
   signal uiLocaleRequested(string value)
   signal barWindowRequested(string value)
+  signal showAsRequested(string value)
+  signal brandIconsRequested(bool enabled)
   signal closeRequested()
 
   spacing: Style.space(12)
@@ -139,6 +145,37 @@ Column {
     vendorPendingCount = Object.keys(next).length
   }
 
+  function vendorSummary() {
+    var list = snapshot.vendors || []
+    var on = 0
+    for (var i = 0; i < list.length; i++) {
+      var pending = vendorOverrides[list[i].id]
+      var effective = pending === true || pending === false ? pending : list[i].enabled
+      if (effective) on++
+    }
+    return (vendorPendingCount > 0 ? "● " : "") + on + "/" + list.length
+  }
+
+  function toggleSection(id) {
+    openSection = openSection === id ? "" : id
+  }
+
+  function primaryLabel() {
+    var choices = snapshot.primary_choices || []
+    for (var i = 0; i < choices.length; i++)
+      if (choices[i].id === selectedPrimary) return safe(choices[i].label)
+    return ""
+  }
+
+  function recountKeys() {
+    var count = 0
+    for (var i = 0; i < keyRepeater.count; i++) {
+      var row = keyRepeater.itemAt(i)
+      if (row && row.pendingAction !== "unchanged") count++
+    }
+    keyPendingCount = count
+  }
+
   function resetVendorOverrides() {
     vendorOverrides = ({})
     vendorPendingCount = 0
@@ -187,6 +224,7 @@ Column {
 
   onVisibleChanged: {
     if (visible) {
+      openSection = "display"
       load()
       Qt.callLater(function() { root.forceActiveFocus() })
     }
@@ -261,89 +299,66 @@ Column {
     width: parent.width
     spacing: Style.space(8)
 
-    PanelSectionHeader {
+    Disclosure {
       text: root.tr("section.display")
-      foreground: root.foreground
-      fontFamily: root.fontFamily
+      expanded: root.openSection === "display"
+      onToggled: root.toggleSection("display")
     }
-    Toggle {
+    Column {
+      visible: root.openSection === "display"
       width: parent.width
-      label: root.tr("toggle.show_value")
-      description: root.tr("toggle.show_value_desc")
-      checked: root.showValue
-      foreground: root.foreground
-      fontFamily: root.fontFamily
-      enabled: !root.saving
-      onClicked: root.showValueRequested(!root.showValue)
-    }
-    Toggle {
-      width: parent.width
-      label: root.tr("toggle.show_provider")
-      description: root.tr("toggle.show_provider_desc")
-      checked: root.showProvider
-      foreground: root.foreground
-      fontFamily: root.fontFamily
-      enabled: !root.saving
-      onClicked: root.showProviderRequested(!root.showProvider)
-    }
-    Toggle {
-      width: parent.width
-      label: root.tr("toggle.show_all")
-      description: root.tr("toggle.show_all_desc")
-      checked: root.showAll
-      foreground: root.foreground
-      fontFamily: root.fontFamily
-      enabled: !root.saving
-      onClicked: root.showAllRequested(!root.showAll)
-    }
-    Toggle {
-      width: parent.width
-      label: root.tr("toggle.color_code")
-      description: root.tr("toggle.color_code_desc")
-      checked: root.colorCodeUsage
-      foreground: root.foreground
-      fontFamily: root.fontFamily
-      enabled: !root.saving
-      onClicked: root.colorCodeUsageRequested(!root.colorCodeUsage)
-    }
-  }
+      spacing: Style.space(8)
 
-  Column {
-    visible: !root.loading
-    width: parent.width
-    spacing: Style.space(8)
-
-    PanelSectionHeader {
-      text: root.tr("section.language")
-      foreground: root.foreground
-      fontFamily: root.fontFamily
-    }
-    Text {
-      width: parent.width
-      text: root.tr("language.help")
-      textFormat: Text.PlainText
-      color: root.dim
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.caption
-      wrapMode: Text.WordWrap
-    }
-    Dropdown {
-      width: parent.width
-      showLabel: false
-      value: {
-        var tag = I18n.normalizeLocaleTag(root.uiLocaleSetting)
-        return tag === "" ? "auto" : tag
+      Toggle {
+        width: parent.width
+        label: root.tr("toggle.show_value")
+        description: root.tr("toggle.show_value_desc")
+        checked: root.showValue
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        enabled: !root.saving
+        onClicked: root.showValueRequested(!root.showValue)
       }
-      options: [
-        { value: "auto", label: root.tr("language.auto") },
-        { value: "en", label: root.tr("language.en") },
-        { value: "pt-BR", label: root.tr("language.pt-BR") },
-        { value: "ru", label: root.tr("language.ru") }
-      ]
-      foreground: root.foreground
-      fontFamily: root.fontFamily
-      enabled: !root.saving
-      onChanged: function(value) { root.uiLocaleRequested(value) }
+      Toggle {
+        width: parent.width
+        label: root.tr("toggle.brand_icons")
+        description: root.tr("toggle.brand_icons_desc")
+        checked: root.brandIcons
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        enabled: !root.saving
+        onClicked: root.brandIconsRequested(!root.brandIcons)
+      }
+      Toggle {
+        width: parent.width
+        label: root.tr("toggle.show_provider")
+        description: root.tr("toggle.show_provider_desc")
+        checked: root.showProvider
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        enabled: !root.saving
+        onClicked: root.showProviderRequested(!root.showProvider)
+      }
+      Toggle {
+        width: parent.width
+        label: root.tr("toggle.color_code")
+        description: root.tr("toggle.color_code_desc")
+        checked: root.colorCodeUsage
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        enabled: !root.saving
+        onClicked: root.colorCodeUsageRequested(!root.colorCodeUsage)
+      }
+      Toggle {
+        width: parent.width
+        label: root.tr("toggle.show_all")
+        description: root.tr("toggle.show_all_desc")
+        checked: root.showAll
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        enabled: !root.saving
+        onClicked: root.showAllRequested(!root.showAll)
+      }
     }
   }
 
@@ -352,34 +367,128 @@ Column {
     width: parent.width
     spacing: Style.space(8)
 
-    PanelSectionHeader {
+    Disclosure {
+      text: root.tr("section.language")
+      badge: root.tr("language." + (I18n.normalizeLocaleTag(root.uiLocaleSetting) || "auto"))
+      expanded: root.openSection === "language"
+      onToggled: root.toggleSection("language")
+    }
+    Column {
+      visible: root.openSection === "language"
+      width: parent.width
+      spacing: Style.space(8)
+
+      Text {
+        width: parent.width
+        text: root.tr("language.help")
+        textFormat: Text.PlainText
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        wrapMode: Text.WordWrap
+      }
+      Dropdown {
+        width: parent.width
+        showLabel: false
+        value: {
+          var tag = I18n.normalizeLocaleTag(root.uiLocaleSetting)
+          return tag === "" ? "auto" : tag
+        }
+        options: [
+          { value: "auto", label: root.tr("language.auto") },
+          { value: "en", label: root.tr("language.en") },
+          { value: "pt-BR", label: root.tr("language.pt-BR") },
+          { value: "ru", label: root.tr("language.ru") }
+        ]
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        enabled: !root.saving
+        onChanged: function(value) { root.uiLocaleRequested(value) }
+      }
+    }
+  }
+
+  Column {
+    visible: !root.loading
+    width: parent.width
+    spacing: Style.space(8)
+
+    Disclosure {
       text: root.tr("section.bar_window")
-      foreground: root.foreground
-      fontFamily: root.fontFamily
+      badge: root.tr("bar_window." + Model.normalizeBarWindow(root.barWindow))
+      expanded: root.openSection === "barWindow"
+      onToggled: root.toggleSection("barWindow")
     }
-    Text {
+    Column {
+      visible: root.openSection === "barWindow"
       width: parent.width
-      text: root.tr("bar_window.help")
-      textFormat: Text.PlainText
-      color: root.dim
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.caption
-      wrapMode: Text.WordWrap
+      spacing: Style.space(8)
+
+      Text {
+        width: parent.width
+        text: root.tr("bar_window.help")
+        textFormat: Text.PlainText
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        wrapMode: Text.WordWrap
+      }
+      Dropdown {
+        width: parent.width
+        showLabel: false
+        value: Model.normalizeBarWindow(root.barWindow)
+        options: [
+          { value: "auto", label: root.tr("bar_window.auto") },
+          { value: "session", label: root.tr("bar_window.session") },
+          { value: "weekly", label: root.tr("bar_window.weekly") },
+          { value: "monthly", label: root.tr("bar_window.monthly") }
+        ]
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        enabled: !root.saving
+        onChanged: function(value) { root.barWindowRequested(value) }
+      }
     }
-    Dropdown {
+  }
+
+  Column {
+    visible: !root.loading
+    width: parent.width
+    spacing: Style.space(8)
+
+    Disclosure {
+      text: root.tr("section.show_as")
+      badge: root.tr("show_as." + Model.normalizeShowAs(root.showAs))
+      expanded: root.openSection === "showAs"
+      onToggled: root.toggleSection("showAs")
+    }
+    Column {
+      visible: root.openSection === "showAs"
       width: parent.width
-      showLabel: false
-      value: Model.normalizeBarWindow(root.barWindow)
-      options: [
-        { value: "auto", label: root.tr("bar_window.auto") },
-        { value: "session", label: root.tr("bar_window.session") },
-        { value: "weekly", label: root.tr("bar_window.weekly") },
-        { value: "monthly", label: root.tr("bar_window.monthly") }
-      ]
-      foreground: root.foreground
-      fontFamily: root.fontFamily
-      enabled: !root.saving
-      onChanged: function(value) { root.barWindowRequested(value) }
+      spacing: Style.space(8)
+
+      Text {
+        width: parent.width
+        text: root.tr("show_as.help")
+        textFormat: Text.PlainText
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        wrapMode: Text.WordWrap
+      }
+      Dropdown {
+        width: parent.width
+        showLabel: false
+        value: Model.normalizeShowAs(root.showAs)
+        options: [
+          { value: "used", label: root.tr("show_as.used") },
+          { value: "left", label: root.tr("show_as.left") }
+        ]
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        enabled: !root.saving
+        onChanged: function(value) { root.showAsRequested(value) }
+      }
     }
   }
 
@@ -436,30 +545,37 @@ Column {
     width: parent.width
     spacing: Style.space(8)
 
-    PanelSectionHeader {
+    Disclosure {
       text: root.tr("section.primary")
-      foreground: root.foreground
-      fontFamily: root.fontFamily
+      badge: root.primaryLabel()
+      expanded: root.openSection === "primary"
+      onToggled: root.toggleSection("primary")
     }
-    Text {
+    Column {
+      visible: root.openSection === "primary"
       width: parent.width
-      text: root.tr("primary.help")
-      textFormat: Text.PlainText
-      color: root.dim
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.caption
-      wrapMode: Text.WordWrap
-    }
-    Dropdown {
-      id: primaryDropdown
-      width: parent.width
-      showLabel: false
-      value: root.selectedPrimary
-      options: root.snapshot.primary_choices
-      foreground: root.foreground
-      fontFamily: root.fontFamily
-      enabled: !root.saving
-      onChanged: function(value) { root.selectedPrimary = value }
+      spacing: Style.space(8)
+
+      Text {
+        width: parent.width
+        text: root.tr("primary.help")
+        textFormat: Text.PlainText
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        wrapMode: Text.WordWrap
+      }
+      Dropdown {
+        id: primaryDropdown
+        width: parent.width
+        showLabel: false
+        value: root.selectedPrimary
+        options: root.snapshot.primary_choices
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        enabled: !root.saving
+        onChanged: function(value) { root.selectedPrimary = value }
+      }
     }
   }
 
@@ -468,44 +584,47 @@ Column {
     width: parent.width
     spacing: Style.space(8)
 
-    PanelSeparator {
-      width: parent.width
-      foreground: root.foreground
-    }
-    PanelSectionHeader {
+    Disclosure {
       text: root.tr("section.providers")
-      foreground: root.foreground
-      fontFamily: root.fontFamily
+      badge: root.vendorSummary()
+      expanded: root.openSection === "providers"
+      onToggled: root.toggleSection("providers")
     }
-    Text {
+    Column {
+      visible: root.openSection === "providers"
       width: parent.width
-      text: root.tr("providers.help")
-      textFormat: Text.PlainText
-      color: root.dim
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.caption
-      wrapMode: Text.WordWrap
-    }
-    Repeater {
-      model: root.snapshot.vendors
+      spacing: Style.space(8)
 
-      Toggle {
-        required property var modelData
+      Text {
         width: parent.width
-        label: root.safe(modelData.label)
-        description: {
-          var pending = root.vendorOverrides[modelData.id]
-          var effective = pending === true || pending === false ? pending : modelData.enabled
-          return effective ? root.tr("status.vendor_on") : root.tr("status.vendor_off")
+        text: root.tr("providers.help")
+        textFormat: Text.PlainText
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        wrapMode: Text.WordWrap
+      }
+      Repeater {
+        model: root.snapshot.vendors
+
+        Toggle {
+          required property var modelData
+          width: parent.width
+          label: root.safe(modelData.label)
+          description: {
+            var pending = root.vendorOverrides[modelData.id]
+            var effective = pending === true || pending === false ? pending : modelData.enabled
+            return effective ? root.tr("status.vendor_on") : root.tr("status.vendor_off")
+          }
+          checked: {
+            var pending = root.vendorOverrides[modelData.id]
+            return pending === true || pending === false ? pending : modelData.enabled
+          }
+          foreground: root.foreground
+          fontFamily: root.fontFamily
+          enabled: !root.saving
+          onClicked: root.setVendorOverride(modelData.id, !checked)
         }
-        checked: {
-          var pending = root.vendorOverrides[modelData.id]
-          return pending === true || pending === false ? pending : modelData.enabled
-        }
-        foreground: root.foreground
-        fontFamily: root.fontFamily
-        enabled: !root.saving
-        onClicked: root.setVendorOverride(modelData.id, !checked)
       }
     }
   }
@@ -515,216 +634,216 @@ Column {
     width: parent.width
     spacing: Style.space(10)
 
-    PanelSeparator {
-      width: parent.width
-      foreground: root.foreground
-    }
-    PanelSectionHeader {
-      text: root.tr("section.auth")
-      foreground: root.foreground
-      fontFamily: root.fontFamily
-    }
-    Text {
-      width: parent.width
-      text: root.tr("auth.help")
-      textFormat: Text.PlainText
-      color: root.dim
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.caption
-      wrapMode: Text.WordWrap
-    }
-    Button {
-      width: parent.width
-      text: root.tr("auth.nous")
-      iconText: "󰍂"
-      bordered: true
-      focusable: true
-      foreground: root.foreground
-      fontFamily: root.fontFamily
-      enabled: !root.saving
-      onClicked: {
-        root.statusText = root.tr("status.nous_login")
-        root.nousLoginRequested()
-      }
-    }
-    Button {
-      width: parent.width
-      text: root.tr("auth.copilot")
-      iconText: "󰊤"
-      bordered: true
-      focusable: true
-      foreground: root.foreground
-      fontFamily: root.fontFamily
-      enabled: !root.saving
-      onClicked: {
-        root.statusText = root.tr("status.copilot_login")
-        root.copilotLoginRequested()
-      }
-    }
-  }
-
-  Column {
-    visible: !root.loading && root.snapshot.keys.length > 0
-    width: parent.width
-    spacing: Style.space(10)
-
-    PanelSeparator {
-      width: parent.width
-      foreground: root.foreground
-    }
-    PanelSectionHeader {
+    Disclosure {
       text: root.tr("section.credentials")
-      foreground: root.foreground
-      fontFamily: root.fontFamily
+      badge: root.keyPendingCount > 0 ? "● " + root.keyPendingCount : ""
+      expanded: root.openSection === "credentials"
+      onToggled: root.toggleSection("credentials")
     }
-    Text {
+    Column {
+      visible: root.openSection === "credentials"
       width: parent.width
-      text: root.tr("credentials.help")
-      textFormat: Text.PlainText
-      color: root.dim
-      font.family: root.fontFamily
-      font.pixelSize: Style.font.caption
-      wrapMode: Text.WordWrap
-    }
+      spacing: Style.space(10)
 
-    Repeater {
-      id: keyRepeater
-      model: root.snapshot.keys
+      PanelSectionHeader {
+        text: root.tr("section.auth")
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+      }
+      Text {
+        width: parent.width
+        text: root.tr("auth.help")
+        textFormat: Text.PlainText
+        color: root.dim
+        font.family: root.fontFamily
+        font.pixelSize: Style.font.caption
+        wrapMode: Text.WordWrap
+      }
+      Button {
+        width: parent.width
+        text: root.tr("auth.nous")
+        iconText: "󰍂"
+        bordered: true
+        focusable: true
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        enabled: !root.saving
+        onClicked: {
+          root.statusText = root.tr("status.nous_login")
+          root.nousLoginRequested()
+        }
+      }
+      Button {
+        width: parent.width
+        text: root.tr("auth.copilot")
+        iconText: "󰊤"
+        bordered: true
+        focusable: true
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        enabled: !root.saving
+        onClicked: {
+          root.statusText = root.tr("status.copilot_login")
+          root.copilotLoginRequested()
+        }
+      }
 
-      BorderSurface {
-        id: keyCard
-        required property var modelData
-        readonly property string vendorId: String(modelData.id || "")
-        property string pendingAction: "unchanged"
-        property alias secretText: keyField.text
+    Column {
+      visible: root.snapshot.keys.length > 0
+      width: parent.width
+      spacing: Style.space(10)
 
-        function scrub() {
-          keyField.text = ""
-          pendingAction = "unchanged"
+        Text {
+          width: parent.width
+          text: root.tr("credentials.help")
+          textFormat: Text.PlainText
+          color: root.dim
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          wrapMode: Text.WordWrap
         }
 
-        width: keyRepeater.parent.width
-        implicitHeight: keyColumn.implicitHeight + Style.spacing.xl * 2
-        color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.035)
-        borderSpec: Border.flat(Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.10), 1)
-        radius: Style.cornerRadius
+        Repeater {
+          id: keyRepeater
+          model: root.snapshot.keys
 
-        Column {
-          id: keyColumn
-          anchors.left: parent.left
-          anchors.right: parent.right
-          anchors.verticalCenter: parent.verticalCenter
-          anchors.leftMargin: Style.space(12)
-          anchors.rightMargin: Style.space(12)
-          spacing: Style.space(6)
+          BorderSurface {
+            id: keyCard
+            required property var modelData
+            readonly property string vendorId: String(modelData.id || "")
+            property string pendingAction: "unchanged"
+            property alias secretText: keyField.text
+            onPendingActionChanged: root.recountKeys()
 
-          Item {
-            width: parent.width
-            implicitHeight: Math.max(keyLabel.implicitHeight, keyStatus.implicitHeight)
+            function scrub() {
+              keyField.text = ""
+              pendingAction = "unchanged"
+            }
 
-            Text {
-              id: keyLabel
+            width: keyRepeater.parent.width
+            implicitHeight: keyColumn.implicitHeight + Style.spacing.xl * 2
+            color: Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.035)
+            borderSpec: Border.flat(Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.10), 1)
+            radius: Style.cornerRadius
+
+            Column {
+              id: keyColumn
               anchors.left: parent.left
-              anchors.right: keyStatus.left
-              anchors.rightMargin: Style.spacing.md
-              text: root.safe(keyCard.modelData.label)
-              textFormat: Text.PlainText
-              color: root.foreground
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.bodySmall
-              font.bold: true
-              elide: Text.ElideRight
-            }
-            Text {
-              id: keyStatus
               anchors.right: parent.right
-              text: keyCard.pendingAction === "clear" ? root.tr("status.will_clear")
-                : keyCard.pendingAction === "set" ? root.tr("credentials.new_key")
-                : keyCard.modelData.environment_configured ? root.tr("credentials.env_override")
-                : keyCard.modelData.inline_configured ? root.tr("credentials.stored")
-                : root.tr("credentials.not_configured")
-              textFormat: Text.PlainText
-              color: keyCard.pendingAction === "clear" ? root.urgent : root.dim
-              font.family: root.fontFamily
-              font.pixelSize: Style.font.caption
-            }
-          }
+              anchors.verticalCenter: parent.verticalCenter
+              anchors.leftMargin: Style.space(12)
+              anchors.rightMargin: Style.space(12)
+              spacing: Style.space(6)
 
-          // Env var stays on its own line (identifier, may elide). Role +
-          // note wrap below so long hints are readable instead of cutting
-          // mid-word as "mont…" / "sp…".
-          Text {
-            visible: text !== ""
-            width: parent.width
-            text: keyCard.modelData.environment ? root.safe(keyCard.modelData.environment) : ""
-            textFormat: Text.PlainText
-            color: root.dim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            elide: Text.ElideRight
-          }
-          Text {
-            visible: text !== ""
-            width: parent.width
-            text: {
-              var parts = []
-              var secret = I18n.displaySecretLabel(root.uiLocale, keyCard.modelData.secret_label)
-              var note = I18n.displayNote(root.uiLocale, keyCard.modelData.note)
-              if (secret) parts.push(secret)
-              if (note) parts.push(note)
-              return parts.join(" · ")
-            }
-            textFormat: Text.PlainText
-            color: root.dim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.caption
-            wrapMode: Text.WordWrap
-          }
+              Item {
+                width: parent.width
+                implicitHeight: Math.max(keyLabel.implicitHeight, keyStatus.implicitHeight)
 
-          Row {
-            width: parent.width
-            spacing: Style.space(8)
+                Text {
+                  id: keyLabel
+                  anchors.left: parent.left
+                  anchors.right: keyStatus.left
+                  anchors.rightMargin: Style.spacing.md
+                  text: root.safe(keyCard.modelData.label)
+                  textFormat: Text.PlainText
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.bodySmall
+                  font.bold: true
+                  elide: Text.ElideRight
+                }
+                Text {
+                  id: keyStatus
+                  anchors.right: parent.right
+                  text: keyCard.pendingAction === "clear" ? root.tr("status.will_clear")
+                    : keyCard.pendingAction === "set" ? root.tr("credentials.new_key")
+                    : keyCard.modelData.environment_configured ? root.tr("credentials.env_override")
+                    : keyCard.modelData.inline_configured ? root.tr("credentials.stored")
+                    : root.tr("credentials.not_configured")
+                  textFormat: Text.PlainText
+                  color: keyCard.pendingAction === "clear" ? root.urgent : root.dim
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+              }
 
-            TextField {
-              id: keyField
-              width: parent.width - clearButton.width - parent.spacing
-              password: true
-              enabled: !root.saving && keyCard.pendingAction !== "clear"
-              placeholderText: keyCard.modelData.configured
-                ? root.tr("credentials.keep_blank")
-                : root.tr("credentials.paste", {
-                    label: I18n.displaySecretLabel(root.uiLocale, keyCard.modelData.secret_label)
-                      || root.tr("credentials.credential")
-                  })
-              foreground: root.foreground
-              onTextEdited: keyCard.pendingAction = text.length > 0 ? "set" : "unchanged"
-              Keys.onEscapePressed: focus = false
-              onAccepted: root.save()
-            }
+              // Env var stays on its own line (identifier, may elide). Role +
+              // note wrap below so long hints are readable instead of cutting
+              // mid-word as "mont…" / "sp…".
+              Text {
+                visible: text !== ""
+                width: parent.width
+                text: keyCard.modelData.environment ? root.safe(keyCard.modelData.environment) : ""
+                textFormat: Text.PlainText
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                elide: Text.ElideRight
+              }
+              Text {
+                visible: text !== ""
+                width: parent.width
+                text: {
+                  var parts = []
+                  var secret = I18n.displaySecretLabel(root.uiLocale, keyCard.modelData.secret_label)
+                  var note = I18n.displayNote(root.uiLocale, keyCard.modelData.note)
+                  if (secret) parts.push(secret)
+                  if (note) parts.push(note)
+                  return parts.join(" · ")
+                }
+                textFormat: Text.PlainText
+                color: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.caption
+                wrapMode: Text.WordWrap
+              }
 
-            PanelActionButton {
-              id: clearButton
-              anchors.verticalCenter: keyField.verticalCenter
-              iconText: keyCard.pendingAction === "clear" ? "󰕌" : "󰆴"
-              tooltipText: keyCard.pendingAction === "clear"
-                ? root.tr("credentials.keep_key") : root.tr("credentials.clear_key")
-              foreground: root.foreground
-              hoverColor: keyCard.pendingAction === "clear" ? root.foreground : root.urgent
-              fontFamily: root.fontFamily
-              focusable: true
-              enabled: !root.saving && (keyCard.modelData.inline_configured || keyCard.pendingAction === "clear")
-              onClicked: {
-                if (keyCard.pendingAction === "clear") {
-                  keyCard.pendingAction = "unchanged"
-                } else {
-                  keyField.text = ""
-                  keyCard.pendingAction = "clear"
+              Row {
+                width: parent.width
+                spacing: Style.space(8)
+
+                TextField {
+                  id: keyField
+                  width: parent.width - clearButton.width - parent.spacing
+                  password: true
+                  enabled: !root.saving && keyCard.pendingAction !== "clear"
+                  placeholderText: keyCard.modelData.configured
+                    ? root.tr("credentials.keep_blank")
+                    : root.tr("credentials.paste", {
+                        label: I18n.displaySecretLabel(root.uiLocale, keyCard.modelData.secret_label)
+                          || root.tr("credentials.credential")
+                      })
+                  foreground: root.foreground
+                  onTextEdited: keyCard.pendingAction = text.length > 0 ? "set" : "unchanged"
+                  Keys.onEscapePressed: focus = false
+                  onAccepted: root.save()
+                }
+
+                PanelActionButton {
+                  id: clearButton
+                  anchors.verticalCenter: keyField.verticalCenter
+                  iconText: keyCard.pendingAction === "clear" ? "󰕌" : "󰆴"
+                  tooltipText: keyCard.pendingAction === "clear"
+                    ? root.tr("credentials.keep_key") : root.tr("credentials.clear_key")
+                  foreground: root.foreground
+                  hoverColor: keyCard.pendingAction === "clear" ? root.foreground : root.urgent
+                  fontFamily: root.fontFamily
+                  focusable: true
+                  enabled: !root.saving && (keyCard.modelData.inline_configured || keyCard.pendingAction === "clear")
+                  onClicked: {
+                    if (keyCard.pendingAction === "clear") {
+                      keyCard.pendingAction = "unchanged"
+                    } else {
+                      keyField.text = ""
+                      keyCard.pendingAction = "clear"
+                    }
+                  }
                 }
               }
             }
           }
         }
-      }
+    }
     }
   }
 
@@ -766,5 +885,73 @@ Column {
     fontFamily: root.fontFamily
     enabled: root.canSave
     onClicked: root.save()
+  }
+
+  component Disclosure: Item {
+    id: disclosure
+    property string text: ""
+    property string badge: ""
+    property bool expanded: false
+    signal toggled()
+
+    width: parent ? parent.width : 0
+    implicitHeight: Style.spacing.controlHeight
+    activeFocusOnTab: true
+    Keys.onReturnPressed: disclosure.toggled()
+    Keys.onEnterPressed: disclosure.toggled()
+    Keys.onSpacePressed: disclosure.toggled()
+
+    Rectangle {
+      anchors.fill: parent
+      radius: Style.cornerRadius
+      color: disclosureMouse.containsMouse || disclosure.activeFocus
+        ? Qt.rgba(root.foreground.r, root.foreground.g, root.foreground.b, 0.08) : "transparent"
+    }
+    Text {
+      id: disclosureChevron
+      anchors.left: parent.left
+      anchors.leftMargin: Style.space(8)
+      anchors.verticalCenter: parent.verticalCenter
+      text: disclosure.expanded ? "󰅀" : "󰅂"
+      textFormat: Text.PlainText
+      color: root.foreground
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.body
+    }
+    Text {
+      anchors.left: disclosureChevron.right
+      anchors.leftMargin: Style.space(8)
+      anchors.right: disclosureBadge.left
+      anchors.rightMargin: Style.spacing.md
+      anchors.verticalCenter: parent.verticalCenter
+      text: disclosure.text
+      textFormat: Text.PlainText
+      color: root.foreground
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.bodySmall
+      font.bold: true
+      elide: Text.ElideRight
+    }
+    Text {
+      id: disclosureBadge
+      anchors.right: parent.right
+      anchors.rightMargin: Style.space(8)
+      anchors.verticalCenter: parent.verticalCenter
+      text: disclosure.badge
+      textFormat: Text.PlainText
+      color: root.dim
+      font.family: root.fontFamily
+      font.pixelSize: Style.font.caption
+    }
+    MouseArea {
+      id: disclosureMouse
+      anchors.fill: parent
+      hoverEnabled: true
+      cursorShape: Qt.PointingHandCursor
+      onClicked: {
+        disclosure.forceActiveFocus()
+        disclosure.toggled()
+      }
+    }
   }
 }

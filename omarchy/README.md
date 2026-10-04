@@ -56,10 +56,18 @@ omarchy plugin remove akitaonrails.ai-usagebar
   `{vendor_short}` prints — and is off by default. Its **Color-code usage by
   level** toggle paints bar values, panel meters, and the tooltip green →
   yellow → orange → red from the Omarchy theme as usage climbs, and is off by
-  default. Its **Top bar usage window**
+  default. Its **Show provider logos** toggle, on by default, draws each
+  provider's own mark; off, the bar and the panel hero use the generic robot
+  icon of the bar before the marks. Its **Top bar usage window**
   dropdown pins the bar to auto (highest), 5-hour, weekly, or monthly; the
   tooltip and panel hero echo the pinned value while the panel rows keep
-  showing every window and alert state still follows the highest percent.
+  showing every window and alert state still follows the highest percent of the
+  metrics not hidden. Its **Show usage as** dropdown reads percentages as what
+  is used (the default) or what is left of the same window, on the bar, tooltip,
+  hero and panel meters. The form is an accordion of Display, Language, Top bar
+  window, Show usage as, Primary provider, Providers and Credentials: one
+  section is open at a time and the first is open by default. A folded section
+  keeps what you typed, so Save still covers it.
   `h`/`l` or Left/Right switches provider, `j`/`k` or Up/Down scrolls, `r`,
   Enter, or Space refreshes, Tab moves to the neighboring bar panel, and Esc
   closes. Mouse-wheel and touchpad scrolling cover long settings forms faster;
@@ -70,7 +78,7 @@ omarchy plugin remove akitaonrails.ai-usagebar
 The panel keeps the last successful report visible when a refresh fails and
 labels it accordingly. Provider-level stale cache responses and hard errors
 are shown inline, and unlike the bar's alert state they do not turn that bar
-red: only the highest-percent window decides whether it is alarming, and a
+red: only the highest-percent visible window decides whether it is alarming, and a
 refresh that yields no report at all still marks it. Absolute reset timestamps
 are rendered as live countdowns, so an open panel stays accurate between
 network refreshes.
@@ -140,6 +148,15 @@ omarchy bar set akitaonrails.ai-usagebar colorCodeUsage true --json
 # default), session (5-hour), weekly (7-day), or monthly. The default is auto.
 omarchy bar set akitaonrails.ai-usagebar barWindow session
 
+# How percentages read: used (the default) or left, the share that remains of
+# the same window. The bar still picks the most-used window; only the number
+# drawn for it changes.
+omarchy bar set akitaonrails.ai-usagebar showAs left
+
+# Provider logos in the top bar and panel. Off restores the generic robot icon
+# (and the short code on each chip with showAll). The default is true.
+omarchy bar set akitaonrails.ai-usagebar brandIcons false --json
+
 # Panel and settings language: auto (follow the system locale, the default),
 # en, ru, or pt-BR.
 omarchy bar set akitaonrails.ai-usagebar uiLocale pt-BR
@@ -169,11 +186,31 @@ the top bar and tooltip only. The open panel, including its header, still
 lists every pool, and the last remaining figure cannot be turned off. A pool
 the report does not contain does not count as that last figure. The bar's
 urgent color follows the pools still on the chip; each panel row keeps its
-own color. For every other provider, panel rows and alert state still follow
-the highest percent. `barWindow` falls
+own color. For every other provider, panel rows list every window and the alert
+state follows the highest percent of the metrics not hidden. `barWindow` falls
 back to the highest percent (balance/text where a vendor has no metric) when
 a vendor lacks the pinned window (a balance-only provider, a weekly-only
 response, or no monthly pool), so the bar never goes blank.
+
+Every metric row in the panel has an eye that hides it from the top bar and the
+tooltip, for that provider only. The choice is saved as `hiddenMetrics` in the
+widget's `shell.json` settings, a map from an entry id to the metric labels
+switched off (`{"zai": ["MCP tools (monthly)"]}`; a metric under a heading is
+keyed `Heading / Label`). A hidden metric is ignored when the bar picks the
+highest percentage and when it decides whether the icon is alarming, so Z.AI
+with Session and Weekly at 0% and the monthly MCP window hidden reads `0%`
+however full that window is. A row under a heading (SuperGrok's product slices,
+Claude's CLI sessions) stands in for the bar only when no other meter is left,
+so hiding every plain window lets such a row set the value and the alert. The
+panel keeps listing the hidden row, dimmed,
+so the eye can bring it back; with every metric of a provider hidden the bar
+shows `—`, or the balance where the provider reports one. Cursor is the
+exception: its row eyes drive the same pool switches as the buttons above
+the list (`showCursorModels` and friends), so the two always agree and the
+last pool cannot be switched off.
+`showAs` changes only the number: Left shows what remains of the most-used
+window (Z.AI's 18% monthly window reads `82%`), and the alert state keeps
+following the used share.
 
 `showProvider` draws the `short_name` the Rust report ships for the selected
 entry, so the codes never fork from Waybar's `{vendor_short}`: `cld 29%`,

@@ -65,6 +65,9 @@ Panel {
   readonly property bool showCursorOther: Model.booleanSetting(setting("showCursorOther", true), true)
   readonly property bool showCursorOnDemand: Model.booleanSetting(setting("showCursorOnDemand", true), true)
   readonly property bool showCursorCredits: Model.booleanSetting(setting("showCursorCredits", true), true)
+  readonly property bool brandIcons: Model.booleanSetting(setting("brandIcons", true), true)
+  readonly property string showAs: Model.normalizeShowAs(setting("showAs", "used"))
+  readonly property var hiddenMetrics: Model.normalizeHiddenMetrics(setting("hiddenMetrics", {}))
   readonly property var visibleEntries: Model.filteredEntries(entries, configuredProvider)
   readonly property int entryIndex: Model.selectedIndex(visibleEntries, selectedEntryId)
   readonly property var entry: entryIndex >= 0 ? visibleEntries[entryIndex] : null
@@ -72,7 +75,11 @@ Panel {
     if (!entry) return ""
     return String(entry.fetched_at || "")
   }
-  readonly property var summary: Model.headline(entry, barWindow)
+  readonly property var shapedEntries: visibleEntries.map(function(item) {
+    return Model.visibleEntry(item, Model.hiddenKeysFor(hiddenMetrics, item.id))
+  })
+  readonly property var shapedEntry: entryIndex >= 0 ? shapedEntries[entryIndex] : null
+  readonly property var summary: Model.headline(shapedEntry, barWindow, showAs)
   // barWindow pins the bar value and its echoes (hero detail, tooltip).
   // Panel rows and alert state keep the historical highest-percent headline,
   // matching every other frontend (Waybar class, KDE isAlarming, TUI).
@@ -80,6 +87,9 @@ Panel {
   // they render as a breakdown of the meter above, not peers of it.
   readonly property bool cursorEntry: isCursorEntry(entry)
   readonly property var entrySections: entry ? Model.groupedSections(entry.sections) : []
+  readonly property bool hasHideableMetrics: !cursorEntry && entrySections.some(function(row) {
+    return row.type === "metric"
+  })
   readonly property bool filterMiss: configuredProvider !== "" && entries.length > 0 && visibleEntries.length === 0
   readonly property bool entryAlarming: shownAlarming()
   // A cached or failed provider response stays a status line, but a report
@@ -236,6 +246,29 @@ Panel {
     persistWidgetSettings({ barWindow: next })
   }
 
+  function setBrandIcons(enabled) {
+    var next = enabled === true
+    if (next === brandIcons) return
+    persistWidgetSettings({ brandIcons: next })
+  }
+
+  function setShowAs(value) {
+    var next = Model.normalizeShowAs(value)
+    if (next === showAs) return
+    persistWidgetSettings({ showAs: next })
+  }
+
+  function metricHidden(item, section) {
+    return item ? Model.isMetricHidden(hiddenMetrics, item.id, section) : false
+  }
+
+  function toggleMetricHidden(item, section) {
+    if (!item || !section) return
+    persistWidgetSettings({
+      hiddenMetrics: Model.toggleHiddenMetric(hiddenMetrics, item.id, Model.metricKey(section))
+    })
+  }
+
   function isCursorEntry(item) {
     if (!item) return false
     var id = String(item.id || "")
@@ -323,7 +356,7 @@ Panel {
   function entryIsAlarming(item) {
     if (!item) return false
     if (isCursorEntry(item) && typeof Model.cursorDualHeadline === "function") {
-      var dual = Model.cursorDualHeadline(item, cursorPoolFlags())
+      var dual = Model.cursorDualHeadline(item, cursorPoolFlags(), showAs)
       // Brand / active chrome only when every visible Cursor pool is critical.
       // A lone exhausted pool still paints that segment red when colour-coding
       // is off; it must not tint the icon while another pool is still fine.
@@ -333,12 +366,12 @@ Panel {
   }
 
   function shownAlarming() {
-    return entryIsAlarming(entry)
+    return entryIsAlarming(shapedEntry)
   }
 
   function shownAnyAlarming() {
-    for (var i = 0; i < visibleEntries.length; i++)
-      if (entryIsAlarming(visibleEntries[i])) return true
+    for (var i = 0; i < shapedEntries.length; i++)
+      if (entryIsAlarming(shapedEntries[i])) return true
     return false
   }
 
@@ -471,8 +504,8 @@ Panel {
       if (label === "" || label === "Cursor Models" || label === "Other Models") continue
       if (row.percent === null || row.percent === undefined || row.percent === "") continue
       bits.push({
-        text: row.percent + "%",
-        line: label + " · " + row.percent + "%",
+        text: Model.percentText(row.percent, showAs),
+        line: label + " · " + Model.percentText(row.percent, showAs),
         severity: row.severity || "low"
       })
     }
@@ -525,7 +558,7 @@ Panel {
   function cursorPools(item) {
     var pools = null
     if (typeof Model.cursorDualHeadline === "function") {
-      var dual = Model.cursorDualHeadline(item, cursorPoolFlags())
+      var dual = Model.cursorDualHeadline(item, cursorPoolFlags(), showAs)
       if (dual && dual.text) pools = {
         text: dual.text,
         tooltip: dual.tooltip || dual.text,
@@ -550,8 +583,9 @@ Panel {
         }
         if (auto !== null && api !== null && auto !== undefined && api !== undefined) {
           pools = {
-            text: auto + "% · " + api + "%",
-            tooltip: "Cursor Models " + auto + "% · Other Models " + api + "%",
+            text: Model.percentText(auto, showAs) + " · " + Model.percentText(api, showAs),
+            tooltip: "Cursor Models " + Model.percentText(auto, showAs)
+              + " · Other Models " + Model.percentText(api, showAs),
             segments: [],
             tooltipRows: []
           }
@@ -563,7 +597,7 @@ Panel {
 
   function panelHeadline(item) {
     if (isCursorEntry(item) && typeof Model.cursorDualHeadline === "function") {
-      var dual = Model.cursorDualHeadline(item)
+      var dual = Model.cursorDualHeadline(item, undefined, showAs)
       if (dual && dual.text) return dual.text
     }
     return usageText(item, false)
@@ -572,21 +606,22 @@ Panel {
   function usageText(item, rich) {
     var pools = cursorPools(item)
     if (pools) return rich ? pools.tooltip : pools.text
-    var head = Model.headline(item, barWindow)
+    var head = Model.headline(item, barWindow, showAs)
     return rich ? (head.tooltip || head.text) : head.text
   }
 
   function shownEntries() {
-    if (showAll) return visibleEntries
-    if (entry) return [entry]
-    return visibleEntries.length > 0 ? [visibleEntries[0]] : []
+    if (showAll) return shapedEntries
+    if (shapedEntry) return [shapedEntry]
+    return shapedEntries.length > 0 ? [shapedEntries[0]] : []
   }
 
   readonly property var barChips: labeledChips()
 
   function labeledChips() {
     var chips = Model.barChips(
-      visibleEntries, entry, showAll, showValue, showProvider, loading, alarming, vertical, barWindow)
+      shapedEntries, shapedEntry, showAll, showValue, showProvider, loading, alarming, vertical,
+      barWindow, showAs, brandIcons)
     if (!showValue || vertical) return chips
     var rows = shownEntries()
     var next = []
@@ -599,7 +634,7 @@ Panel {
           continue
         }
         // Non-Cursor chips: headline severity drives icon RAG when colour-coding is on.
-        var head = Model.headline(rows[i], barWindow)
+        var head = Model.headline(rows[i], barWindow, showAs)
         next.push({
           id: chip.id,
           brand: chip.brand,
@@ -647,8 +682,9 @@ Panel {
 
   function barText() {
     if (showAll)
-      return Model.barStrip(visibleEntries, alarming, vertical, showValue, showProvider, loading, barWindow)
-    var value = entry ? usageText(entry, false) : summary.text
+      return Model.barStrip(shapedEntries, alarming, vertical, showValue, showProvider, loading,
+        barWindow, showAs)
+    var value = shapedEntry ? usageText(shapedEntry, false) : summary.text
     return Model.barLabel(alarming, vertical, showValue, loading,
       entry !== null, value, showProvider ? Model.providerShort(entry) : "",
       Model.providerIcon(entry))
@@ -674,7 +710,7 @@ Panel {
           var row = pools.tooltipRows[r]
           var text = ""
           if (row.pool)
-            text = I18n.tipPoolLine(root.uiLocale, row.pool, row.percent)
+            text = I18n.tipPoolLine(root.uiLocale, row.pool, Model.shownPercent(row.percent, root.showAs))
           else
             text = Model.autoTextSafe(row.text || "").trim()
           if (text === "") continue
@@ -686,7 +722,7 @@ Panel {
       }
       var lines = tooltipLines(item)
       if (lines.length === 0) return []
-      var head = Model.headline(item, barWindow)
+      var head = Model.headline(item, barWindow, showAs)
       var sev = head && head.severity ? head.severity : "low"
       if (lines.length > 1) {
         var multi = []
@@ -703,10 +739,10 @@ Panel {
       return [{ text: single, severity: sev }]
     }
 
-    if (showAll && visibleEntries.length > 0) {
+    if (showAll && shapedEntries.length > 0) {
       var chips = []
-      for (var e = 0; e < visibleEntries.length; e++) {
-        var chunk = rowsFor(visibleEntries[e])
+      for (var e = 0; e < shapedEntries.length; e++) {
+        var chunk = rowsFor(shapedEntries[e])
         for (var c = 0; c < chunk.length; c++) chips.push(chunk[c])
       }
       return chips
@@ -715,7 +751,7 @@ Panel {
       var msg = Model.autoTextSafe(statusMessage() || root.tr("app.name"))
       return msg !== "" ? [{ text: msg, severity: "" }] : []
     }
-    return rowsFor(entry)
+    return rowsFor(shapedEntry)
   }
 
   readonly property var ragTooltipRows: tooltipRows()
@@ -874,14 +910,15 @@ Panel {
             // sentence renders as a wrapped caption under the hero instead.
             detail: root.settingsOpen ? ""
               : (root.entry && root.summary.text !== "Ready" && root.summary.text !== root.tr("ready")
-                ? Model.autoTextSafe(root.panelHeadline(root.entry)) : "")
+                ? Model.autoTextSafe(root.panelHeadline(root.shapedEntry)) : "")
             foreground: root.foreground
             fontFamily: root.fontFamily
 
             iconComponent: Component {
               BrandMark {
-                brand: root.settingsOpen ? "" : Model.brandIconFile(root.entry)
-                fallback: root.settingsOpen ? "󰒓" : Model.providerIcon(root.entry)
+                brand: root.settingsOpen || !root.brandIcons ? "" : Model.brandIconFile(root.entry)
+                fallback: root.settingsOpen ? "󰒓"
+                  : (root.brandIcons ? Model.providerIcon(root.entry) : "󰚩")
                 // Colour-coding: full RAG from worst pool. Off: same aggregate,
                 // binary foreground vs urgent when worst is critical.
                 foreground: root.colorCodeUsage
@@ -943,6 +980,8 @@ Panel {
             uiLocale: root.uiLocale
             uiLocaleSetting: root.uiLocaleSetting
             barWindow: root.barWindow
+            showAs: root.showAs
+            brandIcons: root.brandIcons
             onSaved: root.startRefresh()
             onShowValueRequested: function(enabled) { root.setShowValue(enabled) }
             onShowProviderRequested: function(enabled) { root.setShowProvider(enabled) }
@@ -950,6 +989,8 @@ Panel {
             onColorCodeUsageRequested: function(enabled) { root.setColorCodeUsage(enabled) }
             onUiLocaleRequested: function(value) { root.setUiLocale(value) }
             onBarWindowRequested: function(value) { root.setBarWindow(value) }
+            onShowAsRequested: function(value) { root.setShowAs(value) }
+            onBrandIconsRequested: function(enabled) { root.setBrandIcons(enabled) }
             onFallbackRequested: root.openTerminalSettings()
             onNousLoginRequested: root.openNousLogin()
             onCopilotLoginRequested: root.openCopilotLogin()
@@ -1086,6 +1127,17 @@ Panel {
               fontFamily: root.fontFamily
             }
 
+            Text {
+              visible: root.hasHideableMetrics
+              width: parent.width
+              text: root.tr("metric.hidden_hint")
+              textFormat: Text.PlainText
+              color: root.dim
+              font.family: root.fontFamily
+              font.pixelSize: Style.font.caption
+              wrapMode: Text.WordWrap
+            }
+
             Repeater {
               model: root.entrySections
 
@@ -1174,12 +1226,23 @@ Panel {
     readonly property int indent: grouped ? Style.space(10) : 0
     readonly property string detailText: I18n.displayDetail(root.uiLocale, Model.metricDetail(row))
     readonly property string resetText: row ? I18n.formatReset(row.reset_at, root.nowMs, root.uiLocale) : ""
+    readonly property string poolId: root.cursorEntry ? Model.cursorPoolOf(row) : ""
+    readonly property bool hideable: row !== null && (!root.cursorEntry || poolId !== "")
+    readonly property bool hidden: !hideable ? false
+      : (root.cursorEntry ? !root.cursorPoolOn(poolId) : root.metricHidden(root.entry, row))
+    readonly property int shownPercent: row ? Model.shownPercent(row.percent, root.showAs) : 0
+    readonly property var valueView: Model.metricValueView(row, root.showAs)
+    readonly property string valueText: valueView.left
+      ? I18n.t(root.uiLocale, "metric.left", { percent: valueView.percent })
+      : valueView.text
 
     spacing: Style.space(grouped ? 4 : 6)
+    opacity: hidden ? 0.45 : 1
 
     Item {
       width: parent.width
-      implicitHeight: Math.max(metricLabel.implicitHeight, metricValue.implicitHeight)
+      implicitHeight: Math.max(metricLabel.implicitHeight, metricValue.implicitHeight,
+        metricEye.visible ? metricEye.implicitHeight : 0)
 
       Text {
         id: metricLabel
@@ -1198,15 +1261,31 @@ Panel {
 
       Text {
         id: metricValue
-        text: metricRow.row && metricRow.row.value !== ""
-          ? metricRow.row.value : (metricRow.row ? metricRow.row.percent + "%" : "")
+        text: metricRow.valueText
         textFormat: Text.PlainText
         color: metricRow.valueColor
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
         font.bold: !metricRow.grouped
+        anchors.right: metricEye.visible ? metricEye.left : parent.right
+        anchors.rightMargin: metricEye.visible ? Style.spacing.sm : 0
+        anchors.verticalCenter: parent.verticalCenter
+      }
+
+      PanelActionButton {
+        id: metricEye
+        visible: metricRow.hideable
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
+        iconText: metricRow.hidden ? "󰈉" : "󰈈"
+        enabled: !root.cursorEntry || metricRow.hidden || root.cursorPoolCanTurnOff(metricRow.poolId)
+        tooltipText: root.tr(metricRow.hidden ? "metric.show" : "metric.hide")
+        foreground: root.foreground
+        fontFamily: root.fontFamily
+        onClicked: {
+          if (root.cursorEntry) root.toggleCursorPool(metricRow.poolId)
+          else root.toggleMetricHidden(root.entry, metricRow.row)
+        }
       }
     }
 
@@ -1227,7 +1306,7 @@ Panel {
         anchors.verticalCenter: meterTrack.verticalCenter
         height: meterTrack.height
         radius: meterTrack.radius
-        width: meterTrack.width * root.clamp(metricRow.row ? metricRow.row.percent / 100 : 0, 0, 1)
+        width: meterTrack.width * root.clamp(metricRow.shownPercent / 100, 0, 1)
         color: metricRow.fillColor
 
         Behavior on width {

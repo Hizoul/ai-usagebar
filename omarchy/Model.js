@@ -244,14 +244,174 @@ function barLabel(alarming, vertical, showValue, loading, hasEntry, summaryText,
     : icon + "  " + provider + " " + summary
 }
 
-function barChip(entry, showValue, showProvider, barWindow) {
+/**
+ * Normalizes how a percentage reads: the consumed share ("used") or what is left of the same window ("left").
+ * Anything but an explicit "left" stays "used", so an existing shell.json keeps its reading.
+ * @param {*} value Raw setting value.
+ * @returns {"used"|"left"}
+ */
+function normalizeShowAs(value) {
+  var text = cleanText(value, 16).trim().toLowerCase()
+  return text === "left" || text === "remaining" ? "left" : "used"
+}
+
+/**
+ * Converts a used percentage to the number drawn for the chosen reading.
+ * Which window the bar picks never depends on this; only the number drawn for it does.
+ * @param {number|string} percent Used percentage from the report.
+ * @param {*} showAs Raw reading setting.
+ * @returns {number|null} The percentage to draw, or null when the input is not a number.
+ */
+function shownPercent(percent, showAs) {
+  var number = Number(percent)
+  if (!isFinite(number)) return null
+  return normalizeShowAs(showAs) === "left" ? Math.max(0, 100 - number) : number
+}
+
+/**
+ * Formats a used percentage as drawn for the chosen reading.
+ * @param {number|string} percent Used percentage from the report.
+ * @param {*} showAs Raw reading setting.
+ * @returns {string} For example "18%", or an empty string when the input is not a number.
+ */
+function percentText(percent, showAs) {
+  var shown = shownPercent(percent, showAs)
+  return shown === null ? "" : shown + "%"
+}
+
+var UNSAFE_KEYS = ["__proto__", "constructor", "prototype"]
+
+/**
+ * Tells whether an object owns a key itself, ignoring anything inherited.
+ * @param {Object} object Object to inspect.
+ * @param {string} key Key to look for.
+ * @returns {boolean}
+ */
+function hasOwn(object, key) {
+  return Object.prototype.hasOwnProperty.call(object, key)
+}
+
+/**
+ * Builds the key a metric is hidden under: its label, behind its group when it sits under a heading,
+ * so two rows with the same label in different groups stay distinct.
+ * @param {Object} section Metric section from the report.
+ * @returns {string}
+ */
+function metricKey(section) {
+  if (!section) return ""
+  var label = cleanText(section.label, 160).trim()
+  var group = cleanText(section.group, 80).trim()
+  return group === "" ? label : group + " / " + label
+}
+
+/**
+ * Reads the `hiddenMetrics` setting, a map from an entry id to the metric keys switched off for it.
+ * The value is hand-editable and lives in a long-lived shell process, so it is read strictly and kept bounded.
+ * @param {*} raw Raw setting value.
+ * @returns {Object<string, string[]>} Entry id to hidden metric keys, without empty lists.
+ */
+function normalizeHiddenMetrics(raw) {
+  var out = {}
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out
+  var ids = Object.keys(raw)
+  var kept = 0
+  for (var i = 0; i < ids.length && kept < 64; i++) {
+    var id = cleanText(ids[i], 180).trim()
+    if (id === "" || UNSAFE_KEYS.indexOf(id) >= 0) continue
+    var list = Array.isArray(raw[ids[i]]) ? raw[ids[i]] : []
+    var keys = []
+    for (var j = 0; j < list.length && j < 32; j++) {
+      var key = cleanText(list[j], 240).trim()
+      if (key !== "" && keys.indexOf(key) < 0) keys.push(key)
+    }
+    if (keys.length > 0) {
+      out[id] = keys
+      kept++
+    }
+  }
+  return out
+}
+
+/**
+ * Lists the metric keys switched off for one entry.
+ * @param {*} hidden Raw `hiddenMetrics` setting.
+ * @param {string} entryId Entry id, matched exactly (so `anthropic@work` and `anthropic` are independent).
+ * @returns {string[]}
+ */
+function hiddenKeysFor(hidden, entryId) {
+  var id = cleanText(entryId, 180).trim()
+  var map = normalizeHiddenMetrics(hidden)
+  return hasOwn(map, id) ? map[id] : []
+}
+
+/**
+ * Tells whether a metric is switched off for an entry.
+ * @param {*} hidden Raw `hiddenMetrics` setting.
+ * @param {string} entryId Entry id.
+ * @param {Object} section Metric section from the report.
+ * @returns {boolean}
+ */
+function isMetricHidden(hidden, entryId, section) {
+  return hiddenKeysFor(hidden, entryId).indexOf(metricKey(section)) >= 0
+}
+
+/**
+ * Computes the next `hiddenMetrics` after switching one metric of one entry on or off.
+ * An entry left with nothing hidden drops out, so the map never carries empty lists. The input is not mutated.
+ * @param {*} hidden Raw `hiddenMetrics` setting.
+ * @param {string} entryId Entry id.
+ * @param {string} key Metric key from `metricKey`.
+ * @returns {Object<string, string[]>}
+ */
+function toggleHiddenMetric(hidden, entryId, key) {
+  var next = normalizeHiddenMetrics(hidden)
+  var id = cleanText(entryId, 180).trim()
+  var metric = cleanText(key, 240).trim()
+  if (id === "" || metric === "" || UNSAFE_KEYS.indexOf(id) >= 0) return next
+  var list = hasOwn(next, id) ? next[id].slice() : []
+  var at = list.indexOf(metric)
+  if (at >= 0) list.splice(at, 1)
+  else if (list.length < 32) list.push(metric)
+  if (list.length === 0) delete next[id]
+  else next[id] = list
+  return next
+}
+
+/**
+ * Returns the entry as the bar and the tooltip see it, without the metrics switched off for it, so the
+ * highest-percent choice, the alert state and every echo of them never read a row the user hid.
+ * `metrics_hidden` lets the headline say there is nothing to show instead of "Ready" when no meter is left.
+ * The panel keeps drawing the original entry, hidden rows included, so they can be switched back on.
+ * @param {Object} entry Entry from the report.
+ * @param {string[]} hiddenKeys Metric keys switched off for the entry.
+ * @returns {Object} The entry itself when nothing is hidden, otherwise a copy without the hidden metrics.
+ */
+function visibleEntry(entry, hiddenKeys) {
+  var hidden = Array.isArray(hiddenKeys) ? hiddenKeys : []
+  if (!entry || hidden.length === 0) return entry
+  var sections = Array.isArray(entry.sections) ? entry.sections : []
+  var kept = []
+  for (var i = 0; i < sections.length; i++) {
+    var section = sections[i]
+    if (section && section.type === "metric" && hidden.indexOf(metricKey(section)) >= 0) continue
+    kept.push(section)
+  }
+  if (kept.length === sections.length) return entry
+  var copy = {}
+  for (var field in entry) copy[field] = entry[field]
+  copy.sections = kept
+  copy.metrics_hidden = true
+  return copy
+}
+
+function barChip(entry, showValue, showProvider, barWindow, showAs) {
   if (!entry) return ""
   var icon = providerIcon(entry)
   var provider = showProvider ? providerShort(entry) : ""
   var summary = ""
   if (showValue) {
     if (entry.error) summary = "!"
-    else summary = autoTextSafe(headline(entry, barWindow).text).trim()
+    else summary = autoTextSafe(headline(entry, barWindow, showAs).text).trim()
   }
   if (provider === "") return summary === "" ? icon : icon + "  " + summary
   return summary === "" ? icon + "  " + provider : icon + "  " + provider + " " + summary
@@ -259,14 +419,14 @@ function barChip(entry, showValue, showProvider, barWindow) {
 
 // Every visible entry as its own icon+value chip. A vertical bar has no
 // width for the strip and keeps a single glyph, same as `barLabel`.
-function barStrip(entries, alarming, vertical, showValue, showProvider, loading, barWindow) {
+function barStrip(entries, alarming, vertical, showValue, showProvider, loading, barWindow, showAs) {
   var list = Array.isArray(entries) ? entries : []
   if (vertical) return alarming ? "󰅙" : "󰚩"
   if (loading && list.length === 0) return "󰚩  …"
   if (list.length === 0) return alarming ? "󰅙" : "󰚩"
   var chips = []
   for (var i = 0; i < list.length; i++) {
-    var chip = barChip(list[i], showValue, showProvider, barWindow)
+    var chip = barChip(list[i], showValue, showProvider, barWindow, showAs)
     if (chip !== "") chips.push(chip)
   }
   return chips.length === 0 ? "󰚩" : chips.join("  ")
@@ -338,7 +498,7 @@ function brandFileFor(provider) {
   }
 }
 
-function barChips(entries, selected, showAll, showValue, showProvider, loading, alarming, vertical, barWindow) {
+function barChips(entries, selected, showAll, showValue, showProvider, loading, alarming, vertical, barWindow, showAs, brandIcons) {
   var list = Array.isArray(entries) ? entries : []
   if (vertical) {
     return [{ brand: "", icon: alarming ? "󰅙" : "󰚩", label: "", alarming: alarming === true }]
@@ -352,20 +512,23 @@ function barChips(entries, selected, showAll, showValue, showProvider, loading, 
   var shown = showAll ? list : list.filter(function(entry) { return selected && entry.id === selected.id })
   if (shown.length === 0) shown = [list[0]]
   var chips = []
+  var plain = brandIcons === false
+  var tagIsIcon = plain && shown.length > 1
   for (var i = 0; i < shown.length; i++) {
     var entry = shown[i]
     var label = ""
-    if (showProvider) label = providerShort(entry)
+    if (showProvider && !tagIsIcon) label = providerShort(entry)
     if (showValue) {
-      var summary = entry.error ? "!" : autoTextSafe(headline(entry, barWindow).text).trim()
+      var summary = entry.error ? "!" : autoTextSafe(headline(entry, barWindow, showAs).text).trim()
       label = label === "" ? summary : (summary === "" ? label : label + " " + summary)
     }
-    var brand = brandIconFile(entry)
+    var brand = plain ? "" : brandIconFile(entry)
     chips.push({
       // The bar turns each chip into a target for its own entry.
       id: entry.id,
       brand: brand,
-      icon: brand !== "" ? providerIcon(entry) : providerShort(entry),
+      icon: brand !== "" ? providerIcon(entry)
+        : (plain && shown.length === 1 ? "󰚩" : providerShort(entry)),
       label: label,
       // Alert state always follows the highest-percent window, never the
       // pinned one: barWindow changes only the displayed value.
@@ -700,6 +863,42 @@ function toggleCursorPool(flags, id) {
   return next
 }
 
+/**
+ * Decides what the value beside a panel meter reads. A report value that carries information of its own
+ * (a dollar balance, a count) is kept. A value that only echoes the percentage is replaced by the percentage
+ * in the chosen reading, so the number beside the meter agrees with the bar drawn under it.
+ * @param {Object} row Metric row from the report.
+ * @param {*} showAs Raw reading setting.
+ * @returns {{text: string, left: boolean, percent: number|null}} `left` is true when `percent` is the remainder
+ *   and the caller should word it as "left".
+ */
+function metricValueView(row, showAs) {
+  var value = row && row.value !== undefined && row.value !== null ? String(row.value).trim() : ""
+  var left = normalizeShowAs(showAs) === "left"
+  var echoesPercent = /^\d+(\.\d+)?%$/.test(value)
+  if (value !== "" && !(left && echoesPercent)) return { text: value, left: false, percent: null }
+  var shown = row ? shownPercent(row.percent, showAs) : null
+  return {
+    text: shown === null ? "" : shown + "%",
+    left: left && shown !== null,
+    percent: shown
+  }
+}
+
+/**
+ * Names the Cursor pool switch a metric row belongs to: the two model pools and On-Demand have their own,
+ * and every other meter is a spending-page grant.
+ * @param {Object} section Section from the report.
+ * @returns {"models"|"other"|"demand"|"credits"|""} Empty for anything that is not a metric.
+ */
+function cursorPoolOf(section) {
+  if (!section || section.type !== "metric") return ""
+  if (section.label === "Cursor Models") return "models"
+  if (section.label === "Other Models") return "other"
+  if (section.label === "On-Demand") return "demand"
+  return "credits"
+}
+
 // Flags the chip can actually draw. A switch whose pool is absent (on-demand
 // with no prepaid row) does not count, and when that would leave the bar
 // blank the first pool that does exist stays on. Models win that fallback.
@@ -724,7 +923,7 @@ function cursorBarFlags(entry, flags) {
 // A spending-page grant is a meter beside the two model pools and On-Demand.
 // Its label is the grant's own name, so it is every Cursor metric that is
 // not one of those two pools.
-function cursorGrantMeters(sections) {
+function cursorGrantMeters(sections, showAs) {
   var parts = []
   for (var i = 0; i < sections.length; i++) {
     var section = sections[i]
@@ -732,8 +931,8 @@ function cursorGrantMeters(sections) {
     if (section.label === "Cursor Models" || section.label === "Other Models") continue
     var label = section.label ? String(section.label) : "Credits"
     parts.push({
-      text: section.percent + "%",
-      line: label + " · " + section.percent + "%",
+      text: percentText(section.percent, showAs),
+      line: label + " · " + percentText(section.percent, showAs),
       percent: section.percent,
       severity: section.severity
     })
@@ -746,7 +945,7 @@ function cursorGrantMeters(sections) {
 // dashboard order: Cursor Models, then Other Models, then prepaid on-demand
 // as a used percentage, the same way OpenRouter shows a credit balance.
 // Severity follows whichever visible pool is furthest along.
-function cursorDualHeadline(entry, flags) {
+function cursorDualHeadline(entry, flags, showAs) {
   if (baseProvider(entry && entry.id) !== "cursor") return null
   var sections = Array.isArray(entry.sections) ? entry.sections : []
   var auto = null
@@ -762,34 +961,34 @@ function cursorDualHeadline(entry, flags) {
   var demand = cursorOnDemand(entry)
   var parts = []
   if (show.models) parts.push({
-    text: auto.percent + "%",
-    line: "Cursor Models · " + auto.percent + "%",
+    text: percentText(auto.percent, showAs),
+    line: "Cursor Models · " + percentText(auto.percent, showAs),
     percent: auto.percent,
     severity: auto.severity,
     pool: "models"
   })
   if (show.other) parts.push({
-    text: api.percent + "%",
-    line: "Cursor Other Models · " + api.percent + "%",
+    text: percentText(api.percent, showAs),
+    line: "Cursor Other Models · " + percentText(api.percent, showAs),
     percent: api.percent,
     severity: api.severity,
     pool: "other"
   })
   if (show.demand && demand) parts.push({
-    text: demand.bar,
-    line: "Cursor On Demand · " + demand.usedPct + "%",
+    text: percentText(demand.usedPct, showAs),
+    line: "Cursor On Demand · " + percentText(demand.usedPct, showAs),
     percent: demand.usedPct,
     severity: demand.severity,
     pool: "demand"
   })
   if (show.credits) {
-    var grants = cursorGrantMeters(sections)
+    var grants = cursorGrantMeters(sections, showAs)
     for (var g = 0; g < grants.length; g++) parts.push(grants[g])
   }
   if (parts.length === 0) {
     parts.push({
-      text: auto.percent + "%",
-      line: "Cursor Models · " + auto.percent + "%",
+      text: percentText(auto.percent, showAs),
+      line: "Cursor Models · " + percentText(auto.percent, showAs),
       percent: auto.percent,
       severity: auto.severity,
       pool: "models"
@@ -841,9 +1040,9 @@ function cursorDualHeadline(entry, flags) {
   }
 }
 
-function headline(entry, barWindow) {
+function headline(entry, barWindow, showAs) {
   if (!entry) return { text: "", percent: null, severity: "low", label: "" }
-  var dual = cursorDualHeadline(entry)
+  var dual = cursorDualHeadline(entry, undefined, showAs)
   if (dual) return dual
   var best = selectMetric(entry, barWindow)
   if (best) {
@@ -852,7 +1051,7 @@ function headline(entry, barWindow) {
     // put OpenRouter's dollar figure on the bar and hid its consumed percent.
     // An older report omits the field, and a metric is a percentage by default.
     var bestText = best.headline === "value" && best.value !== ""
-      ? best.value : best.percent + "%"
+      ? best.value : percentText(best.percent, showAs)
     return {
       text: bestText,
       percent: best.percent,
@@ -866,6 +1065,8 @@ function headline(entry, barWindow) {
     if (row.type === "text" && /(balance|available|spend|prepaid)/i.test(row.label) && row.value !== "")
       return { text: row.value, percent: null, severity: "low", label: row.label }
   }
+  if (entry.metrics_hidden === true && entry.status !== "error")
+    return { text: "—", percent: null, severity: "low", label: "" }
   return { text: entry.status === "error" ? "Error" : "Ready", percent: null, severity: "low", label: "" }
 }
 

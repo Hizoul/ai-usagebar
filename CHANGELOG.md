@@ -9,6 +9,43 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Added
+
+- **Omarchy Quattro: switch the provider logos off.** **Show provider logos**
+  in the panel Settings (`brandIcons`, on by default) draws each provider's own
+  mark in the top bar and the panel hero. Off restores the generic robot icon
+  the bar used before the marks: one robot for a single provider, and the
+  provider's short code on each chip when Show all providers is on.
+
+- **Omarchy Quattro: choose which metrics the bar shows, and read them as used
+  or left.** Every metric row in the panel gains an eye that hides that metric
+  from the top bar and the tooltip, per entry (each account of a provider is its
+  own entry): Z.AI's monthly MCP window can be switched off while Session and
+  Weekly stay. A hidden row stays listed,
+  dimmed, so it can be switched back on. A hidden metric is also left out of
+  the highest percentage the bar and its icon alert state take, so a spent
+  window you chose not to watch no longer reddens the icon or sets the number.
+  With every metric of a provider hidden the bar shows `—` (a balance still
+  wins where the provider reports one). On Cursor the eyes drive the same
+  pool switches as its buttons, so both always agree and the last pool stays on.
+  **Show usage as** in the panel Settings (`showAs` in the widget settings,
+  `used` by default, so an existing bar reads as before) switches the bar, the
+  tooltip, the hero and the panel meters between what is used and what is left
+  of the same window. Which window the bar picks never changes with the
+  reading: Left shows the remainder of the most-used window, and the alert
+  state follows the used share. Both are the Quattro counterparts of the tray's
+  Customize switches and Show Usage As (#340, #353).
+
+### Changed
+
+- **Omarchy Quattro settings fold into an accordion.** Display, Language, Top
+  bar window, Show usage as, Primary provider, Providers and Credentials (with
+  the login buttons) are collapsible sections, one open at a time with Display
+  open by default, so the page no longer needs a long scroll. A folded header
+  shows the current value (the provider switches show `on/total`), and what you
+  typed in a folded section is still saved. The Display switches are listed as
+  usage value, logos, provider name, color-coding, then all providers.
+
 ## [1.32.0] — 2026-10-04
 
 ### Added

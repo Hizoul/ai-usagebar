@@ -226,8 +226,8 @@ assert.match(panelSource, /Model\.normalizeBarWindow\(setting\("barWindow",\s*"a
 // The pin covers the bar value and its echoes (hero detail, tooltip):
 // summary (bar label/chips) is pinned, while panel rows keep every pool.
 // Cursor's bar urgent state follows the pools still on the chip.
-assert.match(panelSource, /Model\.headline\(entry,\s*barWindow\)/);
-assert.match(panelSource, /Model\.headline\(item,\s*barWindow\)/);
+assert.match(panelSource, /Model\.headline\(shapedEntry,\s*barWindow,\s*showAs\)/);
+assert.match(panelSource, /Model\.headline\(item,\s*barWindow,\s*showAs\)/);
 assert.match(panelSource, /Model\.isAlarming\(item\)/);
 // A failed or cached refresh alone cannot activate the bar, but a report that
 // never arrived has nothing else to show there.
@@ -301,11 +301,11 @@ assert.match(panelSource, /Model\.barLabel\(/);
 // every pool, including the hero numbers.
 assert.match(panelSource, /entrySections:\s*entry\s*\?\s*Model\.groupedSections\(entry\.sections\)/);
 assert.doesNotMatch(panelSource, /filterCursorSections/);
-assert.match(panelSource, /cursorDualHeadline\(item,\s*cursorPoolFlags\(\)\)/);
+assert.match(panelSource, /cursorDualHeadline\(item,\s*cursorPoolFlags\(\),\s*showAs\)/);
 assert.match(panelSource, /function creditGrantBits\(item\)/);
 assert.match(panelSource, /has\.credits \|\| creditGrantBits\(entry\)\.length > 0/);
 assert.match(panelSource, /return withCreditGrants\(pools, item\)/);
-assert.match(panelSource, /function panelHeadline\(item\) \{[\s\S]*?cursorDualHeadline\(item\)(?!\s*,)/);
+assert.match(panelSource, /function panelHeadline\(item\) \{[\s\S]*?cursorDualHeadline\(item,\s*undefined,\s*showAs\)/);
 
 const settingsViewSource = fs.readFileSync(new URL('./SettingsView.qml', import.meta.url), 'utf8');
 assert.match(settingsViewSource, /command:\s*\["ai-usagebar",\s*"settings",\s*"show"\]/);
@@ -1393,5 +1393,252 @@ assert.equal(model.headline(twoWindow, '5h').text, '44%');
 assert.equal(model.headline(twoWindow, 'shortest').text, '44%');
 assert.equal(model.headline(secsEdge, 'session').text, '40%');
 assert.equal(model.barStrip([threeWindow], false, false, true, false, false, 'bogus'), '󰚩  81%');
+
+assert.equal(model.normalizeShowAs('left'), 'left');
+assert.equal(model.normalizeShowAs(' Remaining '), 'left');
+assert.equal(model.normalizeShowAs('used'), 'used');
+for (const junk of [undefined, null, '', 'bogus', 42, {}]) {
+  assert.equal(model.normalizeShowAs(junk), 'used', `showAs ${String(junk)} stays used`);
+}
+assert.equal(model.shownPercent(18, 'used'), 18);
+assert.equal(model.shownPercent(18, 'left'), 82);
+assert.equal(model.shownPercent(130, 'left'), 0);
+assert.equal(model.shownPercent('x', 'left'), null);
+assert.equal(model.percentText(18, 'left'), '82%');
+assert.equal(model.percentText(18), '18%');
+assert.equal(model.percentText('x', 'left'), '');
+
+const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
+  id: 'zai',
+  name: 'Z.AI',
+  sections: [
+    {type: 'metric', label: 'Session', percent: 0, window_secs: 18000},
+    {type: 'metric', label: 'Weekly', percent: 0, window_secs: 604800},
+    {type: 'metric', label: 'MCP tools (monthly)', percent: mcpPercent}
+  ]
+}]})).entries[0];
+
+{
+  const zai = zaiReport(18);
+  assert.equal(model.headline(zai).text, '18%');
+  const shaped = model.visibleEntry(zai, ['MCP tools (monthly)']);
+  assert.equal(model.headline(shaped).text, '0%');
+  assert.equal(model.headline(shaped, 'auto').percent, 0);
+  assert.equal(zai.sections.length, 3, 'the original entry keeps every row');
+  assert.equal(shaped.sections.length, 2);
+  assert.equal(model.visibleEntry(zai, []), zai, 'nothing hidden returns the entry itself');
+  assert.equal(model.visibleEntry(zai, ['No such metric']), zai, 'an unknown key hides nothing');
+  assert.equal(model.visibleEntry(null, ['x']), null);
+
+  const spent = zaiReport(100);
+  assert.equal(model.isAlarming(spent), true);
+  assert.equal(model.isAlarming(model.visibleEntry(spent, ['MCP tools (monthly)'])), false);
+
+  assert.equal(model.headline(model.visibleEntry(zai, ['MCP tools (monthly)']), 'monthly').text, '0%',
+    'a pinned window that was hidden falls back to what is left');
+  assert.equal(model.barChips([shaped], shaped, false, true, false, false, false, false, 'auto')[0].label, '0%');
+}
+
+{
+  const zai = zaiReport(18);
+  assert.equal(model.headline(zai, 'auto', 'left').text, '82%');
+  assert.equal(model.headline(zai, 'auto', 'left').severity, 'low');
+  assert.equal(model.headline(zai, 'auto', 'left').percent, 18, 'the percent stays the used share');
+  const shaped = model.visibleEntry(zai, ['MCP tools (monthly)']);
+  assert.equal(model.headline(shaped, 'auto', 'left').text, '100%');
+  assert.equal(model.headline(zaiReport(100), 'auto', 'left').text, '0%');
+  assert.equal(model.barChips([zai], zai, false, true, false, false, false, false, 'auto', 'left')[0].label, '82%');
+  assert.equal(model.barStrip([zai], false, false, true, false, false, 'auto', 'left'), '󰚩  82%');
+  const valued = model.parseReport(JSON.stringify({entries: [{id: 'openrouter', sections: [
+    {type: 'metric', label: 'Credits', percent: 30, value: '$7.00', headline: 'value'}
+  ]}]})).entries[0];
+  assert.equal(model.headline(valued, 'auto', 'left').text, '$7.00', 'a value headline is not a percentage');
+}
+
+{
+  const zai = zaiReport(18);
+  const none = model.visibleEntry(zai, ['Session', 'Weekly', 'MCP tools (monthly)']);
+  assert.equal(none.sections.length, 0);
+  assert.equal(model.headline(none).text, '—');
+  assert.equal(model.headline(none).percent, null);
+  assert.equal(model.headline({id: 'zai', sections: [], status: 'ready'}).text, 'Ready', 'an entry that never had a meter keeps Ready');
+  const withBalance = model.parseReport(JSON.stringify({entries: [{id: 'zai', sections: [
+    {type: 'metric', label: 'Session', percent: 40},
+    {type: 'text', label: 'Balance', value: '$3.00'}
+  ]}]})).entries[0];
+  assert.equal(model.headline(model.visibleEntry(withBalance, ['Session'])).text, '$3.00');
+  assert.equal(model.barChip(none, true, false, 'auto'), '󰚩  —');
+}
+
+{
+  const grok = model.parseReport(JSON.stringify({entries: [{id: 'supergrok', sections: [
+    {type: 'metric', label: 'Credits', percent: 10},
+    {type: 'metric', label: 'Chat', percent: 90, group: 'Breakdown'}
+  ]}]})).entries[0];
+  assert.equal(model.metricKey(grok.sections[1]), 'Breakdown / Chat');
+  assert.equal(model.headline(grok).text, '10%');
+  assert.equal(model.headline(model.visibleEntry(grok, ['Credits'])).text, '90%');
+  assert.equal(model.headline(model.visibleEntry(grok, ['Chat'])).text, '10%');
+  assert.equal(model.headline(model.visibleEntry(grok, ['Breakdown / Chat'])).text, '10%');
+}
+
+{
+  const clean = model.normalizeHiddenMetrics(JSON.parse(`{
+    "zai": ["MCP tools (monthly)", " MCP tools (monthly) ", "", 7],
+    "anthropic@work": ["Weekly"],
+    "empty": [],
+    "broken": "Weekly",
+    "__proto__": ["x"],
+    "constructor": ["x"]
+  }`));
+  assert.deepEqual(Object.keys(clean).sort(), ['anthropic@work', 'zai']);
+  assert.deepEqual(Array.from(clean.zai), ['MCP tools (monthly)', '7']);
+  for (const junk of [null, undefined, 'zai', 5, ['zai'], true]) {
+    assert.deepEqual(Object.keys(model.normalizeHiddenMetrics(junk)), []);
+  }
+  const wide = {};
+  for (let i = 0; i < 100; i++) wide['p' + i] = ['k'];
+  assert.equal(Object.keys(model.normalizeHiddenMetrics(wide)).length, 64);
+  const tall = {zai: Array.from({length: 100}, (_, i) => 'k' + i)};
+  assert.equal(model.normalizeHiddenMetrics(tall).zai.length, 32);
+
+  assert.deepEqual(Array.from(model.hiddenKeysFor(clean, 'zai')), ['MCP tools (monthly)', '7']);
+  assert.deepEqual(Array.from(model.hiddenKeysFor(clean, 'toString')), []);
+  assert.deepEqual(Array.from(model.hiddenKeysFor(clean, 'anthropic')), [], 'an entry id is matched exactly');
+  assert.equal(model.isMetricHidden(clean, 'zai', {type: 'metric', label: 'MCP tools (monthly)'}), true);
+  assert.equal(model.isMetricHidden(clean, 'zai', {type: 'metric', label: 'Weekly'}), false);
+}
+
+{
+  let hidden = model.toggleHiddenMetric({}, 'zai', 'MCP tools (monthly)');
+  assert.deepEqual(Array.from(hidden.zai), ['MCP tools (monthly)']);
+  hidden = model.toggleHiddenMetric(hidden, 'zai', 'Weekly');
+  assert.deepEqual(Array.from(hidden.zai), ['MCP tools (monthly)', 'Weekly']);
+  hidden = model.toggleHiddenMetric(hidden, 'zai', 'MCP tools (monthly)');
+  assert.deepEqual(Array.from(hidden.zai), ['Weekly']);
+  hidden = model.toggleHiddenMetric(hidden, 'zai', 'Weekly');
+  assert.deepEqual(Object.keys(hidden), []);
+  assert.deepEqual(Object.keys(model.toggleHiddenMetric({}, '', 'x')), []);
+  assert.deepEqual(Object.keys(model.toggleHiddenMetric({}, 'zai', ' ')), []);
+  assert.deepEqual(Object.keys(model.toggleHiddenMetric({}, '__proto__', 'x')), []);
+  const before = {zai: ['Weekly']};
+  model.toggleHiddenMetric(before, 'zai', 'Session');
+  assert.deepEqual(before.zai, ['Weekly'], 'the input map is not mutated');
+}
+
+{
+  const cursor = model.parseReport(JSON.stringify({entries: [{id: 'cursor', sections: [
+    {type: 'metric', label: 'Cursor Models', percent: 35, severity: 'low'},
+    {type: 'metric', label: 'Other Models', percent: 100, severity: 'critical'}
+  ]}]})).entries[0];
+  assert.equal(model.headline(cursor).text, '35% · 100%');
+  assert.equal(model.headline(cursor, 'auto', 'left').text, '65% · 0%');
+  assert.equal(model.headline(cursor, 'auto', 'left').percent, 100);
+  assert.equal(model.headline(cursor, 'auto', 'left').severity, 'critical');
+  assert.equal(model.cursorDualHeadline(cursor, undefined, 'left').tooltip, 'Cursor Models · 65%\nCursor Other Models · 0%');
+}
+
+{
+  const view = (row, showAs) => {
+    const out = model.metricValueView(row, showAs);
+    return {text: out.text, left: out.left, percent: out.percent};
+  };
+  assert.deepEqual(view({percent: 4, value: '4%'}, 'left'), {text: '96%', left: true, percent: 96});
+  assert.deepEqual(view({percent: 4, value: '4%'}, 'used'), {text: '4%', left: false, percent: null});
+  assert.deepEqual(view({percent: 4, value: ''}, 'left'), {text: '96%', left: true, percent: 96});
+  assert.deepEqual(view({percent: 4, value: ''}, 'used'), {text: '4%', left: false, percent: 4});
+  assert.deepEqual(view({percent: 30, value: '$7.00'}, 'left'), {text: '$7.00', left: false, percent: null},
+    'a value with its own information is kept');
+  assert.deepEqual(view({percent: 4, value: '12 / 50 requests'}, 'left'),
+    {text: '12 / 50 requests', left: false, percent: null});
+  assert.deepEqual(view({percent: 4.4, value: '4.4%'}, 'used'), {text: '4.4%', left: false, percent: null},
+    'the used reading keeps the report value untouched');
+  assert.deepEqual(view({percent: 100, value: '100%'}, 'left'), {text: '0%', left: true, percent: 0});
+  assert.deepEqual(view(null, 'left'), {text: '', left: false, percent: null});
+}
+
+assert.equal(model.cursorPoolOf({type: 'metric', label: 'Cursor Models'}), 'models');
+assert.equal(model.cursorPoolOf({type: 'metric', label: 'Other Models'}), 'other');
+assert.equal(model.cursorPoolOf({type: 'metric', label: 'On-Demand'}), 'demand');
+assert.equal(model.cursorPoolOf({type: 'metric', label: 'Team credit'}), 'credits');
+assert.equal(model.cursorPoolOf({type: 'text', label: 'Redefinições'}), '');
+assert.equal(model.cursorPoolOf(null), '');
+
+{
+  const claude = model.parseReport(JSON.stringify({entries: [
+    {id: 'anthropic', short_name: 'cld', icon: 'C', sections: [{type: 'metric', label: 'Session', percent: 10}]},
+    {id: 'openai', short_name: 'gpt', icon: 'G', sections: [{type: 'metric', label: 'Session', percent: 20}]}
+  ]})).entries;
+  const chips = (entries, selected, all, brandIcons) =>
+    model.barChips(entries, selected, all, true, false, false, false, false, 'auto', 'used', brandIcons);
+  assert.equal(chips(claude, claude[0], false)[0].brand, 'claude.svg');
+  assert.equal(chips(claude, claude[0], false, true)[0].brand, 'claude.svg');
+  assert.equal(chips(claude, claude[0], false, undefined)[0].brand, 'claude.svg', 'an older caller keeps the marks');
+  const generic = chips(claude, claude[0], false, false);
+  assert.equal(generic.length, 1);
+  assert.equal(generic[0].brand, '');
+  assert.equal(generic[0].icon, '󰚩');
+  assert.equal(generic[0].label, '10%');
+  const many = chips(claude, claude[0], true, false);
+  assert.deepEqual(Array.from(many.map(chip => chip.brand)), ['', '']);
+  assert.deepEqual(Array.from(many.map(chip => chip.icon)), ['cld', 'gpt']);
+  assert.deepEqual(Array.from(many.map(chip => chip.label)), ['10%', '20%']);
+  const tagged = (all, brandIcons) =>
+    model.barChips(claude, claude[0], all, true, true, false, false, false, 'auto', 'used', brandIcons);
+  assert.deepEqual(Array.from(tagged(true, false).map(chip => chip.icon + '|' + chip.label)), ['cld|10%', 'gpt|20%'],
+    'the tag is the icon, so the label does not repeat it');
+  const lone = tagged(false, false)[0];
+  assert.equal(lone.icon, '󰚩');
+  assert.equal(lone.label, 'cld 10%', 'a lone chip keeps the tag in its label');
+  assert.deepEqual(Array.from(tagged(true, true).map(chip => chip.label)), ['cld 10%', 'gpt 20%']);
+}
+
+{
+  const panel = fs.readFileSync(new URL('./Panel.qml', import.meta.url), 'utf8');
+  const settingsForm = fs.readFileSync(new URL('./SettingsView.qml', import.meta.url), 'utf8');
+  assert.match(panel, /Model\.normalizeShowAs\(setting\("showAs",\s*"used"\)\)/);
+  assert.match(panel, /Model\.normalizeHiddenMetrics\(setting\("hiddenMetrics",\s*\{\}\)\)/);
+  assert.match(panel, /Model\.visibleEntry\(item,\s*Model\.hiddenKeysFor\(hiddenMetrics,\s*item\.id\)\)/);
+  assert.match(panel, /persistWidgetSettings\(\{\s*showAs:\s*next\s*\}\)/);
+  assert.match(panel, /hiddenMetrics:\s*Model\.toggleHiddenMetric\(hiddenMetrics,\s*item\.id,\s*Model\.metricKey\(section\)\)/);
+  assert.match(panel, /onShowAsRequested:\s*function\(value\)\s*\{\s*root\.setShowAs\(value\)\s*\}/);
+  assert.match(panel, /readonly property bool hideable:\s*row !== null && \(!root\.cursorEntry \|\| poolId !== ""\)/);
+  assert.match(panel, /if \(root\.cursorEntry\) root\.toggleCursorPool\(metricRow\.poolId\)/);
+  assert.match(panel, /function shownAlarming\(\) \{\s*return entryIsAlarming\(shapedEntry\)/, 'the alert reads the entry without hidden metrics');
+  assert.match(panel, /entryIsAlarming\(shapedEntries\[i\]\)/);
+  assert.match(panel, /readonly property var valueView:\s*Model\.metricValueView\(row,\s*root\.showAs\)/);
+  assert.match(panel, /visible:\s*root\.hasHideableMetrics/);
+  assert.match(panel, /readonly property bool hasHideableMetrics:\s*!cursorEntry && entrySections\.some/);
+  assert.match(settingsForm, /property string openSection:\s*"display"/);
+  assert.match(settingsForm, /function toggleSection\(id\) \{\s*openSection = openSection === id \? "" : id\s*\}/);
+  assert.equal((settingsForm.match(/^    Disclosure \{/gm) || []).length, 7);
+  for (const id of ['display', 'language', 'barWindow', 'showAs', 'primary', 'providers', 'credentials']) {
+    assert.match(settingsForm, new RegExp(`onToggled: root\\.toggleSection\\("${id}"\\)`), `${id} folds`);
+    assert.match(settingsForm, new RegExp(`visible: root\\.openSection === "${id}"`), `${id} body`);
+  }
+  assert.doesNotMatch(settingsForm, /providersOpen|credentialsOpen/);
+  assert.doesNotMatch(settingsForm, /^    PanelSectionHeader \{\s*\n\s*text: root\.tr\("section\.(display|language|bar_window|show_as|primary|providers|credentials)"\)/m);
+  assert.match(settingsForm, /signal showAsRequested\(string value\)/);
+  assert.match(settingsForm, /onChanged:\s*function\(value\)\s*\{\s*root\.showAsRequested\(value\)\s*\}/);
+  assert.match(panel, /Model\.booleanSetting\(setting\("brandIcons",\s*true\),\s*true\)/);
+  assert.match(panel, /barWindow,\s*showAs,\s*brandIcons\)/);
+  assert.match(panel, /persistWidgetSettings\(\{\s*brandIcons:\s*next\s*\}\)/);
+  assert.match(panel, /brand: root\.settingsOpen \|\| !root\.brandIcons \? "" : Model\.brandIconFile\(root\.entry\)/);
+  assert.match(settingsForm, /signal brandIconsRequested\(bool enabled\)/);
+  const displayKeys = ['showValue', 'brandIcons', 'showProvider', 'colorCodeUsage', 'showAll'];
+  assert.deepEqual(displayKeys.map(key => manifest.barWidget.defaults[key]), [true, true, false, false, false]);
+  assert.deepEqual(manifest.barWidget.schema.filter(row => displayKeys.includes(row.key)).map(row => row.key), displayKeys);
+  assert.deepEqual(manifest.barWidget.schema.filter(row => displayKeys.includes(row.key)).map(row => row.defaultValue), [true, true, false, false, false]);
+  assert.deepEqual(
+    Array.from(settingsForm.matchAll(/label: root\.tr\("toggle\.(\w+)"\)/g), match => match[1]),
+    ['show_value', 'brand_icons', 'show_provider', 'color_code', 'show_all']);
+  assert.equal(manifest.barWidget.defaults.brandIcons, true);
+  assert.equal(manifest.barWidget.schema.find(row => row.key === 'brandIcons').type, 'boolean');
+  assert.equal(manifest.barWidget.defaults.showAs, 'used');
+  const showAsSchema = manifest.barWidget.schema.find(row => row.key === 'showAs');
+  assert.equal(showAsSchema.type, 'enum');
+  assert.deepEqual(showAsSchema.options, ['used', 'left']);
+  assert.equal(showAsSchema.defaultValue, 'used');
+}
 
 console.log('Omarchy model tests passed');
