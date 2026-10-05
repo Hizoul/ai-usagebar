@@ -522,7 +522,7 @@ function brandFileFor(provider) {
     case "copilot":
       return "copilot.svg"
     case "zai":
-      return "zai.svg"
+      return "zhipu.svg"
     case "openrouter":
       return "openrouter.svg"
     case "deepseek":
@@ -1025,11 +1025,13 @@ function panelEntry(entry, hidden, cursorFlags, antigravityFlags) {
       var pool = antigravityPoolOf(section)
       return pool === "" || agyOn[pool] === true
     })
-    if (agyKept.length === agySections.length) return entry
-    var agyCopy = {}
-    for (var agyField in entry) agyCopy[agyField] = entry[agyField]
-    agyCopy.sections = agyKept
-    return agyCopy
+    var agyCopy = entry
+    if (agyKept.length !== agySections.length) {
+      agyCopy = {}
+      for (var agyField in entry) agyCopy[agyField] = entry[agyField]
+      agyCopy.sections = agyKept
+    }
+    return visibleEntry(agyCopy, hiddenKeysFor(hidden, entry.id))
   }
   if (provider !== "cursor") return visibleEntry(entry, hiddenKeysFor(hidden, entry.id))
   var has = cursorPoolPresence(entry)
@@ -1083,7 +1085,7 @@ function metricChoices(entry, hidden, cursorFlags, antigravityFlags) {
     rows.push({
       key: key,
       label: section.label,
-      group: named.group,
+      group: pool !== "" ? "" : named.group,
       pool: pool,
       checked: pool !== "" ? on[pool] === true : off.indexOf(key) < 0,
       canToggle: true

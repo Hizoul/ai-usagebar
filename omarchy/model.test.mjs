@@ -528,7 +528,7 @@ assert.equal(model.brandIconFile({id: 'openai'}), 'openai.svg');
 assert.equal(model.brandIconFile({id: 'supergrok'}), 'grok.svg');
 assert.equal(model.brandIconFile({id: 'grokbot'}), 'grokbot.svg');
 assert.equal(model.brandIconFile({id: 'copilot'}), 'copilot.svg');
-assert.equal(model.brandIconFile({id: 'zai'}), 'zai.svg');
+assert.equal(model.brandIconFile({id: 'zai'}), 'zhipu.svg');
 assert.equal(model.brandIconFile({id: 'kimi'}), 'kimi.svg');
 assert.equal(model.brandIconFile({id: 'opencode-go'}), 'opencode.svg');
 assert.equal(model.brandIconFile({id: 'lyceum'}), '');
@@ -1703,6 +1703,29 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
     'and it gets no switch');
 }
 
+{
+  const zai = zaiReport(100);
+  const shaped = model.panelEntry(zai, {zai: ['MCP tools (monthly)']}, {}, {});
+  assert.equal(model.headline(shaped).text, '0%', 'the bar entry is built through panelEntry with the raw map');
+  assert.equal(model.isAlarming(shaped), false);
+  assert.equal(model.headline(model.panelEntry(zai, {}, {}, {})).text, '100%');
+  const agy = model.parseReport(JSON.stringify({entries: [{id: 'antigravity', sections: [
+    {type: 'text', label: 'Session', value: ''},
+    {type: 'metric', label: 'Gemini', percent: 10},
+    {type: 'metric', label: 'Claude & GPT OSS', percent: 20},
+    {type: 'text', label: 'Weekly', value: ''},
+    {type: 'metric', label: 'Gemini', percent: 90},
+    {type: 'metric', label: 'Claude & GPT OSS', percent: 30}
+  ]}]})).entries[0];
+  const on = {gemini: true, third_party: true};
+  const hiddenWeeklyGemini = model.panelEntry(agy, {antigravity: ['Weekly / Gemini']}, {}, on);
+  assert.equal(Array.from(hiddenWeeklyGemini.sections).filter(row => row.type === 'metric').length, 3,
+    'a hand-edited hiddenMetrics still applies to Antigravity beside its pool switches');
+  const choices = model.metricChoices(agy, {}, {}, on);
+  assert.deepEqual(Array.from(choices, row => row.pool + '|' + row.group), ['gemini|', 'third_party|'],
+    'a pool switch covers Session and Weekly, so it carries no single-window subtitle');
+}
+
 assert.equal(model.cursorPoolOf({type: 'metric', label: 'Cursor Models'}), 'models');
 assert.equal(model.cursorPoolOf({type: 'metric', label: 'Other Models'}), 'other');
 assert.equal(model.cursorPoolOf({type: 'metric', label: 'On-Demand'}), 'demand');
@@ -1756,7 +1779,8 @@ assert.equal(model.cursorPoolOf(null), '');
   const settingsForm = fs.readFileSync(new URL('./SettingsView.qml', import.meta.url), 'utf8');
   assert.match(panel, /Model\.normalizeShowAs\(setting\("showAs",\s*"used"\)\)/);
   assert.match(panel, /Model\.normalizeHiddenMetrics\(setting\("hiddenMetrics",\s*\{\}\)\)/);
-  assert.match(panel, /Model\.panelEntry\(\s*item,\s*\n?\s*Model\.hiddenKeysFor\(hiddenMetrics,\s*item\.id\),/);
+  assert.match(panel, /Model\.panelEntry\(\s*item,\s*hiddenMetrics,\s*cursorPoolFlags\(\)/);
+  assert.doesNotMatch(panel, /hiddenKeysFor\(hiddenMetrics/, 'panelEntry takes the raw map and resolves the entry id itself');
   assert.match(panel, /persistWidgetSettings\(\{\s*showAs:\s*next\s*\}\)/);
   assert.match(panel, /if \(!Model\.canToggleMetric\(target,\s*hiddenMetrics,\s*key\)\) return/);
   assert.match(panel, /hiddenMetrics:\s*Model\.toggleHiddenMetric\(hiddenMetrics,\s*entryId,\s*key\)/);

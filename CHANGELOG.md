@@ -29,9 +29,7 @@ Each release is also published at
   The last metric still on cannot be switched off (its switch is disabled), so
   the bar never goes blank. Cursor's and Antigravity's rows in that section
   drive the same pool switches as their buttons, so both always agree under the
-  same rule. Antigravity's buttons choose Gemini and Claude & GPT OSS; each
-  figure is that pool's most-used Session or Weekly window, and both figures
-  show side by side when both pools are on.
+  same rule.
   **Show usage as** in the panel Settings (`showAs` in the widget settings,
   `used` by default, so an existing bar reads as before) switches the bar, the
   tooltip, the hero and the panel meters between what is used and what is left
@@ -41,6 +39,14 @@ Each release is also published at
   Customize switches and Show Usage As (#340, #353).
 
 ### Changed
+
+- **Omarchy Quattro: Antigravity gets model-pool buttons, like Cursor.** Gemini
+  and Claude & GPT OSS are independent pools, so the panel gains a button for
+  each (`showAntigravityGemini`, `showAntigravityClaudeGpt`, both on). The top
+  bar shows one figure per pool, each the pool's most-used Session or Weekly
+  window (for example `6% · 81%`), where it showed a single value before. A pool
+  switched off leaves the bar, the tooltip and the panel list with both of its
+  windows, and at least one pool stays on.
 
 - **Omarchy Quattro settings fold into an accordion.** Display, Language, Top
   bar window, Show usage as, Metrics, Primary provider, Providers and Credentials (with

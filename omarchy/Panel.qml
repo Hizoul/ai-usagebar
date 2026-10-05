@@ -80,7 +80,7 @@ Panel {
   readonly property var shapedEntries: visibleEntries.map(function(item) {
     return Model.panelEntry(
       item,
-      Model.hiddenKeysFor(hiddenMetrics, item.id),
+      hiddenMetrics,
       cursorPoolFlags(),
       antigravityPoolFlags())
   })
@@ -709,9 +709,7 @@ Panel {
 
   function panelHeadline(item) {
     var dual = providerDualHeadline(item)
-    if ((isCursorEntry(item) || isAntigravityEntry(item)) && dual && dual.text) {
-      if (dual && dual.text) return dual.text
-    }
+    if ((isCursorEntry(item) || isAntigravityEntry(item)) && dual && dual.text) return dual.text
     return usageText(item, false)
   }
 
