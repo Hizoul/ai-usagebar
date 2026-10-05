@@ -522,7 +522,7 @@ function brandFileFor(provider) {
     case "copilot":
       return "copilot.svg"
     case "zai":
-      return "zai.svg"
+      return "zhipu.svg"
     case "openrouter":
       return "openrouter.svg"
     case "deepseek":
