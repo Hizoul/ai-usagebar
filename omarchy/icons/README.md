@@ -21,7 +21,7 @@ back to its `short_name` (`cmc`).
 | `cursor.svg` | Cursor | Simple Icons `cursor` | CC0-1.0 |
 | `grok.svg` | Grok, SuperGrok | [lobe-icons](https://github.com/lobehub/lobe-icons) `grok` | [MIT](https://github.com/lobehub/lobe-icons/blob/master/LICENSE) |
 | `grokbot.svg` | Grok Bot | Official logomark from [x.ai/bot](https://x.ai/bot) / Grok Bot.app (head with eye cutouts) | Identification use; [xAI brand guidelines](https://x.ai/legal/brand-guidelines) |
-| `zhipu.svg` | Z.AI | lobe-icons `zhipu` | MIT |
+| `zai.svg` | Z.AI | Z.AI logomark shared with the Windows tray | Identification use; Z.AI brand |
 | `moonshot.svg` | Moonshot | lobe-icons `moonshot` | MIT |
 | `kilo.svg` | Kilo | lobe-icons `kilocode` | MIT |
 | `novita.svg` | Novita | lobe-icons `novita` | MIT |
