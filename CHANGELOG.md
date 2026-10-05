@@ -26,7 +26,7 @@ Each release is also published at
   window can be switched off while Session and Weekly stay. It is also left out
   of the highest percentage the bar and its icon alert state take, so a spent
   window you chose not to watch no longer reddens the icon or sets the number.
-  The last metric still on cannot be switched off (its switch is disabled), so
+  The last metric still on cannot be switched off (its switch is dimmed and disabled), so
   the bar never goes blank. Cursor's and Antigravity's rows in that section
   drive the same pool switches as their buttons, so both always agree under the
   same rule.

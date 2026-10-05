@@ -1808,6 +1808,7 @@ assert.equal(model.cursorPoolOf(null), '');
   assert.match(settingsForm, /signal showAsRequested\(string value\)/);
   assert.match(settingsForm, /signal metricToggleRequested\(string entryId, string key, string pool\)/);
   assert.match(settingsForm, /enabled: !root\.saving && modelData\.canToggle/);
+  assert.match(settingsForm, /opacity: modelData\.canToggle \? 1 : 0\.45/, 'a locked switch looks locked');
   assert.match(settingsForm, /onChanged:\s*function\(value\)\s*\{\s*root\.showAsRequested\(value\)\s*\}/);
   assert.match(panel, /Model\.booleanSetting\(setting\("brandIcons",\s*true\),\s*true\)/);
   assert.match(panel, /barWindow,\s*showAs,\s*brandIcons\)/);

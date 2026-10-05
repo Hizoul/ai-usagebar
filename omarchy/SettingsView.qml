@@ -563,6 +563,7 @@ Column {
                 foreground: root.foreground
                 fontFamily: root.fontFamily
                 enabled: !root.saving && modelData.canToggle
+                opacity: modelData.canToggle ? 1 : 0.45
                 onClicked: root.metricToggleRequested(metricProvider.modelData.id, modelData.key, modelData.pool)
               }
             }
