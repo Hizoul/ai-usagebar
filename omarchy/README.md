@@ -169,6 +169,11 @@ omarchy bar set akitaonrails.ai-usagebar showCursorModels false --json
 omarchy bar set akitaonrails.ai-usagebar showCursorOther false --json
 omarchy bar set akitaonrails.ai-usagebar showCursorOnDemand false --json
 omarchy bar set akitaonrails.ai-usagebar showCursorCredits false --json
+
+# Antigravity's chip shows one figure per model pool: the most-used Session or
+# Weekly window of Gemini and of Claude & GPT OSS.
+omarchy bar set akitaonrails.ai-usagebar showAntigravityGemini false --json
+omarchy bar set akitaonrails.ai-usagebar showAntigravityClaudeGpt false --json
 ```
 
 The refresh interval is clamped to 30–3600 seconds. The `provider` setting
@@ -187,7 +192,10 @@ section of the settings flips the same switches. The last remaining figure
 cannot be turned off. A pool
 the report does not contain does not count as that last figure. The bar's
 urgent color follows the pools still on the chip; each panel row keeps its
-own color. For every other provider, panel rows list every window and the alert
+own color. Antigravity works the same way: Gemini and Claude & GPT OSS are
+independent pools, each represented by its most-used Session or Weekly window,
+and the pool buttons above its list hide both of that pool's windows. For every
+other provider, panel rows list every window and the alert
 state follows the highest percent of the metrics not hidden. `barWindow` falls
 back to the highest percent (balance/text where a vendor has no metric) when
 a vendor lacks the pinned window (a balance-only provider, a weekly-only
@@ -209,7 +217,9 @@ row set the value and the alert. The last metric still on cannot be switched
 off: its switch is disabled, so the bar never goes blank (a `hiddenMetrics`
 that would hide every metric, edited by hand, is ignored). Cursor's rows in that
 section drive the same pool switches as the buttons above its list
-(`showCursorModels` and friends), so the two always agree, under the same rule.
+(`showCursorModels` and friends), and Antigravity's rows drive
+`showAntigravityGemini` and `showAntigravityClaudeGpt`, so Settings and the
+buttons always agree, under the same rule.
 `showAs` changes only the number: Left shows what remains of the most-used
 window (Z.AI's 18% monthly window reads `82%`), and the alert state keeps
 following the used share.

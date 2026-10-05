@@ -38,7 +38,9 @@
       "showCursorModels": true,
       "showCursorOther": true,
       "showCursorOnDemand": true,
-      "showCursorCredits": true
+      "showCursorCredits": true,
+      "showAntigravityGemini": true,
+      "showAntigravityClaudeGpt": true
     },
     "schema": [
       {
@@ -155,6 +157,20 @@
         "type": "boolean",
         "label": "Show Credits",
         "description": "Show a spending-page credit grant in the top bar and tooltip. The panel header and list drop it too. Hidden when the account has no grant. At least one Cursor figure stays visible.",
+        "defaultValue": true
+      },
+      {
+        "key": "showAntigravityGemini",
+        "type": "boolean",
+        "label": "Show Gemini",
+        "description": "Show the Gemini pool in the top bar and tooltip. The panel list drops its Session and Weekly rows too. At least one Antigravity pool stays visible.",
+        "defaultValue": true
+      },
+      {
+        "key": "showAntigravityClaudeGpt",
+        "type": "boolean",
+        "label": "Show Claude & GPT OSS",
+        "description": "Show the Claude & GPT OSS pool in the top bar and tooltip. The panel list drops its Session and Weekly rows too. At least one Antigravity pool stays visible.",
         "defaultValue": true
       }
     ]

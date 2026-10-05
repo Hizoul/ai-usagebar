@@ -65,6 +65,8 @@ Panel {
   readonly property bool showCursorOther: Model.booleanSetting(setting("showCursorOther", true), true)
   readonly property bool showCursorOnDemand: Model.booleanSetting(setting("showCursorOnDemand", true), true)
   readonly property bool showCursorCredits: Model.booleanSetting(setting("showCursorCredits", true), true)
+  readonly property bool showAntigravityGemini: Model.booleanSetting(setting("showAntigravityGemini", true), true)
+  readonly property bool showAntigravityClaudeGpt: Model.booleanSetting(setting("showAntigravityClaudeGpt", true), true)
   readonly property bool brandIcons: Model.booleanSetting(setting("brandIcons", true), true)
   readonly property string showAs: Model.normalizeShowAs(setting("showAs", "used"))
   readonly property var hiddenMetrics: Model.normalizeHiddenMetrics(setting("hiddenMetrics", {}))
@@ -76,7 +78,11 @@ Panel {
     return String(entry.fetched_at || "")
   }
   readonly property var shapedEntries: visibleEntries.map(function(item) {
-    return Model.visibleEntry(item, Model.hiddenKeysFor(hiddenMetrics, item.id))
+    return Model.panelEntry(
+      item,
+      Model.hiddenKeysFor(hiddenMetrics, item.id),
+      cursorPoolFlags(),
+      antigravityPoolFlags())
   })
   readonly property var shapedEntry: entryIndex >= 0 ? shapedEntries[entryIndex] : null
   readonly property var summary: Model.headline(shapedEntry, barWindow, showAs)
@@ -86,13 +92,22 @@ Panel {
   // Grouped sub-rows (SuperGrok's product slices) gain a heading row here so
   // they render as a breakdown of the meter above, not peers of it.
   readonly property bool cursorEntry: isCursorEntry(entry)
+  readonly property bool antigravityEntry: isAntigravityEntry(entry)
   readonly property var entrySections: entry
-    ? Model.groupedSections(Model.panelEntry(entry, hiddenMetrics, cursorPoolFlags()).sections) : []
+    ? Model.groupedSections(Model.panelEntry(
+      entry,
+      hiddenMetrics,
+      cursorPoolFlags(),
+      antigravityPoolFlags()).sections) : []
   readonly property var metricEntries: visibleEntries.map(function(item) {
     return {
       id: item.id,
       name: Model.providerName(item),
-      rows: Model.metricChoices(item, hiddenMetrics, cursorPoolFlags())
+      rows: Model.metricChoices(
+        item,
+        hiddenMetrics,
+        cursorPoolFlags(),
+        antigravityPoolFlags())
     }
   }).filter(function(item) { return item.rows.length > 0 })
   readonly property bool filterMiss: configuredProvider !== "" && entries.length > 0 && visibleEntries.length === 0
@@ -269,7 +284,8 @@ Panel {
       if (visibleEntries[i].id === entryId) target = visibleEntries[i]
     if (!target) return
     if (pool !== "") {
-      toggleCursorPool(pool, target)
+      if (isAntigravityEntry(target)) toggleAntigravityPool(pool, target)
+      else toggleCursorPool(pool, target)
       return
     }
     if (!Model.canToggleMetric(target, hiddenMetrics, key)) return
@@ -283,12 +299,26 @@ Panel {
     return (at < 0 ? id : id.slice(0, at)) === "cursor"
   }
 
+  function isAntigravityEntry(item) {
+    if (!item) return false
+    var id = String(item.id || "")
+    var at = id.indexOf("@")
+    return (at < 0 ? id : id.slice(0, at)) === "antigravity"
+  }
+
   function cursorPoolFlags() {
     return {
       models: showCursorModels,
       other: showCursorOther,
       demand: showCursorOnDemand,
       credits: showCursorCredits
+    }
+  }
+
+  function antigravityPoolFlags() {
+    return {
+      gemini: showAntigravityGemini,
+      third_party: showAntigravityClaudeGpt
     }
   }
 
@@ -334,6 +364,32 @@ Panel {
     return rows
   }
 
+  function antigravityShownFlags(item) {
+    var target = item || entry
+    if (typeof Model.antigravityBarFlags !== "function") return antigravityPoolFlags()
+    return Model.antigravityBarFlags(target, antigravityPoolFlags())
+  }
+
+  function antigravityPoolOn(id) {
+    return antigravityShownFlags()[id] === true
+  }
+
+  function antigravityPoolCanTurnOff(id) {
+    var flags = antigravityShownFlags()
+    if (flags[id] !== true) return false
+    return (flags.gemini ? 1 : 0) + (flags.third_party ? 1 : 0) > 1
+  }
+
+  function antigravityPoolButtons() {
+    var has = typeof Model.antigravityPoolPresence === "function"
+      ? Model.antigravityPoolPresence(entry)
+      : { gemini: true, third_party: true }
+    var rows = []
+    if (has.gemini) rows.push({ poolId: "gemini", label: root.tr("pool.antigravity_gemini") })
+    if (has.third_party) rows.push({ poolId: "third_party", label: root.tr("pool.antigravity_third_party") })
+    return rows
+  }
+
   function toggleCursorPool(id, item) {
     var target = item || entry
     var saved = cursorPoolFlags()
@@ -362,13 +418,42 @@ Panel {
     })
   }
 
+  function toggleAntigravityPool(id, item) {
+    var target = item || entry
+    var saved = antigravityPoolFlags()
+    var shown = antigravityShownFlags(target)
+    var next = Model.toggleAntigravityPool(shown, id)
+    if (next.gemini === shown.gemini && next.third_party === shown.third_party) return
+    var has = typeof Model.antigravityPoolPresence === "function"
+      ? Model.antigravityPoolPresence(target)
+      : { gemini: true, third_party: true }
+    persistWidgetSettings({
+      showAntigravityGemini: has.gemini ? next.gemini : saved.gemini,
+      showAntigravityClaudeGpt: has.third_party ? next.third_party : saved.third_party
+    })
+  }
+
+  function providerPoolButtons() {
+    return antigravityEntry ? antigravityPoolButtons() : cursorPoolButtons()
+  }
+
+  function providerPoolOn(id) {
+    return antigravityEntry ? antigravityPoolOn(id) : cursorPoolOn(id)
+  }
+
+  function providerPoolCanTurnOff(id) {
+    return antigravityEntry ? antigravityPoolCanTurnOff(id) : cursorPoolCanTurnOff(id)
+  }
+
+  function toggleProviderPool(id) {
+    if (antigravityEntry) toggleAntigravityPool(id)
+    else toggleCursorPool(id)
+  }
+
   function entryIsAlarming(item) {
     if (!item) return false
-    if (isCursorEntry(item) && typeof Model.cursorDualHeadline === "function") {
-      var dual = Model.cursorDualHeadline(item, cursorPoolFlags(), showAs)
-      // Brand / active chrome only when every visible Cursor pool is critical.
-      // A lone exhausted pool still paints that segment red when colour-coding
-      // is off; it must not tint the icon while another pool is still fine.
+    var dual = providerDualHeadline(item)
+    if (isCursorEntry(item) || isAntigravityEntry(item)) {
       if (dual) return dual.allCritical === true
     }
     return Model.isAlarming(item)
@@ -561,9 +646,14 @@ Panel {
     }
   }
 
-  // Cursor reports two model pools, and the bar must show both. Reading the
-  // sections here keeps the chip correct even when a hot reload is still
-  // holding an older copy of Model.js, which only kept the higher pool.
+  function providerDualHeadline(item) {
+    if (isAntigravityEntry(item) && typeof Model.antigravityDualHeadline === "function")
+      return Model.antigravityDualHeadline(item, antigravityPoolFlags(), showAs, barWindow)
+    if (isCursorEntry(item) && typeof Model.cursorDualHeadline === "function")
+      return Model.cursorDualHeadline(item, cursorPoolFlags(), showAs)
+    return null
+  }
+
   function cursorPools(item) {
     var pools = null
     if (typeof Model.cursorDualHeadline === "function") {
@@ -604,16 +694,29 @@ Panel {
     return withCreditGrants(pools, item)
   }
 
+  function providerPools(item) {
+    if (!isAntigravityEntry(item)) return cursorPools(item)
+    var dual = providerDualHeadline(item)
+    return dual && dual.text ? {
+      text: dual.text,
+      tooltip: dual.tooltip || dual.text,
+      severity: dual.severity,
+      allCritical: dual.allCritical === true,
+      segments: dual.segments || [],
+      tooltipRows: dual.tooltipRows || []
+    } : null
+  }
+
   function panelHeadline(item) {
-    if (isCursorEntry(item) && typeof Model.cursorDualHeadline === "function") {
-      var dual = Model.cursorDualHeadline(item, cursorPoolFlags(), showAs)
+    var dual = providerDualHeadline(item)
+    if ((isCursorEntry(item) || isAntigravityEntry(item)) && dual && dual.text) {
       if (dual && dual.text) return dual.text
     }
     return usageText(item, false)
   }
 
   function usageText(item, rich) {
-    var pools = cursorPools(item)
+    var pools = providerPools(item)
     if (pools) return rich ? pools.tooltip : pools.text
     var head = Model.headline(item, barWindow, showAs)
     return rich ? (head.tooltip || head.text) : head.text
@@ -636,7 +739,7 @@ Panel {
     var next = []
     for (var i = 0; i < chips.length; i++) {
       var chip = chips[i]
-      var pools = i < rows.length ? cursorPools(rows[i]) : null
+      var pools = i < rows.length ? providerPools(rows[i]) : null
       if (!pools || chip.label === "!") {
         if (chip.label === "!" || i >= rows.length) {
           next.push(chip)
@@ -714,7 +817,7 @@ Panel {
   // Colored hover rows when Cursor (or showAll) exposes per-pool severity.
   function tooltipRows() {
     function rowsFor(item) {
-      var pools = cursorPools(item)
+      var pools = providerPools(item)
       if (pools && pools.tooltipRows && pools.tooltipRows.length > 0) {
         var out = []
         for (var r = 0; r < pools.tooltipRows.length; r++) {
@@ -1050,14 +1153,14 @@ Panel {
 
           Flow {
             id: cursorPoolToggles
-            visible: !root.settingsOpen && root.cursorEntry
+            visible: !root.settingsOpen && (root.cursorEntry || root.antigravityEntry)
             width: parent.width
             height: visible ? childrenRect.height : 0
             flow: Flow.LeftToRight
             spacing: Style.spacing.md
 
             Repeater {
-              model: root.cursorPoolButtons()
+              model: root.providerPoolButtons()
 
               delegate: Button {
                 required property var modelData
@@ -1065,14 +1168,14 @@ Panel {
                 height: Style.spacing.controlHeight
                 width: implicitWidth
                 text: modelData.label
-                selected: root.cursorPoolOn(modelData.poolId)
-                enabled: root.cursorPoolCanTurnOff(modelData.poolId) || !root.cursorPoolOn(modelData.poolId)
+                selected: root.providerPoolOn(modelData.poolId)
+                enabled: root.providerPoolCanTurnOff(modelData.poolId) || !root.providerPoolOn(modelData.poolId)
                 bordered: true
                 foreground: root.foreground
                 fontFamily: root.fontFamily
                 fontSize: Style.font.bodySmall
                 verticalPadding: Style.spacing.controlPaddingY
-                onClicked: root.toggleCursorPool(modelData.poolId)
+                onClicked: root.toggleProviderPool(modelData.poolId)
               }
             }
           }

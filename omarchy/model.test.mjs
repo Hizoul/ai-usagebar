@@ -155,7 +155,10 @@ const barWindowSchema = manifest.barWidget.schema.find(row => row.key === 'barWi
 assert.equal(barWindowSchema.type, 'enum');
 assert.deepEqual(barWindowSchema.options, ['auto', 'session', 'weekly', 'monthly']);
 assert.equal(barWindowSchema.defaultValue, 'auto');
-for (const key of ['showCursorModels', 'showCursorOther', 'showCursorOnDemand', 'showCursorCredits']) {
+for (const key of [
+  'showCursorModels', 'showCursorOther', 'showCursorOnDemand', 'showCursorCredits',
+  'showAntigravityGemini', 'showAntigravityClaudeGpt'
+]) {
   assert.equal(manifest.barWidget.defaults[key], true);
   const row = manifest.barWidget.schema.find(item => item.key === key);
   assert.equal(row.type, 'boolean');
@@ -297,15 +300,15 @@ assert.match(panelSource, /Model\.settingsWithOverrides\(root\.settings,\s*root\
 assert.match(panelSource, /bar\.shell\.updateEntryInline\(root\.moduleName,\s*entry\)/);
 assert.match(panelSource, /persistSelection\(selectedEntryId\)/);
 assert.match(panelSource, /Model\.barLabel\(/);
-// Cursor pool switches filter the bar chip and tooltip. The open panel keeps
-// every pool, including the hero numbers.
-assert.match(panelSource, /entrySections:\s*entry\s*\?\s*Model\.groupedSections\(Model\.panelEntry\(entry,\s*hiddenMetrics,\s*cursorPoolFlags\(\)\)\.sections\)/);
+// Cursor and Antigravity pool switches filter the bar chip, tooltip and panel.
+assert.match(panelSource, /Model\.panelEntry\([\s\S]*?cursorPoolFlags\(\),\s*\n?\s*antigravityPoolFlags\(\)/);
 assert.doesNotMatch(panelSource, /filterCursorSections/);
 assert.match(panelSource, /cursorDualHeadline\(item,\s*cursorPoolFlags\(\),\s*showAs\)/);
+assert.match(panelSource, /antigravityDualHeadline\(item,\s*antigravityPoolFlags\(\),\s*showAs,\s*barWindow\)/);
 assert.match(panelSource, /function creditGrantBits\(item\)/);
 assert.match(panelSource, /has\.credits \|\| creditGrantBits\(entry\)\.length > 0/);
 assert.match(panelSource, /return withCreditGrants\(pools, item\)/);
-assert.match(panelSource, /function panelHeadline\(item\) \{[\s\S]*?cursorDualHeadline\(item,\s*cursorPoolFlags\(\),\s*showAs\)/);
+assert.match(panelSource, /function panelHeadline\(item\) \{[\s\S]*?providerDualHeadline\(item\)/);
 
 const settingsViewSource = fs.readFileSync(new URL('./SettingsView.qml', import.meta.url), 'utf8');
 assert.match(settingsViewSource, /command:\s*\["ai-usagebar",\s*"settings",\s*"show"\]/);
@@ -1606,27 +1609,46 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
   const agy = model.parseReport(JSON.stringify({entries: [{id: 'antigravity', sections: [
     {type: 'spacer'},
     {type: 'text', label: 'Session', value: ''},
-    {type: 'metric', label: 'Gemini', percent: 0},
-    {type: 'metric', label: 'Claude & GPT OSS', percent: 0},
+    {type: 'metric', label: 'Gemini', percent: 0, window_secs: 18000},
+    {type: 'metric', label: 'Claude & GPT OSS', percent: 4, window_secs: 18000},
     {type: 'text', label: 'Weekly', value: ''},
-    {type: 'metric', label: 'Gemini', percent: 6},
-    {type: 'metric', label: 'Claude & GPT OSS', percent: 0},
+    {type: 'metric', label: 'Gemini', percent: 6, window_secs: 604800},
+    {type: 'metric', label: 'Claude & GPT OSS', percent: 2, window_secs: 604800},
     {type: 'text', label: 'Source', value: 'local'}
   ]}]})).entries[0];
   assert.deepEqual(Array.from(model.metricKeys(agy), item => item && item.key),
     [null, null, 'Session / Gemini', 'Session / Claude & GPT OSS', null, 'Weekly / Gemini', 'Weekly / Claude & GPT OSS', null]);
-  const shown = (hidden) => Array.from(model.panelEntry(agy, hidden, {}).sections.map(row => row.type + ':' + (row.label || '')));
-  assert.deepEqual(shown({antigravity: ['Weekly / Gemini']}),
+  const shown = (hidden) => Array.from(model.visibleEntry(agy, hidden).sections.map(row => row.type + ':' + (row.label || '')));
+  assert.deepEqual(shown(['Weekly / Gemini']),
     ['spacer:', 'text:Session', 'metric:Gemini', 'metric:Claude & GPT OSS', 'text:Weekly', 'metric:Claude & GPT OSS', 'text:Source'],
     'hiding one of two same-labelled rows hides only that one');
-  assert.deepEqual(shown({antigravity: ['Session / Gemini', 'Session / Claude & GPT OSS']}),
+  assert.deepEqual(shown(['Session / Gemini', 'Session / Claude & GPT OSS']),
     ['spacer:', 'text:Weekly', 'metric:Gemini', 'metric:Claude & GPT OSS', 'text:Source'],
     'a heading with no metric left goes with them');
-  assert.equal(model.headline(model.visibleEntry(agy, ['Weekly / Gemini'])).text, '0%');
-  assert.equal(model.headline(agy).text, '6%');
-  const rows = model.metricChoices(agy, {antigravity: ['Weekly / Gemini']}, {});
-  assert.deepEqual(Array.from(rows, row => `${row.group}|${row.label}|${row.checked}`),
-    ['Session|Gemini|true', 'Session|Claude & GPT OSS|true', 'Weekly|Gemini|false', 'Weekly|Claude & GPT OSS|true']);
+  const flags = (over = {}) => Object.assign({gemini: true, third_party: true}, over);
+  const poolRows = (over = {}) => Array.from(model.panelEntry(agy, {}, {}, flags(over)).sections
+    .map(row => row.type + ':' + (row.label || '')));
+  assert.deepEqual(poolRows(),
+    ['spacer:', 'text:Session', 'metric:Gemini', 'metric:Claude & GPT OSS', 'text:Weekly', 'metric:Gemini', 'metric:Claude & GPT OSS', 'text:Source']);
+  assert.deepEqual(poolRows({gemini: false}),
+    ['spacer:', 'text:Session', 'metric:Claude & GPT OSS', 'text:Weekly', 'metric:Claude & GPT OSS', 'text:Source']);
+  assert.deepEqual(poolRows({third_party: false}),
+    ['spacer:', 'text:Session', 'metric:Gemini', 'text:Weekly', 'metric:Gemini', 'text:Source']);
+  const toggledPools = model.toggleAntigravityPool({gemini: false, third_party: false}, 'gemini');
+  assert.equal(toggledPools.gemini, true);
+  assert.equal(toggledPools.third_party, false);
+  assert.equal(model.headline(agy).text, '6% · 4%');
+  assert.equal(model.headline(agy, 'auto', 'left').text, '94% · 96%');
+  assert.equal(model.headline(agy, 'session', 'used').text, '0% · 4%');
+  assert.equal(model.headline(agy, 'weekly', 'used').text, '6% · 2%');
+  assert.equal(model.antigravityDualHeadline(agy, flags({third_party: false}), 'used').text, '6%');
+  assert.equal(model.antigravityDualHeadline(agy, flags({gemini: false}), 'used').text, '4%');
+  const rows = model.metricChoices(agy, {}, {}, {});
+  assert.deepEqual(Array.from(rows, row => `${row.pool}|${row.label}|${row.checked}|${row.canToggle}`),
+    ['gemini|Gemini|true|true', 'third_party|Claude & GPT OSS|true|true']);
+  assert.deepEqual(Array.from(model.metricChoices(agy, {}, {}, flags({third_party: false})),
+    row => `${row.pool}|${row.checked}|${row.canToggle}`),
+    ['gemini|true|false', 'third_party|false|true']);
   const twice = model.parseReport(JSON.stringify({entries: [{id: 'x', sections: [
     {type: 'metric', label: 'Pool', percent: 1},
     {type: 'metric', label: 'Pool', percent: 2}
@@ -1734,12 +1756,13 @@ assert.equal(model.cursorPoolOf(null), '');
   const settingsForm = fs.readFileSync(new URL('./SettingsView.qml', import.meta.url), 'utf8');
   assert.match(panel, /Model\.normalizeShowAs\(setting\("showAs",\s*"used"\)\)/);
   assert.match(panel, /Model\.normalizeHiddenMetrics\(setting\("hiddenMetrics",\s*\{\}\)\)/);
-  assert.match(panel, /Model\.visibleEntry\(item,\s*Model\.hiddenKeysFor\(hiddenMetrics,\s*item\.id\)\)/);
+  assert.match(panel, /Model\.panelEntry\(\s*item,\s*\n?\s*Model\.hiddenKeysFor\(hiddenMetrics,\s*item\.id\),/);
   assert.match(panel, /persistWidgetSettings\(\{\s*showAs:\s*next\s*\}\)/);
   assert.match(panel, /if \(!Model\.canToggleMetric\(target,\s*hiddenMetrics,\s*key\)\) return/);
   assert.match(panel, /hiddenMetrics:\s*Model\.toggleHiddenMetric\(hiddenMetrics,\s*entryId,\s*key\)/);
-  assert.match(panel, /toggleCursorPool\(pool,\s*target\)/);
-  assert.match(panel, /Model\.metricChoices\(item,\s*hiddenMetrics,\s*cursorPoolFlags\(\)\)/);
+  assert.match(panel, /if \(isAntigravityEntry\(target\)\) toggleAntigravityPool\(pool,\s*target\)/);
+  assert.match(panel, /else toggleCursorPool\(pool,\s*target\)/);
+  assert.match(panel, /Model\.metricChoices\(\s*item,\s*\n?\s*hiddenMetrics,/);
   assert.match(panel, /onMetricToggleRequested:\s*function\(entryId,\s*key,\s*pool\)\s*\{\s*root\.setMetricShown\(entryId,\s*key,\s*pool\)\s*\}/);
   assert.doesNotMatch(panel, /metricEye|hideable|hasHideableMetrics|metric\.hidden_hint/, 'rows carry no switch; the choice lives in Settings');
   assert.match(panel, /onShowAsRequested:\s*function\(value\)\s*\{\s*root\.setShowAs\(value\)\s*\}/);

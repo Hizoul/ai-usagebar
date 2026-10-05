@@ -27,8 +27,11 @@ Each release is also published at
   of the highest percentage the bar and its icon alert state take, so a spent
   window you chose not to watch no longer reddens the icon or sets the number.
   The last metric still on cannot be switched off (its switch is disabled), so
-  the bar never goes blank. Cursor's rows in that section drive the same pool
-  switches as its buttons, so both always agree under the same rule.
+  the bar never goes blank. Cursor's and Antigravity's rows in that section
+  drive the same pool switches as their buttons, so both always agree under the
+  same rule. Antigravity's buttons choose Gemini and Claude & GPT OSS; each
+  figure is that pool's most-used Session or Weekly window, and both figures
+  show side by side when both pools are on.
   **Show usage as** in the panel Settings (`showAs` in the widget settings,
   `used` by default, so an existing bar reads as before) switches the bar, the
   tooltip, the hero and the panel meters between what is used and what is left

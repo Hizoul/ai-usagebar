@@ -19,6 +19,8 @@ var LABELS = {
     "Credits": "Credits",
     "Cursor Other Models": "Cursor Other Models",
     "Cursor On Demand": "Cursor On Demand",
+    "Gemini": "Gemini",
+    "Claude & GPT OSS": "Claude & GPT OSS",
     "Resets": "Resets",
     "Auto + Composer": "Auto + Composer"
   },
@@ -29,6 +31,8 @@ var LABELS = {
     "Credits": "Кредиты",
     "Cursor Other Models": "Другие модели Cursor",
     "Cursor On Demand": "Cursor по запросу",
+    "Gemini": "Gemini",
+    "Claude & GPT OSS": "Claude и GPT OSS",
     "Resets": "Сброс",
     "Auto + Composer": "Auto + Composer"
   },
@@ -39,6 +43,8 @@ var LABELS = {
     "Credits": "Créditos",
     "Cursor Other Models": "Outros modelos Cursor",
     "Cursor On Demand": "Cursor sob demanda",
+    "Gemini": "Gemini",
+    "Claude & GPT OSS": "Claude e GPT OSS",
     "Resets": "Redefinições",
     "Auto + Composer": "Auto + Composer"
   }
@@ -160,9 +166,13 @@ var MESSAGES = {
     "pool.other": "Other Models",
     "pool.demand": "On-Demand",
     "pool.credits": "Credits",
+    "pool.antigravity_gemini": "Gemini",
+    "pool.antigravity_third_party": "Claude & GPT OSS",
     "tip.pool_models": "Cursor Models · {percent}%",
     "tip.pool_other": "Cursor Other Models · {percent}%",
     "tip.pool_demand": "Cursor On Demand · {percent}%",
+    "tip.pool_gemini": "Gemini · {percent}%",
+    "tip.pool_third_party": "Claude & GPT OSS · {percent}%",
     "tip.cached": "cached",
     "ready": "Ready",
     "error": "Error",
@@ -279,9 +289,13 @@ var MESSAGES = {
     "pool.other": "Другие модели",
     "pool.demand": "По запросу",
     "pool.credits": "Кредиты",
+    "pool.antigravity_gemini": "Gemini",
+    "pool.antigravity_third_party": "Claude и GPT OSS",
     "tip.pool_models": "Модели Cursor · {percent}%",
     "tip.pool_other": "Другие модели Cursor · {percent}%",
     "tip.pool_demand": "Cursor по запросу · {percent}%",
+    "tip.pool_gemini": "Gemini · {percent}%",
+    "tip.pool_third_party": "Claude и GPT OSS · {percent}%",
     "tip.cached": "кэш",
     "ready": "Готово",
     "error": "Ошибка",
@@ -398,9 +412,13 @@ var MESSAGES = {
     "pool.other": "Outros modelos",
     "pool.demand": "Sob demanda",
     "pool.credits": "Créditos",
+    "pool.antigravity_gemini": "Gemini",
+    "pool.antigravity_third_party": "Claude e GPT OSS",
     "tip.pool_models": "Modelos Cursor · {percent}%",
     "tip.pool_other": "Outros modelos Cursor · {percent}%",
     "tip.pool_demand": "Cursor sob demanda · {percent}%",
+    "tip.pool_gemini": "Gemini · {percent}%",
+    "tip.pool_third_party": "Claude e GPT OSS · {percent}%",
     "tip.cached": "em cache",
     "ready": "Pronto",
     "error": "Erro",
@@ -524,6 +542,7 @@ function formatDuration(milliseconds, locale) {
 function tipPoolLine(locale, poolId, percent) {
   var key = poolId === "other" ? "tip.pool_other"
     : poolId === "demand" ? "tip.pool_demand"
+    : poolId === "gemini" || poolId === "third_party" ? "tip.pool_" + poolId
     : "tip.pool_models"
   return t(locale, key, { percent: percent })
 }

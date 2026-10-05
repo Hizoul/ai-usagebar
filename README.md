@@ -798,6 +798,9 @@ The widget reads the providers and accounts already enabled in
   leaves the panel, the bar and the tooltip, and is ignored when the bar picks
   the highest percent and when it decides whether the icon is alarming, which
   follows the used share in either reading. The last metric on stays on.
+  Cursor and Antigravity expose their independent model pools as buttons:
+  Cursor Models/Other Models and Gemini/Claude & GPT OSS. With both pools on,
+  the bar shows both figures, one per pool.
 - Right-click launches the TUI.
 - Middle-click or the mouse wheel switches providers.
 - The selected provider or named account is remembered across shell reloads

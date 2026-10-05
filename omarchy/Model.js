@@ -926,18 +926,112 @@ function toggleCursorPool(flags, id) {
 }
 
 /**
+ * Names the Antigravity pool a metric belongs to.
+ * @param {Object} section Section from the report.
+ * @returns {"gemini"|"third_party"|""} Empty for a row that is neither Antigravity pool.
+ */
+function antigravityPoolOf(section) {
+  if (!section || section.type !== "metric") return ""
+  if (section.label === "Gemini") return "gemini"
+  if (section.label === "Claude & GPT OSS") return "third_party"
+  return ""
+}
+
+/**
+ * Lists the Antigravity model pools an entry really carries.
+ * @param {Object} entry Entry from the report.
+ * @returns {{gemini: boolean, third_party: boolean}}
+ */
+function antigravityPoolPresence(entry) {
+  var sections = entry && Array.isArray(entry.sections) ? entry.sections : []
+  var gemini = false
+  var thirdParty = false
+  for (var i = 0; i < sections.length; i++) {
+    var pool = antigravityPoolOf(sections[i])
+    if (pool === "gemini") gemini = true
+    else if (pool === "third_party") thirdParty = true
+  }
+  return { gemini: gemini, third_party: thirdParty }
+}
+
+/**
+ * Normalizes the Antigravity pool switches and keeps one pool visible.
+ * @param {*} flags Raw widget switches.
+ * @returns {{gemini: boolean, third_party: boolean}}
+ */
+function antigravityPoolVisibility(flags) {
+  var gemini = !(flags && flags.gemini === false)
+  var thirdParty = !(flags && flags.third_party === false)
+  if (!gemini && !thirdParty) gemini = true
+  return { gemini: gemini, third_party: thirdParty }
+}
+
+/**
+ * Computes the next Antigravity pool switches after one toggle.
+ * @param {*} flags Current raw switches.
+ * @param {string} id Pool being toggled.
+ * @returns {{gemini: boolean, third_party: boolean}}
+ */
+function toggleAntigravityPool(flags, id) {
+  var current = antigravityPoolVisibility(flags)
+  var next = {
+    gemini: current.gemini,
+    third_party: current.third_party
+  }
+  if (id === "gemini") next.gemini = !next.gemini
+  else if (id === "third_party") next.third_party = !next.third_party
+  else return current
+  return antigravityPoolVisibility(next)
+}
+
+/**
+ * Selects the Antigravity pools a chip can draw, falling back to one present pool.
+ * @param {Object} entry Entry from the report.
+ * @param {*} flags Raw widget switches.
+ * @returns {{gemini: boolean, third_party: boolean}}
+ */
+function antigravityBarFlags(entry, flags) {
+  var show = antigravityPoolVisibility(flags)
+  var has = antigravityPoolPresence(entry)
+  var visible = {
+    gemini: show.gemini && has.gemini,
+    third_party: show.third_party && has.third_party
+  }
+  if (!visible.gemini && !visible.third_party) {
+    if (has.gemini) visible.gemini = true
+    else if (has.third_party) visible.third_party = true
+  }
+  return visible
+}
+
+/**
  * Returns the entry as the panel lists it: the metrics the user switched off are gone, so their meters
- * do not draw. A provider hides metrics through `hiddenMetrics`; Cursor hides its pools through its own
- * switches. Only a pool the report really carries can be switched off: an On-Demand row without a limit is
+ * do not draw. A provider hides metrics through `hiddenMetrics`; Cursor and Antigravity hide their pools
+ * through their own switches. Only a pool the report really carries can be switched off: an On-Demand row without a limit is
  * plain text and always stays.
  * @param {Object} entry Entry from the report.
  * @param {*} hidden Raw `hiddenMetrics` setting.
  * @param {{models: boolean, other: boolean, demand: boolean, credits: boolean}} cursorFlags Cursor pool switches.
+ * @param {{gemini: boolean, third_party: boolean}} antigravityFlags Antigravity pool switches.
  * @returns {Object} The entry itself when nothing is hidden, otherwise a copy without the hidden rows.
  */
-function panelEntry(entry, hidden, cursorFlags) {
+function panelEntry(entry, hidden, cursorFlags, antigravityFlags) {
   if (!entry) return entry
-  if (baseProvider(entry.id) !== "cursor") return visibleEntry(entry, hiddenKeysFor(hidden, entry.id))
+  var provider = baseProvider(entry.id)
+  if (provider === "antigravity") {
+    var agyOn = antigravityBarFlags(entry, antigravityFlags)
+    var agySections = Array.isArray(entry.sections) ? entry.sections : []
+    var agyKept = agySections.filter(function(section) {
+      var pool = antigravityPoolOf(section)
+      return pool === "" || agyOn[pool] === true
+    })
+    if (agyKept.length === agySections.length) return entry
+    var agyCopy = {}
+    for (var agyField in entry) agyCopy[agyField] = entry[agyField]
+    agyCopy.sections = agyKept
+    return agyCopy
+  }
+  if (provider !== "cursor") return visibleEntry(entry, hiddenKeysFor(hidden, entry.id))
   var has = cursorPoolPresence(entry)
   var on = cursorPoolVisibility(cursorFlags)
   var sections = Array.isArray(entry.sections) ? entry.sections : []
@@ -954,27 +1048,34 @@ function panelEntry(entry, hidden, cursorFlags) {
 
 /**
  * Lists the metrics of one entry as the settings page offers them, each with whether it is shown and
- * whether its switch may be flipped. Cursor's rows follow its pool switches, one row per pool the report carries.
+ * whether its switch may be flipped. Cursor's and Antigravity's rows follow their pool switches, one row per pool the report carries.
  * @param {Object} entry Entry from the report.
  * @param {*} hidden Raw `hiddenMetrics` setting.
  * @param {{models: boolean, other: boolean, demand: boolean, credits: boolean}} cursorFlags Cursor pool switches.
+ * @param {{gemini: boolean, third_party: boolean}} antigravityFlags Antigravity pool switches.
  * @returns {Array<{key: string, label: string, group: string, pool: string, checked: boolean, canToggle: boolean}>}
  */
-function metricChoices(entry, hidden, cursorFlags) {
+function metricChoices(entry, hidden, cursorFlags, antigravityFlags) {
   var rows = []
   if (!entry) return rows
   var sections = Array.isArray(entry.sections) ? entry.sections : []
-  var cursor = baseProvider(entry.id) === "cursor"
+  var provider = baseProvider(entry.id)
+  var cursor = provider === "cursor"
+  var antigravity = provider === "antigravity"
   var off = hiddenKeysFor(hidden, entry.id)
   var has = cursor ? cursorPoolPresence(entry) : null
   var on = cursor ? cursorPoolVisibility(cursorFlags) : null
+  if (antigravity) {
+    has = antigravityPoolPresence(entry)
+    on = antigravityPoolVisibility(antigravityFlags)
+  }
   var keys = metricKeys(entry)
   var pools = {}
   for (var i = 0; i < sections.length; i++) {
     var section = sections[i]
-    var pool = cursor ? cursorPoolOf(section) : ""
+    var pool = cursor ? cursorPoolOf(section) : antigravity ? antigravityPoolOf(section) : ""
     if (!section || (section.type !== "metric" && pool !== "demand")) continue
-    if (cursor && (pool === "" || has[pool] !== true)) continue
+    if ((cursor || antigravity) && (pool === "" || has[pool] !== true)) continue
     if (pool !== "" && hasOwn(pools, pool)) continue
     if (pool !== "") pools[pool] = true
     var named = keys[i] || { key: cleanText(section.label, 160).trim(), group: "" }
@@ -1174,10 +1275,115 @@ function cursorDualHeadline(entry, flags, showAs) {
   }
 }
 
+/**
+ * Selects the most-consumed Antigravity window of one pool.
+ * @param {Object[]} sections Metric sections from the report.
+ * @param {string} pool Pool id.
+ * @param {string} barWindow Pinned quota window, or `auto` for the highest figure.
+ * @returns {Object|null} The worst metric for the pool.
+ */
+function worstAntigravityPoolMetric(sections, pool, barWindow) {
+  var candidates = []
+  for (var i = 0; i < sections.length; i++) {
+    var section = sections[i]
+    if (antigravityPoolOf(section) !== pool) continue
+    candidates.push(section)
+  }
+  var want = normalizeBarWindow(barWindow)
+  var scoped = []
+  for (var j = 0; j < candidates.length; j++) {
+    if (metricMatchesWindow(candidates[j], want)) scoped.push(candidates[j])
+  }
+  var list = scoped.length > 0 ? scoped : candidates
+  var worst = null
+  for (var k = 0; k < list.length; k++) {
+    if (!worst || list[k].percent > worst.percent
+      || (list[k].percent === worst.percent && severityRank(list[k].severity) > severityRank(worst.severity)))
+      worst = list[k]
+  }
+  return worst
+}
+
+/**
+ * Builds the Antigravity bar headline from its two independent model pools.
+ * Each pool is represented by its most-consumed Session or Weekly window.
+ * @param {Object} entry Entry from the report.
+ * @param {*} flags Raw Antigravity pool switches.
+ * @param {*} showAs Raw reading setting.
+ * @param {*} barWindow Raw pinned-window setting.
+ * @returns {Object|null} Cursor-style dual headline, or null for an unrecognized report.
+ */
+function antigravityDualHeadline(entry, flags, showAs, barWindow) {
+  if (baseProvider(entry && entry.id) !== "antigravity") return null
+  var sections = Array.isArray(entry.sections) ? entry.sections : []
+  var show = antigravityBarFlags(entry, flags)
+  var definitions = [
+    { id: "gemini", label: "Gemini" },
+    { id: "third_party", label: "Claude & GPT OSS" }
+  ]
+  var parts = []
+  for (var i = 0; i < definitions.length; i++) {
+    var definition = definitions[i]
+    if (!show[definition.id]) continue
+    var worst = worstAntigravityPoolMetric(sections, definition.id, barWindow)
+    if (!worst) continue
+    parts.push({
+      text: percentText(worst.percent, showAs),
+      line: definition.label + " · " + percentText(worst.percent, showAs),
+      percent: worst.percent,
+      severity: worst.severity,
+      pool: definition.id
+    })
+  }
+  if (parts.length === 0) return null
+  var worse = parts[0]
+  for (var p = 1; p < parts.length; p++) {
+    var part = parts[p]
+    if (part.percent > worse.percent
+      || (part.percent === worse.percent && severityRank(part.severity) > severityRank(worse.severity)))
+      worse = part
+  }
+  var texts = []
+  var lines = []
+  var segments = []
+  var tooltipRows = []
+  for (var n = 0; n < parts.length; n++) {
+    texts.push(parts[n].text)
+    lines.push(parts[n].line)
+    if (n > 0) segments.push({ text: " · ", severity: "" })
+    segments.push({ text: parts[n].text, severity: parts[n].severity })
+    tooltipRows.push({
+      text: parts[n].line,
+      severity: parts[n].severity,
+      pool: parts[n].pool,
+      percent: parts[n].percent
+    })
+  }
+  var allCritical = parts.length > 0
+  for (var c = 0; c < parts.length; c++) {
+    if (parts[c].severity !== "critical") {
+      allCritical = false
+      break
+    }
+  }
+  return {
+    text: texts.join(" · "),
+    tooltip: lines.join("\n"),
+    segments: segments,
+    tooltipRows: tooltipRows,
+    percent: worse.percent,
+    severity: worse.severity,
+    allCritical: allCritical,
+    label: "Gemini · Claude & GPT OSS"
+  }
+}
+
 function headline(entry, barWindow, showAs) {
   if (!entry) return { text: "", percent: null, severity: "low", label: "" }
   var dual = cursorDualHeadline(entry, undefined, showAs)
   if (dual) return dual
+  var antigravity = antigravityDualHeadline(entry, undefined, showAs, barWindow)
+  if (antigravity) return antigravity
   var best = selectMetric(entry, barWindow)
   if (best) {
     // The metric names which of its two numbers goes on the bar; the other one
