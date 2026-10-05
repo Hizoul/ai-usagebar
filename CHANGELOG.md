@@ -52,6 +52,9 @@ Each release is also published at
 
 ### Fixed
 
+- **Omarchy Quattro now draws Z.AI's Z mark.** The panel and top bar were
+  using the older Zhipu molecule mark; they now use the same Z logo as the
+  tray.
 - **Omarchy Quattro: a provider with no mark no longer runs its short code into
   the value.** Command Code, which has no logo, drew its code centred in the
   one-glyph icon box, where three letters overflowed into the gap and read

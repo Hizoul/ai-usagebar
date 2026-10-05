@@ -528,6 +528,7 @@ assert.equal(model.brandIconFile({id: 'openai'}), 'openai.svg');
 assert.equal(model.brandIconFile({id: 'supergrok'}), 'grok.svg');
 assert.equal(model.brandIconFile({id: 'grokbot'}), 'grokbot.svg');
 assert.equal(model.brandIconFile({id: 'copilot'}), 'copilot.svg');
+assert.equal(model.brandIconFile({id: 'zai'}), 'zai.svg');
 assert.equal(model.brandIconFile({id: 'kimi'}), 'kimi.svg');
 assert.equal(model.brandIconFile({id: 'opencode-go'}), 'opencode.svg');
 assert.equal(model.brandIconFile({id: 'lyceum'}), '');
@@ -561,6 +562,11 @@ for (const slug of slugs) {
 const sharedMarks = Object.entries(byMark).filter(([, vendors]) =>
   vendors.length > 1 && vendors.join() !== 'grok,supergrok');
 assert.deepEqual(sharedMarks, []);
+const currentColorMarks = Array.from(fs.readdirSync(new URL('./icons', import.meta.url)))
+  .filter(file => file.endsWith('.svg'))
+  .map(file => fs.readFileSync(new URL('./icons/' + file, import.meta.url), 'utf8'))
+  .filter(source => source.includes('currentColor'));
+assert.equal(currentColorMarks.length, 0);
 for (const slug of slugs) {
   const file = model.brandIconFile({id: slug});
   if (file) assert.ok(fs.existsSync(new URL('./icons/' + file, import.meta.url)), file);
