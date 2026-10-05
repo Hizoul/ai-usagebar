@@ -400,7 +400,9 @@ function toggleHiddenMetric(hidden, entryId, key) {
 /**
  * Returns the entry as the bar and the tooltip see it, without the metrics switched off for it, so the
  * highest-percent choice, the alert state and every echo of them never read a row the user hid.
- * A heading left with no metric under it goes too. At least one metric always stays: a hidden list that
+ * A hidden metric takes the spacer that leads it when it closes its run of rows (a group that shares one spacer keeps it for
+ * the next row), and a heading left with no metric under it goes too, with the
+ * spacer that precedes it, so no gap is left behind. At least one metric always stays: a hidden list that
  * would remove every metric (a hand-edited shell.json) is ignored, so the bar never goes blank.
  * The settings page still offers the original entry, hidden rows included, so they can be switched back on.
  * @param {Object} entry Entry from the report.
@@ -417,7 +419,10 @@ function visibleEntry(entry, hiddenKeys) {
   var keptMetrics = 0
   var block = null
   var closeBlock = function() {
-    if (block && block.had > 0 && block.kept === 0) kept.splice(block.start)
+    if (block && block.had > 0 && block.kept === 0) {
+      var spaced = block.start > 0 && kept[block.start - 1].type === "spacer"
+      kept.splice(spaced ? block.start - 1 : block.start, spaced ? 2 : 1)
+    }
     block = null
   }
   for (var i = 0; i < sections.length; i++) {
@@ -429,7 +434,12 @@ function visibleEntry(entry, hiddenKeys) {
     if (keys[i]) {
       metrics++
       if (block) block.had++
-      if (hidden.indexOf(keys[i].key) >= 0) continue
+      if (hidden.indexOf(keys[i].key) >= 0) {
+        var after = sections[i + 1]
+        var endsRun = !after || after.type === "spacer" || isHeadingRow(after)
+        if (endsRun && kept.length > 0 && kept[kept.length - 1].type === "spacer") kept.pop()
+        continue
+      }
       keptMetrics++
       if (block) block.kept++
     }
@@ -449,11 +459,15 @@ function visibleEntry(entry, hiddenKeys) {
  * refused when it is the last metric of the entry still on, the rule Cursor's pools already follow.
  * @param {Object} entry Entry from the report.
  * @param {*} hidden Raw `hiddenMetrics` setting.
- * @param {string} key Metric key from `metricKeys`.
+ * @param {string} key Metric key from `metricKeys`, or a `window:` row key from `metricChoices`.
  * @returns {boolean}
  */
 function canToggleMetric(entry, hidden, key) {
   if (!entry || key === "") return false
+  if (String(key).indexOf(WINDOW_KEY_PREFIX) === 0) {
+    var row = metricChoices(entry, hidden).filter(function(item) { return item.key === key })[0]
+    return row ? row.canToggle : false
+  }
   var off = hiddenKeysFor(hidden, entry.id)
   if (off.indexOf(key) >= 0) return true
   var visible = 0
@@ -1005,10 +1019,25 @@ function antigravityBarFlags(entry, flags) {
 }
 
 /**
+ * Returns the entry without the metrics switched off for it, as the panel, the bar and the pool buttons all
+ * read it. A Cursor or Antigravity entry loses only the pool metrics a window row can switch.
+ * @param {Object} entry Entry from the report.
+ * @param {*} hidden Raw `hiddenMetrics` setting.
+ * @returns {Object}
+ */
+function windowEntry(entry, hidden) {
+  if (!entry) return entry
+  var provider = baseProvider(entry.id)
+  var poolProvider = provider === "cursor" || provider === "antigravity"
+  return visibleEntry(entry, poolProvider ? windowHiddenKeys(entry, hidden) : hiddenKeysFor(hidden, entry.id))
+}
+
+/**
  * Returns the entry as the panel lists it: the metrics the user switched off are gone, so their meters
- * do not draw. A provider hides metrics through `hiddenMetrics`; Cursor and Antigravity hide their pools
- * through their own switches. Only a pool the report really carries can be switched off: an On-Demand row without a limit is
- * plain text and always stays.
+ * do not draw. A provider hides metrics through `hiddenMetrics`; Cursor and Antigravity hide their time
+ * windows through it (only the pool metrics a window row switches count) and their pools through their own
+ * switches. The windows go first, so a pool button never brings a hidden window back. Only a pool the report
+ * really carries can be switched off: an On-Demand row without a limit is plain text and always stays.
  * @param {Object} entry Entry from the report.
  * @param {*} hidden Raw `hiddenMetrics` setting.
  * @param {{models: boolean, other: boolean, demand: boolean, credits: boolean}} cursorFlags Cursor pool switches.
@@ -1018,76 +1047,142 @@ function antigravityBarFlags(entry, flags) {
 function panelEntry(entry, hidden, cursorFlags, antigravityFlags) {
   if (!entry) return entry
   var provider = baseProvider(entry.id)
+  var poolProvider = provider === "cursor" || provider === "antigravity"
+  var base = windowEntry(entry, hidden)
+  if (!poolProvider) return base
+  var sections = Array.isArray(base.sections) ? base.sections : []
   if (provider === "antigravity") {
-    var agyOn = antigravityBarFlags(entry, antigravityFlags)
-    var agySections = Array.isArray(entry.sections) ? entry.sections : []
-    var agyKept = agySections.filter(function(section) {
-      var pool = antigravityPoolOf(section)
-      return pool === "" || agyOn[pool] === true
+    var agyOn = antigravityBarFlags(base, antigravityFlags)
+    var keys = metricKeys(base)
+    var poolOff = []
+    sections.forEach(function(section, i) {
+      var id = antigravityPoolOf(section)
+      if (id !== "" && agyOn[id] !== true && keys[i]) poolOff.push(keys[i].key)
     })
-    var agyCopy = entry
-    if (agyKept.length !== agySections.length) {
-      agyCopy = {}
-      for (var agyField in entry) agyCopy[agyField] = entry[agyField]
-      agyCopy.sections = agyKept
-    }
-    return visibleEntry(agyCopy, hiddenKeysFor(hidden, entry.id))
+    return visibleEntry(base, poolOff)
   }
-  if (provider !== "cursor") return visibleEntry(entry, hiddenKeysFor(hidden, entry.id))
-  var has = cursorPoolPresence(entry)
-  var on = cursorPoolVisibility(cursorFlags)
-  var sections = Array.isArray(entry.sections) ? entry.sections : []
+  var has = cursorPoolPresence(base)
+  var shown = cursorPoolVisibility(cursorFlags)
   var kept = sections.filter(function(section) {
-    var pool = cursorPoolOf(section)
-    return pool === "" || has[pool] !== true || on[pool] === true
+    var id = cursorPoolOf(section)
+    return id === "" || has[id] !== true || shown[id] === true
   })
-  if (kept.length === sections.length) return entry
+  if (kept.length === sections.length) return base
   var copy = {}
-  for (var field in entry) copy[field] = entry[field]
+  for (var field in base) copy[field] = base[field]
   copy.sections = kept
   return copy
 }
 
 /**
- * Lists the metrics of one entry as the settings page offers them, each with whether it is shown and
- * whether its switch may be flipped. Cursor's and Antigravity's rows follow their pool switches, one row per pool the report carries.
+ * Names the time window a metric belongs to: its stated 5h or 7d length, else its label, else the heading it sits under,
+ * else Monthly.
+ * @param {Object} section Metric section from the report.
+ * @param {string} group Heading the metric sits under, empty when none.
+ * @returns {"session"|"weekly"|"monthly"}
+ */
+function windowOfMetric(section, group) {
+  var secs = Math.floor(Number(section && section.window_secs))
+  if (secs === SESSION_WINDOW_SECS) return "session"
+  if (secs === WEEKLY_WINDOW_SECS) return "weekly"
+  var heading = { type: "metric", label: group || "" }
+  if (metricMatchesWindow(section, "session") || metricMatchesWindow(heading, "session")) return "session"
+  if (metricMatchesWindow(section, "weekly") || metricMatchesWindow(heading, "weekly")) return "weekly"
+  return "monthly"
+}
+
+var WINDOW_LABELS = { session: "Session (5h)", weekly: "Weekly (7d)", monthly: "Monthly" }
+var WINDOW_KEY_PREFIX = "window:"
+
+/**
+ * Groups the model-pool metrics of a Cursor or Antigravity entry by time window. The pools themselves are
+ * chosen with the buttons on the panel, so the settings page offers the windows instead.
+ * @param {Object} entry Entry from the report.
+ * @returns {Array<{id: string, label: string, keys: string[]}>} Windows present, shortest first.
+ */
+function poolWindows(entry) {
+  var sections = entry && Array.isArray(entry.sections) ? entry.sections : []
+  var cursor = baseProvider(entry.id) === "cursor"
+  var keys = metricKeys(entry)
+  var found = {}
+  for (var i = 0; i < sections.length; i++) {
+    var pool = cursor ? cursorPoolOf(sections[i]) : antigravityPoolOf(sections[i])
+    var isPool = cursor ? pool === "models" || pool === "other" : pool !== ""
+    if (!isPool || !keys[i]) continue
+    var id = windowOfMetric(sections[i], keys[i].group)
+    if (!hasOwn(found, id)) found[id] = []
+    found[id].push(keys[i].key)
+  }
+  return ["session", "weekly", "monthly"].filter(function(id) { return hasOwn(found, id) }).map(function(id) {
+    return { id: id, label: WINDOW_LABELS[id], keys: found[id] }
+  })
+}
+
+/**
+ * Narrows the hidden keys of a Cursor or Antigravity entry to the pool metrics a window row can switch,
+ * so a stale or hand-edited key for any other row (a spending grant) never hides what Settings cannot restore.
  * @param {Object} entry Entry from the report.
  * @param {*} hidden Raw `hiddenMetrics` setting.
- * @param {{models: boolean, other: boolean, demand: boolean, credits: boolean}} cursorFlags Cursor pool switches.
- * @param {{gemini: boolean, third_party: boolean}} antigravityFlags Antigravity pool switches.
- * @returns {Array<{key: string, label: string, group: string, pool: string, checked: boolean, canToggle: boolean}>}
+ * @returns {string[]}
  */
-function metricChoices(entry, hidden, cursorFlags, antigravityFlags) {
+function windowHiddenKeys(entry, hidden) {
+  var offered = []
+  poolWindows(entry).forEach(function(win) { offered = offered.concat(win.keys) })
+  return hiddenKeysFor(hidden, entry.id).filter(function(key) { return offered.indexOf(key) >= 0 })
+}
+
+/**
+ * Tells whether hiding more keys still fits the bound kept on one entry's hidden list.
+ * @param {string[]} off Keys already hidden.
+ * @param {string[]} more Keys about to be hidden.
+ * @returns {boolean}
+ */
+function fitsHiddenLimit(off, more) {
+  var extra = more.filter(function(key) { return off.indexOf(key) < 0 })
+  return off.length + extra.length <= 32
+}
+
+/**
+ * Lists the metrics of one entry as the settings page offers them, each with whether it is shown and
+ * whether its switch may be flipped. Cursor and Antigravity offer one row per time window, hiding every
+ * pool metric of that window; every other provider offers one row per metric.
+ * @param {Object} entry Entry from the report.
+ * @param {*} hidden Raw `hiddenMetrics` setting.
+ * @returns {Array<{key: string, labelKey: string, label: string, group: string, checked: boolean, canToggle: boolean}>}
+ * `labelKey` names the translated wording of a window row and is empty for a metric row.
+ */
+function metricChoices(entry, hidden) {
   var rows = []
   if (!entry) return rows
-  var sections = Array.isArray(entry.sections) ? entry.sections : []
-  var provider = baseProvider(entry.id)
-  var cursor = provider === "cursor"
-  var antigravity = provider === "antigravity"
   var off = hiddenKeysFor(hidden, entry.id)
-  var has = cursor ? cursorPoolPresence(entry) : null
-  var on = cursor ? cursorPoolVisibility(cursorFlags) : null
-  if (antigravity) {
-    has = antigravityPoolPresence(entry)
-    on = antigravityPoolVisibility(antigravityFlags)
+  var provider = baseProvider(entry.id)
+  if (provider === "cursor" || provider === "antigravity") {
+    var windows = poolWindows(entry)
+    off = windowHiddenKeys(entry, hidden)
+    var shownWindows = windows.filter(function(win) { return win.keys.every(function(key) { return off.indexOf(key) < 0 }) })
+    return windows.map(function(win) {
+      var checked = shownWindows.indexOf(win) >= 0
+      return {
+        key: WINDOW_KEY_PREFIX + win.id,
+        labelKey: "metrics.window_" + win.id,
+        label: win.label,
+        group: "",
+        checked: checked,
+        canToggle: checked ? shownWindows.length > 1 && fitsHiddenLimit(off, win.keys) : true
+      }
+    })
   }
+  var sections = Array.isArray(entry.sections) ? entry.sections : []
   var keys = metricKeys(entry)
-  var pools = {}
   for (var i = 0; i < sections.length; i++) {
-    var section = sections[i]
-    var pool = cursor ? cursorPoolOf(section) : antigravity ? antigravityPoolOf(section) : ""
-    if (!section || (section.type !== "metric" && pool !== "demand")) continue
-    if ((cursor || antigravity) && (pool === "" || has[pool] !== true)) continue
-    if (pool !== "" && hasOwn(pools, pool)) continue
-    if (pool !== "") pools[pool] = true
-    var named = keys[i] || { key: cleanText(section.label, 160).trim(), group: "" }
-    var key = named.key
+    if (!sections[i] || sections[i].type !== "metric") continue
+    var named = keys[i] || { key: cleanText(sections[i].label, 160).trim(), group: "" }
     rows.push({
-      key: key,
-      label: section.label,
-      group: pool !== "" ? "" : named.group,
-      pool: pool,
-      checked: pool !== "" ? on[pool] === true : off.indexOf(key) < 0,
+      key: named.key,
+      labelKey: "",
+      label: sections[i].label,
+      group: named.group,
+      checked: off.indexOf(named.key) < 0,
       canToggle: true
     })
   }
@@ -1096,6 +1191,33 @@ function metricChoices(entry, hidden, cursorFlags, antigravityFlags) {
     row.canToggle = !row.checked || shown > 1
     return row
   })
+}
+
+/**
+ * Computes the next `hiddenMetrics` after flipping one row the settings page offers: a window row hides or
+ * restores every pool metric of that window (a window hidden in part counts as off, so one click restores it),
+ * any other row flips its own metric.
+ * @param {*} hidden Raw `hiddenMetrics` setting.
+ * @param {Object} entry Entry from the report.
+ * @param {string} key Row key from `metricChoices`.
+ * @returns {Object<string, string[]>}
+ */
+function toggleMetricChoice(hidden, entry, key) {
+  if (!entry || String(key).indexOf(WINDOW_KEY_PREFIX) !== 0) return toggleHiddenMetric(hidden, entry ? entry.id : "", key)
+  var id = key.slice(WINDOW_KEY_PREFIX.length)
+  var win = poolWindows(entry).filter(function(item) { return item.id === id })[0]
+  var next = normalizeHiddenMetrics(hidden)
+  var entryId = cleanText(entry.id, 180).trim()
+  if (!win || entryId === "" || UNSAFE_KEYS.indexOf(entryId) >= 0) return next
+  var list = windowHiddenKeys(entry, next)
+  var anyHidden = win.keys.some(function(item) { return list.indexOf(item) >= 0 })
+  var merged = anyHidden
+    ? list.filter(function(item) { return win.keys.indexOf(item) < 0 })
+    : list.concat(win.keys)
+  if (merged.length > 32) return next
+  if (merged.length === 0) delete next[entryId]
+  else next[entryId] = merged
+  return next
 }
 
 /**

@@ -163,8 +163,8 @@ omarchy bar set akitaonrails.ai-usagebar uiLocale pt-BR
 
 # Cursor's chip lists Cursor Models, Other Models, on-demand used percent,
 # then a credit grant when the account has one. These switches hide a figure
-# from the top bar, the tooltip, the panel header and the panel list, and the
-# Metrics section of the settings flips the same switches. At least one stays on. Credits is absent when there is no grant.
+# from the top bar, the tooltip, the panel header and the panel list, like the
+# pool buttons on the panel. At least one stays on. Credits is absent when there is no grant.
 omarchy bar set akitaonrails.ai-usagebar showCursorModels false --json
 omarchy bar set akitaonrails.ai-usagebar showCursorOther false --json
 omarchy bar set akitaonrails.ai-usagebar showCursorOnDemand false --json
@@ -215,11 +215,11 @@ switched off reads `0%` however full that window is. A row under a heading
 when no other meter is left, so switching off every plain window lets such a
 row set the value and the alert. The last metric still on cannot be switched
 off: its switch is disabled, so the bar never goes blank (a `hiddenMetrics`
-that would hide every metric, edited by hand, is ignored). Cursor's rows in that
-section drive the same pool switches as the buttons above its list
-(`showCursorModels` and friends), and Antigravity's rows drive
-`showAntigravityGemini` and `showAntigravityClaudeGpt`, so Settings and the
-buttons always agree, under the same rule.
+that would hide every metric, edited by hand, is ignored). Cursor and Antigravity
+list their time windows in that section (Session, Weekly, Monthly): a window
+switched off hides every model pool of it, and Cursor's single monthly window is
+locked. The pools stay on the buttons above the list (`showCursorModels`,
+`showAntigravityGemini` and friends).
 `showAs` changes only the number: Left shows what remains of the most-used
 window (Z.AI's 18% monthly window reads `82%`), and the alert state keeps
 following the used share.

@@ -1609,31 +1609,38 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
   const agy = model.parseReport(JSON.stringify({entries: [{id: 'antigravity', sections: [
     {type: 'spacer'},
     {type: 'text', label: 'Session', value: ''},
+    {type: 'spacer'},
     {type: 'metric', label: 'Gemini', percent: 0, window_secs: 18000},
+    {type: 'spacer'},
     {type: 'metric', label: 'Claude & GPT OSS', percent: 4, window_secs: 18000},
+    {type: 'spacer'},
     {type: 'text', label: 'Weekly', value: ''},
+    {type: 'spacer'},
     {type: 'metric', label: 'Gemini', percent: 6, window_secs: 604800},
+    {type: 'spacer'},
     {type: 'metric', label: 'Claude & GPT OSS', percent: 2, window_secs: 604800},
+    {type: 'spacer'},
     {type: 'text', label: 'Source', value: 'local'}
   ]}]})).entries[0];
+  const brief = (entry) => Array.from(entry.sections.map(row => row.type === 'spacer' ? '_' : (row.type === 'text' ? 't:' : 'm:') + row.label)).join(' ');
   assert.deepEqual(Array.from(model.metricKeys(agy), item => item && item.key),
-    [null, null, 'Session / Gemini', 'Session / Claude & GPT OSS', null, 'Weekly / Gemini', 'Weekly / Claude & GPT OSS', null]);
-  const shown = (hidden) => Array.from(model.visibleEntry(agy, hidden).sections.map(row => row.type + ':' + (row.label || '')));
-  assert.deepEqual(shown(['Weekly / Gemini']),
-    ['spacer:', 'text:Session', 'metric:Gemini', 'metric:Claude & GPT OSS', 'text:Weekly', 'metric:Claude & GPT OSS', 'text:Source'],
-    'hiding one of two same-labelled rows hides only that one');
-  assert.deepEqual(shown(['Session / Gemini', 'Session / Claude & GPT OSS']),
-    ['spacer:', 'text:Weekly', 'metric:Gemini', 'metric:Claude & GPT OSS', 'text:Source'],
-    'a heading with no metric left goes with them');
+    [null, null, null, 'Session / Gemini', null, 'Session / Claude & GPT OSS', null, null, null, 'Weekly / Gemini', null, 'Weekly / Claude & GPT OSS', null, null]);
+  const shown = (hidden) => brief(model.visibleEntry(agy, hidden));
+  const FULL = '_ t:Session _ m:Gemini _ m:Claude & GPT OSS _ t:Weekly _ m:Gemini _ m:Claude & GPT OSS _ t:Source';
+  assert.equal(shown([]), FULL);
+  assert.equal(shown(['Weekly / Gemini']),
+    '_ t:Session _ m:Gemini _ m:Claude & GPT OSS _ t:Weekly _ m:Claude & GPT OSS _ t:Source',
+    'hiding one of two same-labelled rows hides only that one, with the spacer that led it');
+  assert.equal(shown(['Session / Gemini', 'Session / Claude & GPT OSS']),
+    '_ t:Weekly _ m:Gemini _ m:Claude & GPT OSS _ t:Source',
+    'a heading with no metric left goes with its spacers, leaving no gap');
+  assert.equal(shown(['Weekly / Gemini', 'Weekly / Claude & GPT OSS']),
+    '_ t:Session _ m:Gemini _ m:Claude & GPT OSS _ t:Source', 'and the Source row stays');
   const flags = (over = {}) => Object.assign({gemini: true, third_party: true}, over);
-  const poolRows = (over = {}) => Array.from(model.panelEntry(agy, {}, {}, flags(over)).sections
-    .map(row => row.type + ':' + (row.label || '')));
-  assert.deepEqual(poolRows(),
-    ['spacer:', 'text:Session', 'metric:Gemini', 'metric:Claude & GPT OSS', 'text:Weekly', 'metric:Gemini', 'metric:Claude & GPT OSS', 'text:Source']);
-  assert.deepEqual(poolRows({gemini: false}),
-    ['spacer:', 'text:Session', 'metric:Claude & GPT OSS', 'text:Weekly', 'metric:Claude & GPT OSS', 'text:Source']);
-  assert.deepEqual(poolRows({third_party: false}),
-    ['spacer:', 'text:Session', 'metric:Gemini', 'text:Weekly', 'metric:Gemini', 'text:Source']);
+  const poolRows = (over = {}) => brief(model.panelEntry(agy, {}, {}, flags(over)));
+  assert.equal(poolRows(), FULL);
+  assert.equal(poolRows({gemini: false}), '_ t:Session _ m:Claude & GPT OSS _ t:Weekly _ m:Claude & GPT OSS _ t:Source');
+  assert.equal(poolRows({third_party: false}), '_ t:Session _ m:Gemini _ t:Weekly _ m:Gemini _ t:Source');
   const toggledPools = model.toggleAntigravityPool({gemini: false, third_party: false}, 'gemini');
   assert.equal(toggledPools.gemini, true);
   assert.equal(toggledPools.third_party, false);
@@ -1643,12 +1650,20 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
   assert.equal(model.headline(agy, 'weekly', 'used').text, '6% · 2%');
   assert.equal(model.antigravityDualHeadline(agy, flags({third_party: false}), 'used').text, '6%');
   assert.equal(model.antigravityDualHeadline(agy, flags({gemini: false}), 'used').text, '4%');
-  const rows = model.metricChoices(agy, {}, {}, {});
-  assert.deepEqual(Array.from(rows, row => `${row.pool}|${row.label}|${row.checked}|${row.canToggle}`),
-    ['gemini|Gemini|true|true', 'third_party|Claude & GPT OSS|true|true']);
-  assert.deepEqual(Array.from(model.metricChoices(agy, {}, {}, flags({third_party: false})),
-    row => `${row.pool}|${row.checked}|${row.canToggle}`),
-    ['gemini|true|false', 'third_party|false|true']);
+  const windowRows = (hidden) => Array.from(model.metricChoices(agy, hidden),
+    row => `${row.key}|${row.label}|${row.checked}|${row.canToggle}`);
+  assert.deepEqual(windowRows({}), ['window:session|Session (5h)|true|true', 'window:weekly|Weekly (7d)|true|true'],
+    'Antigravity offers its windows; the pools are the panel buttons');
+  const noWeekly = model.toggleMetricChoice({}, agy, 'window:weekly');
+  assert.deepEqual(Array.from(noWeekly.antigravity), ['Weekly / Gemini', 'Weekly / Claude & GPT OSS']);
+  assert.deepEqual(windowRows(noWeekly), ['window:session|Session (5h)|true|false', 'window:weekly|Weekly (7d)|false|true'],
+    'the last window on is locked');
+  assert.equal(model.canToggleMetric(agy, noWeekly, 'window:session'), false);
+  assert.equal(model.canToggleMetric(agy, noWeekly, 'window:weekly'), true);
+  assert.deepEqual(Object.keys(model.toggleMetricChoice(noWeekly, agy, 'window:weekly')), [], 'switching it back clears the list');
+  const sessionOnly = model.panelEntry(agy, noWeekly, {}, flags());
+  assert.equal(brief(sessionOnly), '_ t:Session _ m:Gemini _ m:Claude & GPT OSS _ t:Source', 'a hidden window leaves no stacked spacers');
+  assert.equal(model.headline(sessionOnly).text, '0% · 4%', 'and the bar no longer reads it');
   const twice = model.parseReport(JSON.stringify({entries: [{id: 'x', sections: [
     {type: 'metric', label: 'Pool', percent: 1},
     {type: 'metric', label: 'Pool', percent: 2}
@@ -1657,19 +1672,145 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
 }
 
 {
+  const partial = model.parseReport(JSON.stringify({entries: [{id: 'antigravity', sections: [
+    {type: 'spacer'},
+    {type: 'text', label: 'Session', value: ''},
+    {type: 'metric', label: 'Gemini', percent: 10, window_secs: 18000},
+    {type: 'spacer'},
+    {type: 'text', label: 'Weekly', value: ''},
+    {type: 'metric', label: 'Gemini', percent: 20, window_secs: 604800},
+    {type: 'metric', label: 'Claude & GPT OSS', percent: 95, window_secs: 604800}
+  ]}]})).entries[0];
+  const noWeekly = model.toggleMetricChoice({}, partial, 'window:weekly');
+  const geminiOff = {gemini: false, third_party: true};
+  const shown = model.panelEntry(partial, noWeekly, {}, geminiOff);
+  assert.deepEqual(Array.from(shown.sections.map(row => row.type + ':' + (row.label || ''))),
+    ['spacer:', 'text:Session', 'metric:Gemini'],
+    'a pool button never brings a hidden window back; the pool that is left stays');
+  assert.equal(model.headline(shown).text, '10%');
+  assert.equal(model.isAlarming(shown), false);
+}
+
+{
+  const account = model.parseReport(JSON.stringify({entries: [{id: 'antigravity@work', sections: [
+    {type: 'text', label: 'Session', value: ''},
+    {type: 'metric', label: 'Gemini', percent: 1, window_secs: 18000},
+    {type: 'text', label: 'Weekly', value: ''},
+    {type: 'metric', label: 'Gemini', percent: 2, window_secs: 604800}
+  ]}]})).entries[0];
+  const next = model.toggleMetricChoice({}, account, 'window:weekly');
+  assert.deepEqual(Array.from(next['antigravity@work']), ['Weekly / Gemini'], 'each account keeps its own windows');
+  assert.deepEqual(Array.from(model.metricChoices(account, {'antigravity': ['Weekly / Gemini']}), row => row.checked), [true, true]);
+  const stale = {'antigravity@work': ['Weekly / Gemini', 'Not a pool row']};
+  assert.deepEqual(Array.from(model.metricChoices(account, stale), row => row.checked), [true, false]);
+  const crowded = {'antigravity@work': Array.from({length: 31}, (_, i) => 'old ' + i)};
+  assert.equal(model.metricChoices(account, crowded).every(row => row.canToggle), true,
+    'keys that no row offers do not count toward the bound');
+  const dense = model.parseReport(JSON.stringify({entries: [{id: 'antigravity', sections: [
+    {type: 'metric', label: 'Gemini', percent: 1, window_secs: 18000},
+    {type: 'metric', label: 'Gemini', percent: 2, window_secs: 604800}
+  ]}]})).entries[0];
+  assert.equal(model.windowOfMetric({window_secs: 604800, type: 'metric', label: 'Gemini'}, 'Session'), 'weekly',
+    'a stated 7d length wins over the heading');
+  assert.equal(model.windowOfMetric({type: 'metric', label: 'Gemini'}, 'Session'), 'session');
+  assert.equal(model.windowOfMetric({type: 'metric', label: 'Gemini'}, ''), 'monthly');
+  assert.deepEqual(Array.from(model.metricChoices(dense, {}), row => row.key), ['window:session', 'window:weekly']);
+}
+
+{
+  const future = model.parseReport(JSON.stringify({entries: [{id: 'cursor', sections: [
+    {type: 'metric', label: 'Cursor Models', percent: 80, window_secs: 604800},
+    {type: 'metric', label: 'Other Models', percent: 30, window_secs: 604800},
+    {type: 'metric', label: 'Cursor Models', percent: 10, window_secs: 2678400},
+    {type: 'metric', label: 'Team credit', percent: 15}
+  ]}]})).entries[0];
+  assert.deepEqual(Array.from(model.metricChoices(future, {}), row => row.key + '|' + row.canToggle),
+    ['window:weekly|true', 'window:monthly|true'], 'a window Cursor gains later gets its own switch');
+  const hiddenWeekly = model.toggleMetricChoice({}, future, 'window:weekly');
+  const rows = Array.from(model.panelEntry(future, hiddenWeekly, {}).sections.map(row => row.label + ':' + row.percent));
+  assert.deepEqual(rows, ['Cursor Models:10', 'Team credit:15'], 'the grant is never part of a window row');
+  const grantOnly = {cursor: ['Team credit']};
+  assert.equal(model.panelEntry(future, grantOnly, {}).sections.length, 4, 'a stale grant key hides nothing Settings cannot restore');
+}
+
+{
+  const real = model.parseReport(JSON.stringify({entries: [{id: 'antigravity', sections: [
+    {type: 'spacer'},
+    {type: 'text', label: 'Session', value: ''},
+    {type: 'spacer'},
+    {type: 'metric', label: 'Gemini', percent: 1, window_secs: 18000},
+    {type: 'spacer'},
+    {type: 'text', label: 'Weekly', value: ''},
+    {type: 'spacer'},
+    {type: 'metric', label: 'Gemini', percent: 2, window_secs: 604800},
+    {type: 'metric', label: 'Claude & GPT OSS', percent: 3, window_secs: 604800}
+  ]}]})).entries[0];
+  const crowded = {antigravity: Array.from({length: 31}, (_, i) => 'old ' + i)};
+  const row = (hidden) => Array.from(model.metricChoices(real, hidden), item => `${item.key}|${item.checked}|${item.canToggle}`);
+  assert.deepEqual(row(crowded), ['window:session|true|true', 'window:weekly|true|true'], 'stale keys no row offers count for nothing');
+  const cleaned = model.toggleMetricChoice(crowded, real, 'window:weekly');
+  assert.deepEqual(Array.from(cleaned.antigravity), ['Weekly / Gemini', 'Weekly / Claude & GPT OSS'],
+    'a toggle drops the stale keys, so the bound it checks is the one the row showed');
+  const partial = {antigravity: ['Weekly / Gemini']};
+  assert.deepEqual(row(partial), ['window:session|true|false', 'window:weekly|false|true'], 'a window hidden in part reads as off');
+  assert.deepEqual(Object.keys(model.toggleMetricChoice(partial, real, 'window:weekly')), [], 'and one click restores it');
+  const agyOff = {gemini: true, third_party: false};
+  const painted = model.panelEntry(real, {antigravity: ['Weekly / Gemini', 'Weekly / Claude & GPT OSS']}, {}, agyOff);
+  assert.equal(model.antigravityPoolPresence(model.windowEntry(real, {antigravity: ['Weekly / Gemini', 'Weekly / Claude & GPT OSS']})).third_party, false,
+    'the pool buttons read the entry with the hidden window already gone');
+  assert.equal(model.headline(painted).text, '1%');
+}
+
+{
+  const brief = (entry) => Array.from(entry.sections.map(row => row.type === 'spacer' ? '_' : (row.type === 'text' ? 't:' : 'm:') + row.label)).join(' ');
+  const claude = model.parseReport(JSON.stringify({entries: [{id: 'anthropic', sections: [
+    {type: 'metric', label: 'Extra usage', percent: 5},
+    {type: 'spacer'},
+    {type: 'metric', label: 'proj-a', percent: 1, group: 'Sessions'},
+    {type: 'metric', label: 'proj-b', percent: 2, group: 'Sessions'}
+  ]}]})).entries[0];
+  assert.equal(brief(model.visibleEntry(claude, ['Sessions / proj-a'])), 'm:Extra usage _ m:proj-b',
+    'a spacer shared by a group stays for the row that is left');
+  assert.equal(brief(model.visibleEntry(claude, ['Sessions / proj-b'])), 'm:Extra usage _ m:proj-a');
+  const grok = model.parseReport(JSON.stringify({entries: [{id: 'supergrok', sections: [
+    {type: 'spacer'},
+    {type: 'metric', label: 'Weekly usage', percent: 5},
+    {type: 'metric', label: 'Chat', percent: 1, group: 'Breakdown'}
+  ]}]})).entries[0];
+  assert.equal(brief(model.visibleEntry(grok, ['Weekly usage'])), '_ m:Chat');
+  const lopsided = model.parseReport(JSON.stringify({entries: [{id: 'antigravity', sections: [
+    {type: 'spacer'},
+    {type: 'text', label: 'Session', value: ''},
+    {type: 'spacer'},
+    {type: 'metric', label: 'Gemini', percent: 1, window_secs: 18000},
+    {type: 'spacer'},
+    {type: 'text', label: 'Weekly', value: ''},
+    {type: 'spacer'},
+    {type: 'metric', label: 'Gemini', percent: 2, window_secs: 604800},
+    {type: 'spacer'},
+    {type: 'metric', label: 'Claude & GPT OSS', percent: 3, window_secs: 604800}
+  ]}]})).entries[0];
+  const geminiOff = model.panelEntry(lopsided, {}, {}, {gemini: false, third_party: true});
+  assert.equal(brief(geminiOff), '_ t:Weekly _ m:Claude & GPT OSS', 'a window left with no pool loses its heading too');
+  const noWeekly = model.toggleMetricChoice({}, lopsided, 'window:weekly');
+  assert.equal(model.antigravityPoolPresence(model.windowEntry(lopsided, noWeekly)).third_party, false,
+    'a pool that only lives in a hidden window gets no button');
+}
+
+{
   const zai = zaiReport(18);
-  const choices = (hidden) => Array.from(model.metricChoices(zai, hidden, {}),
+  const choices = (hidden) => Array.from(model.metricChoices(zai, hidden),
     row => `${row.label}|${row.checked}|${row.canToggle}`);
   assert.deepEqual(choices({}), ['Session|true|true', 'Weekly|true|true', 'MCP tools (monthly)|true|true']);
   assert.deepEqual(choices({zai: ['Weekly']}), ['Session|true|true', 'Weekly|false|true', 'MCP tools (monthly)|true|true']);
   assert.deepEqual(choices({zai: ['Session', 'Weekly']}), ['Session|false|true', 'Weekly|false|true', 'MCP tools (monthly)|true|false'],
     'the last metric on has its switch locked');
-  assert.deepEqual(Array.from(model.metricChoices(null, {}, {})), []);
+  assert.deepEqual(Array.from(model.metricChoices(null, {})), []);
   const grouped = model.parseReport(JSON.stringify({entries: [{id: 'supergrok', sections: [
     {type: 'metric', label: 'Credits', percent: 10},
     {type: 'metric', label: 'Chat', percent: 90, group: 'Breakdown'}
   ]}]})).entries[0];
-  const rows = model.metricChoices(grouped, {}, {});
+  const rows = model.metricChoices(grouped, {});
   assert.deepEqual(Array.from(rows, row => row.key), ['Credits', 'Breakdown / Chat']);
   assert.equal(rows[1].group, 'Breakdown');
   const cursor = model.parseReport(JSON.stringify({entries: [{id: 'cursor', sections: [
@@ -1680,12 +1821,9 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
     {type: 'metric', label: 'Spend grant', percent: 5}
   ]}]})).entries[0];
   const flags = (over) => Object.assign({models: true, other: true, demand: true, credits: true}, over);
-  const view = (over) => Array.from(model.metricChoices(cursor, {}, flags(over)),
-    row => `${row.pool}|${row.checked}|${row.canToggle}`);
-  assert.deepEqual(view({}), ['models|true|true', 'other|true|true', 'demand|true|true', 'credits|true|true'],
-    'one switch per pool, the grants sharing the credits switch');
-  assert.deepEqual(view({other: false, demand: false, credits: false}),
-    ['models|true|false', 'other|false|true', 'demand|false|true', 'credits|false|true']);
+  assert.deepEqual(Array.from(model.metricChoices(cursor, {}), row => `${row.key}|${row.checked}|${row.canToggle}`),
+    ['window:monthly|true|false'], 'Cursor has one window today, so its switch is locked like a single-metric provider');
+  assert.deepEqual(Object.keys(model.toggleMetricChoice({}, cursor, 'window:session')), [], 'a window Cursor lacks changes nothing');
   const kept = (over) => Array.from(model.panelEntry(cursor, {}, flags(over)).sections.map(row => row.label));
   assert.deepEqual(kept({}), ['Cursor Models', 'Other Models', 'On-Demand', 'Team credit', 'Spend grant']);
   assert.deepEqual(kept({other: false}), ['Cursor Models', 'On-Demand', 'Team credit', 'Spend grant']);
@@ -1699,8 +1837,8 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
   ]}]})).entries[0];
   assert.deepEqual(Array.from(model.panelEntry(plainDemand, {}, flags({other: false})).sections.map(row => row.label)),
     ['Cursor Models', 'On-Demand'], 'an On-Demand row without a limit is not a pool, so it is never cut');
-  assert.deepEqual(Array.from(model.metricChoices(plainDemand, {}, flags({})), row => row.pool), ['models', 'other'],
-    'and it gets no switch');
+  assert.deepEqual(Array.from(model.metricChoices(plainDemand, {}), row => row.key), ['window:monthly'],
+    'and it gets no switch of its own, only the window row');
 }
 
 {
@@ -1721,9 +1859,8 @@ const zaiReport = (mcpPercent) => model.parseReport(JSON.stringify({entries: [{
   const hiddenWeeklyGemini = model.panelEntry(agy, {antigravity: ['Weekly / Gemini']}, {}, on);
   assert.equal(Array.from(hiddenWeeklyGemini.sections).filter(row => row.type === 'metric').length, 3,
     'a hand-edited hiddenMetrics still applies to Antigravity beside its pool switches');
-  const choices = model.metricChoices(agy, {}, {}, on);
-  assert.deepEqual(Array.from(choices, row => row.pool + '|' + row.group), ['gemini|', 'third_party|'],
-    'a pool switch covers Session and Weekly, so it carries no single-window subtitle');
+  const choices = model.metricChoices(agy, {});
+  assert.deepEqual(Array.from(choices, row => row.key + '|' + row.group), ['window:session|', 'window:weekly|']);
 }
 
 assert.equal(model.cursorPoolOf({type: 'metric', label: 'Cursor Models'}), 'models');
@@ -1783,11 +1920,9 @@ assert.equal(model.cursorPoolOf(null), '');
   assert.doesNotMatch(panel, /hiddenKeysFor\(hiddenMetrics/, 'panelEntry takes the raw map and resolves the entry id itself');
   assert.match(panel, /persistWidgetSettings\(\{\s*showAs:\s*next\s*\}\)/);
   assert.match(panel, /if \(!Model\.canToggleMetric\(target,\s*hiddenMetrics,\s*key\)\) return/);
-  assert.match(panel, /hiddenMetrics:\s*Model\.toggleHiddenMetric\(hiddenMetrics,\s*entryId,\s*key\)/);
-  assert.match(panel, /if \(isAntigravityEntry\(target\)\) toggleAntigravityPool\(pool,\s*target\)/);
-  assert.match(panel, /else toggleCursorPool\(pool,\s*target\)/);
-  assert.match(panel, /Model\.metricChoices\(\s*item,\s*\n?\s*hiddenMetrics,/);
-  assert.match(panel, /onMetricToggleRequested:\s*function\(entryId,\s*key,\s*pool\)\s*\{\s*root\.setMetricShown\(entryId,\s*key,\s*pool\)\s*\}/);
+  assert.match(panel, /hiddenMetrics:\s*Model\.toggleMetricChoice\(hiddenMetrics,\s*target,\s*key\)/);
+  assert.match(panel, /Model\.metricChoices\(item,\s*hiddenMetrics\)/);
+  assert.match(panel, /onMetricToggleRequested:\s*function\(entryId,\s*key\)\s*\{\s*root\.setMetricShown\(entryId,\s*key\)\s*\}/);
   assert.doesNotMatch(panel, /metricEye|hideable|hasHideableMetrics|metric\.hidden_hint/, 'rows carry no switch; the choice lives in Settings');
   assert.match(panel, /onShowAsRequested:\s*function\(value\)\s*\{\s*root\.setShowAs\(value\)\s*\}/);
   assert.match(panel, /function shownAlarming\(\) \{\s*return entryIsAlarming\(shapedEntry\)/, 'the alert reads the entry without hidden metrics');
@@ -1806,7 +1941,8 @@ assert.equal(model.cursorPoolOf(null), '');
   assert.match(panel, /if \(showProvider \|\| chip\.labelOnly === true\)/);
   assert.match(barWidgetSource, /visible:\s*chipHit\.chip\.labelOnly !== true/);
   assert.match(settingsForm, /signal showAsRequested\(string value\)/);
-  assert.match(settingsForm, /signal metricToggleRequested\(string entryId, string key, string pool\)/);
+  assert.match(settingsForm, /modelData\.labelKey !== ""\s*\? root\.tr\(modelData\.labelKey\)/, 'window rows are worded in the UI language');
+  assert.match(settingsForm, /signal metricToggleRequested\(string entryId, string key\)/);
   assert.match(settingsForm, /enabled: !root\.saving && modelData\.canToggle/);
   assert.match(settingsForm, /opacity: modelData\.canToggle \? 1 : 0\.45/, 'a locked switch looks locked');
   assert.match(settingsForm, /onChanged:\s*function\(value\)\s*\{\s*root\.showAsRequested\(value\)\s*\}/);

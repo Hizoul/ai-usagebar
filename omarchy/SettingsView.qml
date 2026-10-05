@@ -63,7 +63,7 @@ Column {
   signal barWindowRequested(string value)
   signal showAsRequested(string value)
   signal brandIconsRequested(bool enabled)
-  signal metricToggleRequested(string entryId, string key, string pool)
+  signal metricToggleRequested(string entryId, string key)
   signal closeRequested()
 
   spacing: Style.space(12)
@@ -557,14 +557,16 @@ Column {
               Toggle {
                 required property var modelData
                 width: parent.width
-                label: I18n.displayLabel(root.uiLocale, modelData.label)
+                label: modelData.labelKey !== ""
+                  ? root.tr(modelData.labelKey)
+                  : I18n.displayLabel(root.uiLocale, modelData.label)
                 description: root.safe(modelData.group)
                 checked: modelData.checked
                 foreground: root.foreground
                 fontFamily: root.fontFamily
                 enabled: !root.saving && modelData.canToggle
                 opacity: modelData.canToggle ? 1 : 0.45
-                onClicked: root.metricToggleRequested(metricProvider.modelData.id, modelData.key, modelData.pool)
+                onClicked: root.metricToggleRequested(metricProvider.modelData.id, modelData.key)
               }
             }
           }

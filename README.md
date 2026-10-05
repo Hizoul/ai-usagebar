@@ -794,7 +794,8 @@ The widget reads the providers and accounts already enabled in
   left of the same window, and can turn the provider logos off for the generic
   robot icon. Both apply immediately.
 - The Metrics section of the QML settings expands per provider and switches
-  each metric on or off, for that provider or account. A switched-off metric
+  each metric on or off, for that provider or account (Cursor and Antigravity list
+  their time windows instead, since the model pools have buttons on the panel). A switched-off metric
   leaves the panel, the bar and the tooltip, and is ignored when the bar picks
   the highest percent and when it decides whether the icon is alarming, which
   follows the used share in either reading. The last metric on stays on.

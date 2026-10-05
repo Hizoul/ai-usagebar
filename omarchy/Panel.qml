@@ -103,11 +103,7 @@ Panel {
     return {
       id: item.id,
       name: Model.providerName(item),
-      rows: Model.metricChoices(
-        item,
-        hiddenMetrics,
-        cursorPoolFlags(),
-        antigravityPoolFlags())
+      rows: Model.metricChoices(item, hiddenMetrics)
     }
   }).filter(function(item) { return item.rows.length > 0 })
   readonly property bool filterMiss: configuredProvider !== "" && entries.length > 0 && visibleEntries.length === 0
@@ -278,18 +274,13 @@ Panel {
     persistWidgetSettings({ showAs: next })
   }
 
-  function setMetricShown(entryId, key, pool) {
+  function setMetricShown(entryId, key) {
     var target = null
     for (var i = 0; i < visibleEntries.length; i++)
       if (visibleEntries[i].id === entryId) target = visibleEntries[i]
     if (!target) return
-    if (pool !== "") {
-      if (isAntigravityEntry(target)) toggleAntigravityPool(pool, target)
-      else toggleCursorPool(pool, target)
-      return
-    }
     if (!Model.canToggleMetric(target, hiddenMetrics, key)) return
-    persistWidgetSettings({ hiddenMetrics: Model.toggleHiddenMetric(hiddenMetrics, entryId, key) })
+    persistWidgetSettings({ hiddenMetrics: Model.toggleMetricChoice(hiddenMetrics, target, key) })
   }
 
   function isCursorEntry(item) {
@@ -322,10 +313,9 @@ Panel {
     }
   }
 
-  function cursorShownFlags(item) {
-    var target = item || entry
+  function cursorShownFlags() {
     var base = typeof Model.cursorBarFlags === "function"
-      ? Model.cursorBarFlags(target, cursorPoolFlags())
+      ? Model.cursorBarFlags(Model.windowEntry(entry, hiddenMetrics), cursorPoolFlags())
       : cursorPoolFlags()
     var flags = {
       models: base.models === true,
@@ -336,7 +326,7 @@ Panel {
     // Hot reload can keep an older Model.js that has no credits flag. The
     // grant is still in the report, so the switch follows this file.
     if (base.credits === undefined)
-      flags.credits = showCursorCredits && creditGrantBits(target).length > 0
+      flags.credits = showCursorCredits && creditGrantBits(entry).length > 0
     return flags
   }
 
@@ -353,7 +343,7 @@ Panel {
 
   function cursorPoolButtons() {
     var has = typeof Model.cursorPoolPresence === "function"
-      ? Model.cursorPoolPresence(entry)
+      ? Model.cursorPoolPresence(Model.windowEntry(entry, hiddenMetrics))
       : { models: true, other: true, demand: true, credits: false }
     var rows = []
     if (has.models) rows.push({ poolId: "models", label: root.tr("pool.models") })
@@ -364,10 +354,9 @@ Panel {
     return rows
   }
 
-  function antigravityShownFlags(item) {
-    var target = item || entry
+  function antigravityShownFlags() {
     if (typeof Model.antigravityBarFlags !== "function") return antigravityPoolFlags()
-    return Model.antigravityBarFlags(target, antigravityPoolFlags())
+    return Model.antigravityBarFlags(Model.windowEntry(entry, hiddenMetrics), antigravityPoolFlags())
   }
 
   function antigravityPoolOn(id) {
@@ -382,7 +371,7 @@ Panel {
 
   function antigravityPoolButtons() {
     var has = typeof Model.antigravityPoolPresence === "function"
-      ? Model.antigravityPoolPresence(entry)
+      ? Model.antigravityPoolPresence(Model.windowEntry(entry, hiddenMetrics))
       : { gemini: true, third_party: true }
     var rows = []
     if (has.gemini) rows.push({ poolId: "gemini", label: root.tr("pool.antigravity_gemini") })
@@ -390,10 +379,9 @@ Panel {
     return rows
   }
 
-  function toggleCursorPool(id, item) {
-    var target = item || entry
+  function toggleCursorPool(id) {
     var saved = cursorPoolFlags()
-    var shown = cursorShownFlags(target)
+    var shown = cursorShownFlags()
     var next = Model.toggleCursorPool(shown, id)
     // Older Model.js ignores the credits id and hands the same flags back.
     if (id === "credits" && next.credits === shown.credits) {
@@ -408,7 +396,7 @@ Panel {
     if (next.models === shown.models && next.other === shown.other
         && next.demand === shown.demand && next.credits === shown.credits) return
     var has = typeof Model.cursorPoolPresence === "function"
-      ? Model.cursorPoolPresence(target)
+      ? Model.cursorPoolPresence(entry)
       : { models: true, other: true, demand: true, credits: false }
     persistWidgetSettings({
       showCursorModels: has.models ? next.models : saved.models,
@@ -418,14 +406,13 @@ Panel {
     })
   }
 
-  function toggleAntigravityPool(id, item) {
-    var target = item || entry
+  function toggleAntigravityPool(id) {
     var saved = antigravityPoolFlags()
-    var shown = antigravityShownFlags(target)
+    var shown = antigravityShownFlags()
     var next = Model.toggleAntigravityPool(shown, id)
     if (next.gemini === shown.gemini && next.third_party === shown.third_party) return
     var has = typeof Model.antigravityPoolPresence === "function"
-      ? Model.antigravityPoolPresence(target)
+      ? Model.antigravityPoolPresence(entry)
       : { gemini: true, third_party: true }
     persistWidgetSettings({
       showAntigravityGemini: has.gemini ? next.gemini : saved.gemini,
@@ -1103,7 +1090,7 @@ Panel {
             onUiLocaleRequested: function(value) { root.setUiLocale(value) }
             onBarWindowRequested: function(value) { root.setBarWindow(value) }
             onShowAsRequested: function(value) { root.setShowAs(value) }
-            onMetricToggleRequested: function(entryId, key, pool) { root.setMetricShown(entryId, key, pool) }
+            onMetricToggleRequested: function(entryId, key) { root.setMetricShown(entryId, key) }
             onBrandIconsRequested: function(enabled) { root.setBrandIcons(enabled) }
             onFallbackRequested: root.openTerminalSettings()
             onNousLoginRequested: root.openNousLogin()

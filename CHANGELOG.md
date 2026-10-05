@@ -27,9 +27,10 @@ Each release is also published at
   of the highest percentage the bar and its icon alert state take, so a spent
   window you chose not to watch no longer reddens the icon or sets the number.
   The last metric still on cannot be switched off (its switch is dimmed and disabled), so
-  the bar never goes blank. Cursor's and Antigravity's rows in that section
-  drive the same pool switches as their buttons, so both always agree under the
-  same rule.
+  the bar never goes blank. Cursor and Antigravity list their time windows
+  there (Session, Weekly, Monthly) instead of their model pools, which keep
+  their buttons on the panel: switching a window off hides every pool of it,
+  and a provider with a single window, as Cursor today, has that switch locked.
   **Show usage as** in the panel Settings (`showAs` in the widget settings,
   `used` by default, so an existing bar reads as before) switches the bar, the
   tooltip, the hero and the panel meters between what is used and what is left
