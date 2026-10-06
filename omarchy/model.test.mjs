@@ -36,7 +36,7 @@ vm.runInContext(fs.readFileSync(new URL('./I18n.js', import.meta.url), 'utf8'), 
 // back silently to EN in the panel, which is how half-translated UI ships.
 // Arrays created inside vm.runInContext live in another realm; copy out
 // before deepEqual so Node's strict comparator accepts them.
-assert.deepEqual(Array.from(i18n.SUPPORTED), ['en', 'ru', 'pt-BR']);
+assert.deepEqual(Array.from(i18n.SUPPORTED), ['en', 'ru', 'pt-BR', 'ko']);
 const enKeys = Object.keys(i18n.MESSAGES.en).sort();
 for (const locale of Array.from(i18n.SUPPORTED)) {
   assert.deepEqual(Object.keys(i18n.MESSAGES[locale]).sort(), enKeys, `${locale} catalog keys`);
@@ -56,6 +56,7 @@ assert.equal(i18n.normalizeLocaleTag('ru_RU'), 'ru');
 assert.equal(i18n.normalizeLocaleTag('pt-BR'), 'pt-BR');
 assert.equal(i18n.normalizeLocaleTag('pt_BR.UTF-8'), 'pt-BR');
 assert.equal(i18n.normalizeLocaleTag('pt_PT'), 'pt-BR');
+assert.equal(i18n.normalizeLocaleTag('ko_KR.UTF-8'), 'ko');
 assert.equal(i18n.normalizeLocaleTag('de_DE'), '');
 
 assert.equal(i18n.resolveLocale('auto', 'ru_RU.UTF-8'), 'ru');
@@ -63,10 +64,14 @@ assert.equal(i18n.resolveLocale('auto', 'pt_BR'), 'pt-BR');
 assert.equal(i18n.resolveLocale('auto', 'de_DE'), 'en');
 assert.equal(i18n.resolveLocale('pt-BR', 'en_US'), 'pt-BR');
 assert.equal(i18n.resolveLocale('ru', 'en_US'), 'ru');
+assert.equal(i18n.resolveLocale('auto', 'ko_KR.UTF-8'), 'ko');
 
 assert.equal(i18n.t('en', 'section.language'), 'LANGUAGE');
 assert.equal(i18n.t('ru', 'section.language'), 'ЯЗЫК');
 assert.equal(i18n.t('pt-BR', 'section.language'), 'IDIOMA');
+assert.equal(i18n.t('ko', 'section.language'), '언어');
+assert.equal(i18n.displayLabel('ko', 'On-Demand'), '온디맨드');
+assert.equal(i18n.tipPoolLine('ko', 'other', 42), 'Cursor 기타 모델 · 42%');
 assert.equal(
   i18n.t('en', 'language.help'),
   'Language for the panel and settings. Auto matches your system language.',
@@ -112,6 +117,12 @@ assert.equal(
 const resetAt = '2026-08-14T12:00:00';
 const nowMs = Date.parse('2026-08-14T08:00:00');
 assert.match(i18n.formatReset(resetAt, nowMs, 'en'), /^Resets in /);
+// A reset on another day carries the date; each catalog orders and suffixes it.
+const nextDayReset = '2026-10-03T14:00:00';
+const dayBeforeMs = Date.parse('2026-10-02T12:00:00');
+assert.match(i18n.formatReset(nextDayReset, dayBeforeMs, 'en'), / · Oct 3 14:00$/);
+assert.match(i18n.formatReset(nextDayReset, dayBeforeMs, 'pt-BR'), / · out 3 14:00$/);
+assert.match(i18n.formatReset(nextDayReset, dayBeforeMs, 'ko'), /^1일 2시간 후 초기화 · 10월 3일 14:00$/);
 assert.match(i18n.formatReset(resetAt, nowMs, 'ru'), /^Сброс через /);
 assert.match(i18n.formatReset(resetAt, nowMs, 'pt-BR'), /^Redefine em /);
 assert.equal(i18n.formatUpdated('', nowMs, 'pt-BR'), i18n.t('pt-BR', 'updated.unavailable'));
@@ -146,7 +157,7 @@ assert.equal(colorCodeUsageSchema.defaultValue, false);
 assert.equal(manifest.barWidget.defaults.uiLocale, 'auto');
 const uiLocaleSchema = manifest.barWidget.schema.find(row => row.key === 'uiLocale');
 assert.equal(uiLocaleSchema.type, 'enum');
-assert.deepEqual(uiLocaleSchema.options, ['auto', 'en', 'pt-BR', 'ru']);
+assert.deepEqual(uiLocaleSchema.options, ['auto', 'en', 'pt-BR', 'ru', 'ko']);
 assert.equal(uiLocaleSchema.defaultValue, 'auto');
 // Pinned window is opt-in display-only: existing shell.json entries without
 // the key keep the historical highest-percent label.
@@ -339,6 +350,7 @@ assert.match(settingsViewSource, /value:\s*"auto",\s*label:\s*root\.tr\("languag
 assert.match(settingsViewSource, /value:\s*"en",\s*label:\s*root\.tr\("language\.en"\)/);
 assert.match(settingsViewSource, /value:\s*"pt-BR",\s*label:\s*root\.tr\("language\.pt-BR"\)/);
 assert.match(settingsViewSource, /value:\s*"ru",\s*label:\s*root\.tr\("language\.ru"\)/);
+assert.match(settingsViewSource, /value:\s*"ko",\s*label:\s*root\.tr\("language\.ko"\)/);
 assert.match(panelSource, /import\s+"I18n\.js"\s+as\s+I18n/);
 assert.match(panelSource, /setting\("uiLocale",\s*"auto"\)/);
 assert.match(panelSource, /I18n\.resolveLocale\(uiLocaleSetting,\s*Qt\.locale\(\)\.name\)/);

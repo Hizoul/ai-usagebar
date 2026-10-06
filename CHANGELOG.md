@@ -9,6 +9,11 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Added
+
+- **Omarchy panel and settings in Korean (한국어).** `uiLocale` gains `ko`, and
+  Auto picks it up from a `ko_KR` system locale.
+
 ## [1.32.0] — 2026-10-04
 
 ### Added

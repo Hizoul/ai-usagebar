@@ -141,7 +141,7 @@ omarchy bar set akitaonrails.ai-usagebar colorCodeUsage true --json
 omarchy bar set akitaonrails.ai-usagebar barWindow session
 
 # Panel and settings language: auto (follow the system locale, the default),
-# en, ru, or pt-BR.
+# en, ru, pt-BR, or ko.
 omarchy bar set akitaonrails.ai-usagebar uiLocale pt-BR
 
 # Cursor's chip lists Cursor Models, Other Models, on-demand used percent,
