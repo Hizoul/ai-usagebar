@@ -9,6 +9,17 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Fixed
+
+- **macOS menu bar: the Name chip never lets a balance outrank a quota
+  window.** A value-headline metric that also carries a percent (a prepaid
+  balance meter, a Cursor credit grant) entered the chip's highest-window
+  race on the host side only, so the chip could show its money figure while
+  the Native tab that selects it showed the percent window, in either
+  Used/Left reading. The chip now ranks only percent headlines, the rule the
+  tab's `previewMetric` already applies, and a value headline stands in only
+  when the provider has no window (fixes #349).
+
 ## [1.32.0] — 2026-10-04
 
 ### Added
