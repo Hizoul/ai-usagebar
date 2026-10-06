@@ -34,6 +34,11 @@ footer's Options menu as a native menu, in the popover's language: Customize
 Check for Updates, About, and Quit; the items that name a screen open the
 popover on it. No Dock icon.
 
+The popover also toggles from anywhere with a configurable global shortcut,
+**Settings → General → Global Shortcut** (stored as `[tray] shortcut` in
+`config.toml`). On macOS the Command and Option keys are shown as `Cmd` and
+`Option`; the stored value keeps the canonical `Win`/`Alt` spelling.
+
 ![Right-click menu under the menu bar icon — Customize, Settings, Refresh, Detect Providers, Open TUI, Start at Login (checked), Check for Updates, About and Quit](../screenshots/macos-tray-right-click-menu.png)
 
 ![Chart mode in the macOS menu bar, next to the Cursor, Claude, Antigravity, Codex and Claude Code icons](../screenshots/macos-tray-icon.png)
