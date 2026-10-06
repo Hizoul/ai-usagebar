@@ -85,8 +85,9 @@ The selector dynamically discovers **all providers** that ship in the binary via
   pool from the Grok Bot desktop app).
 - **Included-usage pools:** Cursor (Cursor Models and Other Models, both reset
   on the billing cycle).
-- **Balance-only:** OpenRouter, DeepSeek, Kimi, Kilo, Novita, Moonshot, Grok
-  (xAI), and Anthropic API. These have no 5h/weekly quota windows, so the app
+- **Balance-only:** OpenRouter, DeepSeek, DeepInfra, Kimi, Kilo, Novita,
+  Moonshot, Grok (xAI), Lyceum, and Anthropic API. These have no 5h/weekly
+  quota windows, so the app
   shows their balance/credits in the header (`cr <amount>`) and suppresses the
   session/weekly rows. Anthropic API additionally renders a spend-vs-limit
   bar when a monthly limit is configured.
