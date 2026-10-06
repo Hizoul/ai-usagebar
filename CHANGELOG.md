@@ -9,6 +9,16 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Fixed
+
+- **The tray's Global Shortcut recorder works on macOS.** The popover is a
+  WKWebView, and WebKit does not focus a `<button>` when it is clicked, so the
+  recorder's button-local key handler never ran and the field stayed on
+  "Press keys…" for every chord. The chord is now captured on `document` while
+  recording. The field also shows the canonical `Win`/`Alt` modifiers as
+  `Cmd`/`Option` on macOS (the stored value is unchanged) instead of the
+  Windows spelling (fixes #357).
+
 ## [1.32.0] — 2026-10-04
 
 ### Added
