@@ -24,7 +24,7 @@ ai-usagebar-tui --config ./config.test.toml
 #                         # | zai | openrouter | deepseek | deepinfra | kimi | kilo | novita
 #                         # | moonshot | grok | supergrok | grokbot | antigravity | cursor
 #                         # | minimax | kiro | nous | opencode-go | commandcode
-#                         # | orcarouter | modelstudio | lyceum
+#                         # | orcarouter | modelstudio | lyceum | devin
 
 [context]
 enabled = false           # opt in, then press c in ai-usagebar-tui
@@ -237,7 +237,29 @@ enabled = false            # disabled by default; enable after `bl auth login --
 # read-only. The region×site pair recorded there picks the console gateway
 # (cn-beijing/ap-southeast-1 × domestic/international).
 # config_dir = "/home/you/.bailian"   # or set BAILIAN_CONFIG_DIR at runtime
+
+[devin]
+enabled = false            # disabled by default; enable after signing in with Devin CLI
+# Reuses the official Devin CLI credential file read-only. Defaults to
+# %APPDATA%/devin/credentials.toml on Windows, or
+# ${XDG_DATA_HOME:-~/.local/share}/devin/credentials.toml on Linux and macOS
+# (the CLI's documented paths; macOS is untested here).
+# An explicit credentials_path needs no home directory to resolve.
+# credentials_path = "/home/you/.local/share/devin/credentials.toml"
 ```
+
+Devin remains opt-in when its CLI login is present. First-run detection and
+`detect --all` do not enable it; set `enabled = true` explicitly to activate
+the provider.
+
+Devin reports daily and weekly remaining percentages, which ai-usagebar
+converts to consumed percentages for consistent meters. A window whose reset
+time arrives without a remaining percentage (the encoding omits zero values) is
+shown as fully used. Its optional
+`overageBalanceMicros` value is displayed as USD to six decimal places based on
+the tested account; that currency interpretation is not a verified universal
+contract. The existing CLI token is read only for the status request and cache
+identity. ai-usagebar does not sign in, refresh, or rewrite Devin credentials.
 
 For more than one OpenRouter key, see the
 [OpenRouter account guide](openrouter-accounts.md). The existing singular

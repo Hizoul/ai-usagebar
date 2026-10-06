@@ -11,7 +11,7 @@
 # Valid: anthropic | anthropic_api | openai | copilot | zai | openrouter | deepseek
 #        | kimi | kilo | novita | moonshot | grok | supergrok | grokbot | antigravity
 #        | cursor | minimax | kiro | nous | opencode-go | commandcode | ollama
-#        | orcarouter | modelstudio | lyceum
+#        | orcarouter | modelstudio | lyceum | devin
 # When unset, the TUI opens on the Overview (all vendors at once); set this to
 # open directly on a vendor's tab instead.
 # primary = "anthropic"
@@ -596,3 +596,13 @@ enabled = false
 # Override the bl CLI's config directory (default ~/.bailian; the
 # BAILIAN_CONFIG_DIR env var does the same at runtime, and this wins).
 # config_dir = "/home/you/.bailian"
+
+# Devin CLI quota. This reuses the official CLI's existing credentials file
+# read-only: %APPDATA%/devin/credentials.toml on Windows, or
+# ${XDG_DATA_HOME:-~/.local/share}/devin/credentials.toml on Linux and macOS
+# (the CLI's documented paths; macOS is untested here). The token is held in
+# memory for the request only; no login, refresh, or credential write is
+# performed by ai-usagebar.
+[devin]
+enabled = false
+# credentials_path = "/home/you/.local/share/devin/credentials.toml"

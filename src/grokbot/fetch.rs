@@ -457,7 +457,7 @@ mod tests {
         GrokbotCredentials {
             access_token: "at-stored".into(),
             refresh_token: "rt-stored".into(),
-            fingerprint: super::super::creds::fingerprint_of("rt-stored"),
+            fingerprint: crate::cache::fingerprint_of("rt-stored"),
         }
     }
 
@@ -581,7 +581,7 @@ mod tests {
         assert_eq!(persisted["refresh_token"], "rt-rotated");
         assert_eq!(
             persisted["fingerprint"],
-            super::super::creds::fingerprint_of("rt-stored")
+            crate::cache::fingerprint_of("rt-stored")
         );
         #[cfg(unix)]
         {
@@ -654,7 +654,7 @@ mod tests {
             &cache,
             &PersistedOAuth {
                 // Same sign-in as the app's file, so the rotation is honored.
-                fingerprint: super::super::creds::fingerprint_of("rt-stored"),
+                fingerprint: crate::cache::fingerprint_of("rt-stored"),
                 access_token: "at-fresh".into(),
                 refresh_token: "rt-stored".into(),
             },
@@ -688,7 +688,7 @@ mod tests {
         write_persisted_oauth(
             &cache,
             &PersistedOAuth {
-                fingerprint: super::super::creds::fingerprint_of("rt-someone-else"),
+                fingerprint: crate::cache::fingerprint_of("rt-someone-else"),
                 access_token: "at-stranger".into(),
                 refresh_token: "rt-stranger".into(),
             },

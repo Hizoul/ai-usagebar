@@ -72,6 +72,7 @@ pub struct Config {
     pub orcarouter: OrcaRouterConfig,
     pub modelstudio: ModelStudioConfig,
     pub lyceum: LyceumConfig,
+    pub devin: DevinConfig,
     /// Quota-threshold desktop notifications (`[notifications]`).
     pub notifications: NotificationsConfig,
     /// User-defined providers, one `[[custom]]` table each.
@@ -1124,6 +1125,18 @@ pub struct ModelStudioConfig {
     pub config_dir: Option<PathBuf>,
 }
 
+/// Devin CLI quota — reuses its existing credentials file read-only. The
+/// provider is opt-in and stores only a path override in ai-usagebar config.
+#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[serde(default)]
+pub struct DevinConfig {
+    pub enabled: bool,
+    /// Override the CLI credential path; the default is the CLI's documented
+    /// `%APPDATA%\devin\credentials.toml` on Windows and
+    /// `${XDG_DATA_HOME:-~/.local/share}/devin/credentials.toml` elsewhere.
+    pub credentials_path: Option<PathBuf>,
+}
+
 impl Default for OpenCodeGoConfig {
     fn default() -> Self {
         Self {
@@ -2151,6 +2164,7 @@ impl Config {
         expand_tilde_opt(&mut self.kimi.credentials_path);
         expand_tilde_opt(&mut self.grokbot.secrets_path);
         expand_tilde_opt(&mut self.modelstudio.config_dir);
+        expand_tilde_opt(&mut self.devin.credentials_path);
         self.supergrok.grok_binary = expand_tilde(&self.supergrok.grok_binary);
         expand_tilde_opt(&mut self.supergrok.auth_path);
         expand_tilde_opt(&mut self.supergrok.config_path);
@@ -2291,6 +2305,7 @@ impl Config {
             VendorId::OrcaRouter => self.orcarouter.enabled,
             VendorId::ModelStudio => self.modelstudio.enabled,
             VendorId::Lyceum => self.lyceum.enabled,
+            VendorId::Devin => self.devin.enabled,
         }
     }
 
@@ -2329,7 +2344,8 @@ impl Config {
             | VendorId::Kiro
             | VendorId::NousResearch
             | VendorId::CommandCode
-            | VendorId::ModelStudio => id.api_key_env(),
+            | VendorId::ModelStudio
+            | VendorId::Devin => id.api_key_env(),
         }
     }
 
@@ -2363,7 +2379,8 @@ impl Config {
             | VendorId::Kiro
             | VendorId::NousResearch
             | VendorId::CommandCode
-            | VendorId::ModelStudio => None,
+            | VendorId::ModelStudio
+            | VendorId::Devin => None,
         };
         raw.filter(|key| !key.is_empty())
     }
@@ -2989,6 +3006,7 @@ mod tests {
             VendorId::CommandCode,
             VendorId::OrcaRouter,
             VendorId::ModelStudio,
+            VendorId::Devin,
         ] {
             assert!(!c.is_enabled(opt_in), "{opt_in:?}");
         }
@@ -3455,6 +3473,38 @@ enabled = false
             .unwrap();
         assert!(!path.starts_with("~"), "{}", path.display());
         assert!(path.ends_with("bl"), "{}", path.display());
+    }
+
+    #[test]
+    fn devin_is_opt_in_and_takes_no_api_key() {
+        let defaults = DevinConfig::default();
+        assert!(!defaults.enabled);
+        assert_eq!(defaults.credentials_path, None);
+
+        let config = Config::default();
+        assert_eq!(config.api_key_env_for(VendorId::Devin), "");
+        assert_eq!(config.inline_api_key(VendorId::Devin), None);
+
+        let file = write_toml("[devin]\nenabled = true\n");
+        let config = Config::load_from(file.path()).unwrap();
+        assert!(config.is_enabled(VendorId::Devin));
+        assert!(config.enabled_vendors().contains(&VendorId::Devin));
+    }
+
+    #[test]
+    fn devin_credentials_path_expands_a_tilde() {
+        let file = write_toml("[devin]\ncredentials_path = \"~/devin/credentials.toml\"\n");
+        let path = Config::load_from(file.path())
+            .unwrap()
+            .devin
+            .credentials_path
+            .unwrap();
+        assert!(!path.starts_with("~"), "{}", path.display());
+        assert!(
+            path.ends_with("devin/credentials.toml"),
+            "{}",
+            path.display()
+        );
     }
 
     #[test]

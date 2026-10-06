@@ -9,6 +9,13 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Added
+
+- **Devin CLI quota.** Reuses the official CLI's existing credential file
+  read-only to show daily and weekly quota usage and the optional overage
+  balance. The token is held in memory for the status request only; no login,
+  refresh, or credential writeback is performed. The provider is opt-in.
+
 ## [1.32.0] — 2026-10-04
 
 ### Added
