@@ -110,6 +110,29 @@ try {
   assert.match(leftDashboard, /aria-label="Z.AI 0%"/);
   assert.match(leftDashboard, /aria-label="SuperGrok 93%"/);
   assert.match(leftDashboard, /aria-label="Claude 100%"/);
+  // A value headline (a prepaid balance meter) is a figure, not a quota window: the tab keeps
+  // ranking percent windows in either reading — the rule the menu-bar chip follows — and a
+  // provider with only a balance chips its figure, the same either way.
+  const valueRow = (label, usedPercent) => ({
+    ...card.rows[0], key: `metric:${label}`, label, usedPercent, leftPercent: 100 - usedPercent,
+    headline: 'value', value: '$0.25',
+  });
+  const valueDashboard = (showAs) => renderToStaticMarkup(React.createElement(TooltipProvider, {},
+    React.createElement(LanguageProvider, { language: 'pt-BR' },
+      React.createElement(NativeDashboard, {
+        cards: [
+          { ...card, id: 'deepseek', title: 'DeepSeek', rows: [valueRow('Balance', 95), quotaRow('Weekly', 12)] },
+          { ...card, id: 'openrouter', title: 'OpenRouter', rows: [valueRow('Credit balance', 40)] },
+        ],
+        hint: false, layout: { ...emptyLayout(), popoverStyle: 'native', showAs }, nowMs, payload,
+        onCustomizeProvider() {}, onDismissHint() {}, onOpenCustomize() {}, onOpenSettings() {},
+        onRowAction() {}, onRowMenuOpenChange() {}, onSwitchAccount() {},
+        onToggleCollapse() {}, onToggleShowAs() {},
+      }))));
+  assert.match(valueDashboard('used'), /aria-label="DeepSeek 12%"/);
+  assert.match(valueDashboard('left'), /aria-label="DeepSeek 88%"/);
+  assert.match(valueDashboard('used'), /aria-label="OpenRouter \$0\.25"/);
+  assert.match(valueDashboard('left'), /aria-label="OpenRouter \$0\.25"/);
   // A waiting release shows the same Update available card as Classic, above the provider tabs.
   const withUpdate = renderToStaticMarkup(React.createElement(TooltipProvider, {},
     React.createElement(LanguageProvider, { language: 'en' },
