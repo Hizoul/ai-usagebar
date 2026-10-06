@@ -60,6 +60,7 @@ import {
   usageGoalPercent,
   prettyMetricLabel,
   shortcutFromKeyEvent,
+  displayShortcut,
   defaultStars,
   toggleStar,
   metricRowKey,
@@ -1011,6 +1012,19 @@ assert.equal(resetAlternate(badStampRow, 'exact', resetNow, utc), '');
   assert.equal(shortcutFromKeyEvent(press('', { ctrl: true }, '')), null);
   assert.equal(shortcutFromKeyEvent(press('toString', { ctrl: true }, '')), null);
   assert.equal(shortcutFromKeyEvent(null), null);
+}
+
+// --- displayShortcut -------------------------------------------------------------
+
+{
+  // macOS shows the canonical "Win"/"Alt" modifiers as "Cmd"/"Option"; the stored value is untouched.
+  assert.equal(displayShortcut('Win+U', 'macos'), 'Cmd+U');
+  assert.equal(displayShortcut('Alt+U', 'macos'), 'Option+U');
+  assert.equal(displayShortcut('Ctrl+Alt+Shift+Win+K', 'macos'), 'Ctrl+Option+Shift+Cmd+K');
+  assert.equal(displayShortcut('Win+U', 'windows'), 'Win+U');
+  assert.equal(displayShortcut('Win+U', ''), 'Win+U');
+  assert.equal(displayShortcut('', 'macos'), '');
+  assert.equal(displayShortcut(undefined, 'macos'), '');
 }
 
 // --- update status helpers -------------------------------------------------------

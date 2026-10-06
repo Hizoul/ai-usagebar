@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import MdiCloseCircle from "~icons/mdi/close-circle";
 import { m } from "@/paraglide/messages.js";
-import { shortcutFromKeyEvent } from "../model.js";
+import { shortcutFromKeyEvent, displayShortcut } from "../model.js";
 import { Hint } from "@/components/Hint";
 
 interface ShortcutRecorderProps {
   error: string;
   value: string;
+  os: string;
   onChange: (value: string) => void;
 }
 
@@ -21,7 +22,7 @@ interface ShortcutRecorderProps {
  * button-local onKeyDown never fires there and the recorder stayed stuck on "Press keys…". The
  * capture phase keeps the app-level Escape/Enter handler from seeing the chord first.
  */
-export function ShortcutRecorder({ error, value, onChange }: ShortcutRecorderProps) {
+export function ShortcutRecorder({ error, value, os, onChange }: ShortcutRecorderProps) {
   const [recording, setRecording] = useState(false);
 
   useEffect(() => {
@@ -48,7 +49,7 @@ export function ShortcutRecorder({ error, value, onChange }: ShortcutRecorderPro
         <button
           type="button"
           aria-invalid={error ? true : undefined}
-          aria-label={recording ? m.press_keys() : value ? `${m.global_shortcut()} ${value}` : m.set_global_shortcut()}
+          aria-label={recording ? m.press_keys() : value ? `${m.global_shortcut()} ${displayShortcut(value, os)}` : m.set_global_shortcut()}
           className="recorder"
           data-empty={value ? undefined : "true"}
           data-recording={recording ? "true" : undefined}
@@ -60,7 +61,7 @@ export function ShortcutRecorder({ error, value, onChange }: ShortcutRecorderPro
             setRecording(true);
           }}
         >
-          {recording ? m.press_keys_ellipsis() : value || m.none()}
+          {recording ? m.press_keys_ellipsis() : value ? displayShortcut(value, os) : m.none()}
         </button>
       </Hint>
       {value && !recording ? (

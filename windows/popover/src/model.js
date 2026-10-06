@@ -1843,6 +1843,18 @@ export function shortcutFromKeyEvent(event) {
   return parts.join("+");
 }
 
+// Display-only spelling of a stored shortcut. macOS names the canonical `Win`
+// and `Alt` modifiers "Cmd" and "Option"; the value itself stays "Win+U" so the
+// host still registers it.
+export function displayShortcut(value, os) {
+  const text = String(value || "");
+  if (os !== "macos") return text;
+  return text
+    .split("+")
+    .map((part) => (part === "Win" ? "Cmd" : part === "Alt" ? "Option" : part))
+    .join("+");
+}
+
 // Collapses "system" into the scheme the OS currently prefers.
 export function resolvedTheme(theme) {
   const value = normalizeTheme(theme);
