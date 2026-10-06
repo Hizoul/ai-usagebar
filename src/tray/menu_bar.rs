@@ -241,13 +241,13 @@ fn name_chip(
 /// has nothing else.
 fn highest_metric(metrics: &[StripMetric]) -> Option<&StripMetric> {
     let shown = || metrics.iter().filter(|m| !m.value.trim().is_empty());
-    let highest_bounded =
-        shown()
-            .filter(|m| m.bounded && !m.value_headline)
-            .fold(None, |best: Option<&StripMetric>, m| match best {
-                Some(best) if best.fraction >= m.fraction => Some(best),
-                _ => Some(m),
-            });
+    let highest_bounded = shown().filter(|m| m.bounded && !m.value_headline).fold(
+        None,
+        |best: Option<&StripMetric>, m| match best {
+            Some(best) if best.fraction >= m.fraction => Some(best),
+            _ => Some(m),
+        },
+    );
     highest_bounded.or_else(|| shown().next())
 }
 
@@ -921,8 +921,14 @@ mod tests {
             .clone()
         };
 
-        assert_eq!(chip("deepseek", UsageReading::Used), vec![String::from("12%")]);
-        assert_eq!(chip("deepseek", UsageReading::Left), vec![String::from("88%")]);
+        assert_eq!(
+            chip("deepseek", UsageReading::Used),
+            vec![String::from("12%")]
+        );
+        assert_eq!(
+            chip("deepseek", UsageReading::Left),
+            vec![String::from("88%")]
+        );
         assert_eq!(
             chip("openrouter", UsageReading::Left),
             vec![String::from("$4 of $10")]
