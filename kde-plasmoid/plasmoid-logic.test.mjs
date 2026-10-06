@@ -352,6 +352,11 @@ assert.deepEqual(panelCells(zai).map(c => c.text), ['⚠']);
 assert.deepEqual(panelCells(null), []);
 // A vendor whose only section is a block has no percentage to plot.
 assert.deepEqual(panelCells(openai), []);
+// Grouped session rows take no panel cell while a quota window can fill it
+// (the same partition the headline applies) and still stand in when the entry
+// has nothing else.
+assert.deepEqual(panelCells(sessionBreakdown, {max: 2}).map(c => c.text), ['29%']);
+assert.deepEqual(panelCells(onlyGrouped, {max: 2}).map(c => c.text), ['90%']);
 
 // ---------------------------------------------------------------------------
 // cards (viewMode "VendorCards")
