@@ -1027,6 +1027,26 @@ assert.equal(resetAlternate(badStampRow, 'exact', resetNow, utc), '');
   assert.equal(displayShortcut(undefined, 'macos'), '');
 }
 
+// --- ShortcutRecorder wiring guard -----------------------------------------------
+// The macOS tray is a WKWebView, and WebKit does not focus a <button> when it is
+// clicked (WebKit bug 22261), so the recorder must capture the chord on `document`
+// while recording rather than on the button. There is no DOM runner here to catch a
+// regression to a button-local handler, so pin the wiring.
+{
+  const source = readFileSync(
+    new URL('./src/components/ShortcutRecorder.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.ok(
+    source.includes('document.addEventListener("keydown"'),
+    'ShortcutRecorder must listen for keydown on document',
+  );
+  assert.ok(
+    !source.includes('onKeyDown={'),
+    'ShortcutRecorder must not put the recording handler on the button',
+  );
+}
+
 // --- update status helpers -------------------------------------------------------
 
 {
