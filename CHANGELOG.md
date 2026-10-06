@@ -9,6 +9,16 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Fixed
+
+- **KDE plasmoid: grouped session rows no longer take a panel cell.** The
+  compact representation's cells came from the first metric sections in report
+  order, grouped or not, so a full Claude Code context session (or a SuperGrok
+  product slice) could occupy the second cell beside the quota windows. The
+  cells now apply the same partition the headline does: ungrouped quota rows
+  first, grouped rows standing in only when an entry has nothing else
+  (fixes #348).
+
 ## [1.32.0] — 2026-10-04
 
 ### Added
