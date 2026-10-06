@@ -9,6 +9,13 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Fixed
+
+- **macOS menu bar shows DeepInfra's USD balance.** The Swift balance mirror
+  did not include `{dif_balance}` in its FORMAT slot or balance field dispatch,
+  so a DeepInfra entry rendered with no balance value. It is appended at
+  index 53 (keeping every existing index stable) with a parser test.
+
 ## [1.32.0] — 2026-10-04
 
 ### Added
