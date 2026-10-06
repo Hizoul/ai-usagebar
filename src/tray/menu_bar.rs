@@ -234,12 +234,16 @@ fn name_chip(
 }
 
 /// The bounded metric with the largest used fraction, the first one on a
-/// tie; the first metric with a value when none is bounded.
+/// tie; the first metric with a value when none is bounded. A value headline
+/// (a prepaid balance) is a figure, not a quota window, so it never wins the
+/// race — the same rule the popover tab applies (`previewMetric` ranks only
+/// percent headlines) — and stands in through the fallback when the provider
+/// has nothing else.
 fn highest_metric(metrics: &[StripMetric]) -> Option<&StripMetric> {
     let shown = || metrics.iter().filter(|m| !m.value.trim().is_empty());
     let highest_bounded =
         shown()
-            .filter(|m| m.bounded)
+            .filter(|m| m.bounded && !m.value_headline)
             .fold(None, |best: Option<&StripMetric>, m| match best {
                 Some(best) if best.fraction >= m.fraction => Some(best),
                 _ => Some(m),
@@ -792,6 +796,7 @@ mod tests {
             fraction: 0.0,
             bounded: true,
             left_value: None,
+            value_headline: false,
             grouped: false,
         }
     }

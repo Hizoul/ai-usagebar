@@ -61,6 +61,10 @@ pub struct StripMetric {
     /// popover's Left reading shows it; `None` for a value headline or a row
     /// with no percent, which read the same either way.
     pub left_value: Option<String>,
+    /// The report named this metric's own figure as its headline
+    /// (`headline = "value"`, a prepaid balance): a figure, not a quota
+    /// window, so it never wins the highest-window race the Name chip runs.
+    pub value_headline: bool,
     /// Under a group heading (SuperGrok's product slices, the Claude entry's
     /// CLI sessions): a breakdown, not a quota window of its own.
     pub grouped: bool,
@@ -354,8 +358,9 @@ fn metrics_for_entry(entry: &Value, id: &str, name: &str) -> Vec<StripMetric> {
             .map(str::to_string)
             .or_else(|| percent.map(|percent| format!("{}%", percent.round() as i64)))
             .unwrap_or_default();
+        let value_headline = section.get("headline").and_then(Value::as_str) == Some("value");
         let left_value = percent
-            .filter(|_| section.get("headline").and_then(Value::as_str) != Some("value"))
+            .filter(|_| !value_headline)
             .map(|percent| format!("{}%", (100.0 - percent).max(0.0).round() as i64));
         let mut key = metric_key(id, raw_label, effective_group);
         let count = seen.entry(key.clone()).or_insert(0);
@@ -372,6 +377,7 @@ fn metrics_for_entry(entry: &Value, id: &str, name: &str) -> Vec<StripMetric> {
             fraction: (percent.unwrap_or(0.0) / 100.0).clamp(0.0, 1.0),
             bounded: true,
             left_value,
+            value_headline,
             grouped: !effective_group.is_empty(),
         });
     }
