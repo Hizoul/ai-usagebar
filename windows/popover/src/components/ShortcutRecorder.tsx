@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from "react";
+import { useEffect, useState } from "react";
 import MdiCloseCircle from "~icons/mdi/close-circle";
 import { m } from "@/paraglide/messages.js";
 import { shortcutFromKeyEvent } from "../model.js";
@@ -15,23 +15,32 @@ interface ShortcutRecorderProps {
  * Clicking it starts recording — the next non-modifier chord becomes the value, Escape or losing
  * focus cancels. While recording the button carries `data-recording`, which App's key guard uses
  * to keep Escape / Enter from navigating.
+ *
+ * The key listener lives on `document`, not on the button. WebKit on macOS does not focus a
+ * <button> when it is clicked (`document.activeElement` stays <body>; WebKit bug 22261), so a
+ * button-local onKeyDown never fires there and the recorder stayed stuck on "Press keys…". The
+ * capture phase keeps the app-level Escape/Enter handler from seeing the chord first.
  */
 export function ShortcutRecorder({ error, value, onChange }: ShortcutRecorderProps) {
   const [recording, setRecording] = useState(false);
 
-  function onKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+  useEffect(() => {
     if (!recording) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.key === "Escape") {
+    function onKeyDown(event: KeyboardEvent) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.key === "Escape") {
+        setRecording(false);
+        return;
+      }
+      const next = shortcutFromKeyEvent(event);
+      if (!next) return;
+      onChange(next);
       setRecording(false);
-      return;
     }
-    const next = shortcutFromKeyEvent(event.nativeEvent);
-    if (!next) return;
-    onChange(next);
-    setRecording(false);
-  }
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, [recording, onChange]);
 
   return (
     <span className="flex shrink-0 items-center gap-[var(--gap-item)]">
@@ -44,8 +53,12 @@ export function ShortcutRecorder({ error, value, onChange }: ShortcutRecorderPro
           data-empty={value ? undefined : "true"}
           data-recording={recording ? "true" : undefined}
           onBlur={() => setRecording(false)}
-          onClick={() => setRecording(true)}
-          onKeyDown={onKeyDown}
+          onClick={(event) => {
+            // WebKit won't focus a button on click; focus it ourselves so the
+            // app key guard sees [data-recording] and onBlur can cancel.
+            event.currentTarget.focus();
+            setRecording(true);
+          }}
         >
           {recording ? m.press_keys_ellipsis() : value || m.none()}
         </button>
