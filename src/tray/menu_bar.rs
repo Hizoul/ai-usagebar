@@ -889,6 +889,46 @@ mod tests {
         assert_eq!(value("supergrok"), vec![String::from("7%")]);
     }
 
+    /// A value headline that carries a percent (a prepaid balance meter, a
+    /// Cursor credit grant) is a figure, not a quota window: it never
+    /// outranks one — the popover tab the chip selects ranks only percent
+    /// headlines (`previewMetric`), and on `main` the two could disagree.
+    /// It stands in only when the provider has nothing else.
+    #[test]
+    fn name_look_ranks_value_headlines_only_without_a_window() {
+        let report = json!({"primary":null, "entries":[
+            {"id":"deepseek", "status":"ready", "sections":[
+                {"type":"metric", "label":"Balance", "percent":95, "value":"$0.25", "headline":"value"},
+                {"type":"metric", "label":"Weekly", "percent":12, "value":"12%"}]},
+            {"id":"openrouter", "status":"ready", "sections":[
+                {"type":"metric", "label":"Credit balance", "percent":40, "value":"$4 of $10", "headline":"value"}]},
+        ]});
+        let content = super::super::strip::content_from_payload(
+            &report,
+            &super::super::strip::Stars::new(),
+            &[],
+        );
+        let chip = |selected, reading| {
+            logo_segments(
+                &content,
+                &report,
+                MenuBarLook::Name,
+                Some(selected),
+                true,
+                reading,
+            )[0]
+            .values
+            .clone()
+        };
+
+        assert_eq!(chip("deepseek", UsageReading::Used), vec![String::from("12%")]);
+        assert_eq!(chip("deepseek", UsageReading::Left), vec![String::from("88%")]);
+        assert_eq!(
+            chip("openrouter", UsageReading::Left),
+            vec![String::from("$4 of $10")]
+        );
+    }
+
     /// In the popover's Left reading the menu bar says what is left, like the
     /// tab that selects the chip: Z.AI's monthly window at 18% used reads
     /// `82%`. The chip still picks the most-used window, so `82%` is the
