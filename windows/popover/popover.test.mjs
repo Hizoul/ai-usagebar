@@ -547,6 +547,12 @@ assert.equal(nextUpdateLabel({ nextRefreshAt: 120_000 }, 60_000, 'ko'), '1m 후 
 assert.equal(resetText({ resetAt: '2026-09-24T12:00:00Z' }, 'countdown', Date.parse('2026-09-24T11:00:00Z'), { locale: 'ko' }), '1h 0m 후 초기화');
 assert.match(formatResetExact(Date.parse('2026-09-24T12:00:00Z'), Date.parse('2026-09-24T11:00:00Z'), { locale: 'ko', timeZone: 'UTC', timeFormat: '24' }), /^오늘 12:00$/);
 assert.equal(updateStatusLabel({ update: null, updateCheckedAt: 0 }, 0, 'ko'), '아직 확인 안 함');
+saveLayout(languageStore, { ...emptyLayout(), language: 'es' });
+assert.equal(loadLayout(languageStore).language, 'es');
+assert.equal(nextUpdateLabel({ nextRefreshAt: 120_000 }, 60_000, 'es'), 'Próxima actualización en 1m');
+assert.equal(resetText({ resetAt: '2026-09-24T12:00:00Z' }, 'countdown', Date.parse('2026-09-24T11:00:00Z'), { locale: 'es' }), 'Se reinicia en 1h 0m');
+assert.match(formatResetExact(Date.parse('2026-09-24T12:00:00Z'), Date.parse('2026-09-24T11:00:00Z'), { locale: 'es', timeZone: 'UTC', timeFormat: '24' }), /^hoy a las 12:00$/);
+assert.equal(updateStatusLabel({ update: null, updateCheckedAt: 0 }, 0, 'es'), 'Aún sin comprobar');
 
 // --- resetTimes layout field ------------------------------------
 
@@ -1881,6 +1887,17 @@ assert.equal(resolvedTheme('system'), 'light');
     checkForUpdates: '업데이트 확인…',
     about: '정보',
     quit: '종료',
+  });
+  assert.deepEqual(optionsMenuLabels('es'), {
+    customize: 'Personalizar',
+    settings: 'Ajustes',
+    refresh: 'Actualizar',
+    detect: 'Detectar proveedores',
+    openTui: 'Abrir TUI',
+    startAtLogin: 'Abrir al iniciar sesión',
+    checkForUpdates: 'Buscar actualizaciones…',
+    about: 'Acerca de',
+    quit: 'Salir',
   });
   // Unknown locales resolve to English, like the `lang` helper.
   assert.deepEqual(optionsMenuLabels('de'), optionsMenuLabels('en'));

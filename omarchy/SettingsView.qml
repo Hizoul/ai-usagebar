@@ -414,7 +414,8 @@ Column {
           { value: "en", label: root.tr("language.en") },
           { value: "pt-BR", label: root.tr("language.pt-BR") },
           { value: "ru", label: root.tr("language.ru") },
-          { value: "ko", label: root.tr("language.ko") }
+          { value: "ko", label: root.tr("language.ko") },
+          { value: "es", label: root.tr("language.es") }
         ]
         foreground: root.foreground
         fontFamily: root.fontFamily

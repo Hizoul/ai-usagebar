@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+### Added
+
+- **Spanish (Español) in the Omarchy panel and the tray popover.** `uiLocale`
+  gains `es`, and Auto picks it up from any `es_*` system locale. Settings →
+  Appearance → Language gains Español on Windows and macOS, with a full
+  `messages/es.json` catalog; metric labels and usage strings from the report
+  are translated as they are for Português.
+
 ### Changed
 
 - **The macOS menu bar's Name look is now called Quattro.** It draws one chip

@@ -104,7 +104,8 @@
           "en",
           "pt-BR",
           "ru",
-          "ko"
+          "ko",
+          "es"
         ],
         "defaultValue": "auto"
       },
