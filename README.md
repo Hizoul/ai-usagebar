@@ -864,9 +864,10 @@ itself:
 | <img src="screenshots/macos-tray-native-update-light.png" width="300" alt="Native popover on macOS with an Update available card above the provider tabs: AI Usage v1.27.0 is ready to install, with an Install Update button and a blue dot beside the version in the footer"> | <img src="screenshots/windows-tray-native-update-light.png" width="300" alt="Native popover on Windows 11 with the same Update available card and Install Update button above the provider tabs"> |
 | <img src="screenshots/macos-tray-native-update-dark.png" width="300" alt="The same Update available card on macOS, dark"> | <img src="screenshots/windows-tray-native-update-dark.png" width="300" alt="The same Update available card on Windows 11, dark"> |
 
-On macOS the menu bar item shows the starred metrics — Chart (default):
+On macOS, Chart (default) shows the starred metrics:
 <img src="screenshots/macos-menu-bar-chart.png" width="40" alt="Menu bar item in Chart mode"> ·
-Logos: <img src="screenshots/macos-menu-bar-logos.png" width="240" alt="Menu bar item in Logos mode: each starred provider's logo with its percentage"> ·
+Logos shows one highest-usage percentage per starred provider (lowest remaining
+in Left), excluding hidden metrics, just like Quattro's auto window. ·
 Name: one chip with the selected provider's logo, short name and highest percentage.
 
 ### Desktop integrations

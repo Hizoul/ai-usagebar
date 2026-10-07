@@ -55,6 +55,14 @@ Each release is also published at
 
 ### Changed
 
+- macOS **Menu Bar Shows → Logos** displays one readable allowance value per
+  provider instead of two tightly stacked percentages. Like Quattro's default
+  auto window and the Name chip, it selects the highest used percentage across
+  visible quota windows (the lowest remaining percentage in Left). A fresh short
+  window no longer obscures a mostly spent monthly allowance. Hidden metrics
+  stay excluded; Used/Left still follows the existing preference. Chart and
+  the detailed popover keep their multiple metrics.
+
 - **Omarchy Quattro: Antigravity gets model-pool buttons, like Cursor.** Gemini
   and Claude & GPT OSS are independent pools, so the panel gains a button for
   each (`showAntigravityGemini`, `showAntigravityClaudeGpt`, both on). The top

@@ -7,10 +7,16 @@ own look — on macOS, one provider at a time behind tabs of logos and values,
 over AppKit glass). Both draw the same provider card: metrics, reset times,
 pace notes, the reset popover, the row menu and account switching.
 
-The menu-bar item shows the metrics you star in each provider (up to two):
-**Settings → Menu Bar → Menu Bar Shows** draws them as the usage **Chart**
-(the default) or as **Logos**, each starred provider's logo followed by its
-value, two starred metrics stacked. **Name** draws one chip like the Quattro
+**Settings → Menu Bar → Menu Bar Shows** draws the usage **Chart** (the default)
+from up to two starred metrics per provider, or **Logos**, each starred
+provider's logo followed by one readable percentage. Logos takes the highest
+usage across that provider's visible quota windows, like Quattro's default
+`auto` window and the Name chip. In **Left** this is the lowest remaining
+percentage: 25% monthly remaining stays `25%` even after the weekly allowance
+resets to 100%. A more-used short/session or model-specific window can win too;
+switch it off in Customize to exclude it. Balances remain amounts. All the
+individual readings remain in the popover.
+**Name** draws one chip like the Quattro
 bar: the logo, the short name (`cld`, `cdx`, …) and the highest percentage
 of the provider selected in the popover (the Native style's tabs; the
 `[ui] primary` provider, then the first one with a value, until you pick one).
@@ -45,8 +51,8 @@ The popover also toggles from anywhere with a configurable global shortcut,
 ![Chart mode in the macOS menu bar, next to the Cursor, Claude, Antigravity, Codex and Claude Code icons](../screenshots/macos-tray-icon.png)
 
 Star up to two metrics per provider from **Settings → Providers**, then open
-that provider's details, or right-click a row. Those metrics are what the
-status item shows.
+that provider's details, or right-click a row. Those metrics drive Chart;
+in Logos, the stars select the providers and each gets one allowance summary.
 
 With named Claude or Codex accounts, each account's card also shows which login
 is active (a filled star) and an outline star to switch to the others; see "Switch from

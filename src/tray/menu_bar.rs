@@ -15,7 +15,7 @@ pub(super) enum StatusItemContent {
     AppIcon,
     /// Draw the usage bars.
     Chart,
-    /// Draw provider logos and starred metric values.
+    /// Draw provider logos and one summary value each.
     Logos,
 }
 
@@ -24,10 +24,10 @@ pub(super) enum StatusItemContent {
 pub(super) enum MenuBarLook {
     /// The usage bars (default).
     Chart,
-    /// Each provider's logo followed by its starred values.
+    /// Each starred provider's logo followed by its highest quota usage.
     Logos,
-    /// Each provider's short name (`cld`, `cdx`, …) followed by its starred
-    /// values, the way the Quattro and Waybar bars tag a provider.
+    /// One selected provider's short name (`cld`, `cdx`, …) and highest
+    /// quota usage, the way the Quattro and Waybar bars tag a provider.
     Name,
 }
 
@@ -147,7 +147,7 @@ pub(super) fn fallback_menu_attached(webview_built: bool) -> bool {
     !webview_built
 }
 
-/// One provider's visible logo (or short name) and starred values.
+/// One provider's visible logo (or short name) and summary value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct LogoSegment {
     /// Lowercase provider slug used to find its embedded mark.
@@ -158,17 +158,16 @@ pub(super) struct LogoSegment {
     /// The name look: draw `short_name` after the mark rather than only
     /// where the mark is missing.
     pub(super) with_name: bool,
-    /// Non-empty metric values in star order; their count is the rendered line count.
+    /// One non-empty summary value, displayed on a single line.
     pub(super) values: Vec<String>,
 }
 
 /// Build logo segments from the same starred metric groups used by the chart.
 /// The name look keeps one provider, `selected` or its fallbacks, and its
 /// highest window, like the Quattro bar's `icon SHORT 54%` chip, with the short name
-/// beside the mark unless `show_short_name` is off; the logos look keeps
-/// every group with up to two stacked values. `hidden` holds the metrics the
-/// popover's Customize switched off, which the name look's highest window
-/// leaves out.
+/// beside the mark unless `show_short_name` is off. Logos keeps every starred
+/// provider, with one value for its highest visible quota usage. `hidden`
+/// holds metrics switched off in Customize, which both summaries leave out.
 pub(super) fn logo_segments(
     content: &StripContent,
     report: &Value,
@@ -186,7 +185,11 @@ pub(super) fn logo_segments(
     content
         .groups
         .iter()
-        .filter_map(|(id, _, metrics)| segment(id, metrics, report, 2, false, reading))
+        .filter_map(|(id, _, _)| {
+            let hidden_keys = hidden.get(id).map(Vec::as_slice).unwrap_or_default();
+            let (_, _, metrics) = quota_group(report, id, hidden_keys)?;
+            quota_chip(id, &metrics, report, false, reading)
+        })
         .collect()
 }
 
@@ -213,7 +216,7 @@ fn name_segment(
         .find_map(|id| {
             let hidden_keys = hidden.get(id).map(Vec::as_slice).unwrap_or_default();
             let (id, _, metrics) = quota_group(report, id, hidden_keys)?;
-            name_chip(&id, &metrics, report, show_short_name, reading)
+            quota_chip(&id, &metrics, report, show_short_name, reading)
         })
 }
 
@@ -222,7 +225,7 @@ fn name_segment(
 /// weekly window must not hide behind an idle 5h session reading 0%.
 /// Without `show_short_name` the mark stands alone, like the logos look,
 /// which still falls back to the name for a provider with no mark.
-fn name_chip(
+fn quota_chip(
     id: &str,
     metrics: &[StripMetric],
     report: &Value,
@@ -343,6 +346,78 @@ mod tests {
     use serde_json::json;
 
     #[test]
+    fn logos_show_one_highest_quota_instead_of_reset_shorter_windows() {
+        let report = json!({"entries": [
+            {"id":"anthropic", "status":"ready", "sections":[
+                {"type":"metric", "label":"Session (5h)", "percent":2, "window_secs":18000},
+                {"type":"metric", "label":"Weekly (7d)", "percent":25, "window_secs":604800},
+                {"type":"metric", "label":"Fable (7d)", "percent":12, "window_secs":604800}
+            ]},
+            {"id":"openai@work", "status":"ready", "sections":[
+                {"type":"metric", "label":"Session", "percent":0, "window_secs":18000},
+                {"type":"metric", "label":"Weekly", "percent":0, "window_secs":604800},
+                {"type":"metric", "label":"Monthly", "percent":75, "window_secs":2592000},
+                {"type":"metric", "label":"Context", "group":"Sessions", "percent":99}
+            ]}
+        ]});
+        // Stars select which providers appear, not the allowance to summarize.
+        let content = super::super::strip::content_from_payload(
+            &report,
+            &super::super::strip::Stars::new(),
+            &["openai@work".into(), "anthropic".into()],
+        );
+        let read = |reading| {
+            logo_segments(
+                &content,
+                &report,
+                MenuBarLook::Logos,
+                None,
+                false,
+                reading,
+                &HiddenRows::new(),
+            )
+        };
+        let left = read(UsageReading::Left);
+        assert_eq!(left.len(), 2);
+        assert_eq!(left[0].slug, "openai");
+        assert_eq!(left[0].values, ["25%"]);
+        assert_eq!(left[1].values, ["75%"]);
+        let used = read(UsageReading::Used);
+        assert_eq!(used[0].values, ["75%"]);
+        assert_eq!(used[1].values, ["25%"]);
+    }
+
+    #[test]
+    fn logos_match_the_name_chip_for_short_model_and_hidden_windows() {
+        let report = json!({"entries":[
+            entry("anthropic", "cld", &[("Session", 90.0), ("Weekly", 25.0), ("Fable", 99.0)])
+        ]});
+        let content = starred(&["anthropic"]);
+        for (hidden_keys, expected) in [
+            (vec![], "1%"),
+            (vec!["metric:Fable"], "10%"),
+            (vec!["metric:Fable", "metric:Session"], "75%"),
+        ] {
+            let hidden = HiddenRows::from([(
+                "anthropic".into(),
+                hidden_keys.into_iter().map(String::from).collect(),
+            )]);
+            for look in [MenuBarLook::Logos, MenuBarLook::Name] {
+                let segments = logo_segments(
+                    &content,
+                    &report,
+                    look,
+                    Some("anthropic"),
+                    false,
+                    UsageReading::Left,
+                    &hidden,
+                );
+                assert_eq!(segments[0].values, [expected], "{look:?}");
+            }
+        }
+    }
+
+    #[test]
     fn empty_modes_fall_back_to_static_app_icon() {
         for look in [MenuBarLook::Chart, MenuBarLook::Logos, MenuBarLook::Name] {
             assert_eq!(
@@ -415,7 +490,7 @@ mod tests {
     }
 
     #[test]
-    fn logo_segments_keep_one_star_value_and_use_star_order() {
+    fn logo_segments_show_one_value_in_provider_order() {
         let content = StripContent {
             groups: vec![
                 ("anthropic".into(), "Claude".into(), vec![metric("41%")]),
@@ -427,7 +502,10 @@ mod tests {
             ],
             bars: Vec::new(),
         };
-        let report = json!({"entries":[]});
+        let report = json!({"entries":[
+            entry("anthropic", "cld", &[("Weekly", 41.0)]),
+            entry("openai", "gpt", &[("Weekly", 9.0), ("Reserve", 5.0)])
+        ]});
 
         let segments = logo_segments(
             &content,
@@ -442,10 +520,7 @@ mod tests {
         assert_eq!(segments[0].slug, "anthropic");
         assert_eq!(segments[0].values, vec![String::from("41%")]);
         assert_eq!(segments[1].slug, "openai");
-        assert_eq!(
-            segments[1].values,
-            vec![String::from("9%"), String::from("5%")]
-        );
+        assert_eq!(segments[1].values, vec![String::from("9%")]);
     }
 
     #[test]
@@ -460,7 +535,10 @@ mod tests {
 
         let segments = logo_segments(
             &content,
-            &json!({"entries":[]}),
+            &json!({"entries":[
+                {"id":"cursor", "status":"ready", "sections":[]},
+                entry("zai", "zai", &[("Weekly", 12.0)])
+            ]}),
             MenuBarLook::Logos,
             None,
             true,
@@ -512,7 +590,7 @@ mod tests {
             bars: Vec::new(),
         };
         let report = json!({"entries":[
-            {"id":"unknown@work", "short_name":"unk"}
+            entry("unknown@work", "unk", &[("Allowance", 8.0)])
         ]});
 
         let segments = logo_segments(
@@ -654,7 +732,7 @@ mod tests {
     }
 
     /// Quattro draws one chip for the selected provider: one provider and one
-    /// value, where the logos look stacks two values for every provider.
+    /// value, where the logos look shows one value for every starred provider.
     #[test]
     fn name_look_shows_only_the_selected_provider_and_one_value() {
         let report = two_entries(Some("anthropic"));
@@ -686,7 +764,7 @@ mod tests {
             &HiddenRows::new(),
         );
         assert_eq!(logos.len(), 2);
-        assert_eq!(logos[0].values.len(), 2);
+        assert_eq!(logos[0].values.len(), 1);
     }
 
     /// Before the popover reports a selection the report's `primary` stands
@@ -823,17 +901,10 @@ mod tests {
         }
     }
 
-    fn used(value: &str, fraction: f64) -> super::super::strip::StripMetric {
-        super::super::strip::StripMetric {
-            fraction,
-            ..metric(value)
-        }
-    }
-
     /// Like Quattro's `auto` window the chip shows the highest percent among
     /// every quota window, stars aside: a spent weekly window reads `100%`
     /// over an idle 5h session, and Z.AI's third, monthly MCP window at 18%
-    /// reads `18%` over two at 0%. The logos look keeps the starred values.
+    /// reads `18%` over two at 0%.
     #[test]
     fn name_look_shows_the_highest_quota_window() {
         let chip = |zai: Value| {
@@ -866,21 +937,6 @@ mod tests {
             {"type":"metric", "label":"Balance", "value":"$40"},
             {"type":"metric", "label":"Weekly", "percent":12, "value":"12%"}]});
         assert_eq!(chip(balance_first), vec![String::from("12%")]);
-
-        let starred_session = StripContent {
-            groups: vec![("zai".into(), "Z.AI".into(), vec![used("0%", 0.0)])],
-            bars: Vec::new(),
-        };
-        let logos = logo_segments(
-            &starred_session,
-            &json!({"entries":[]}),
-            MenuBarLook::Logos,
-            None,
-            true,
-            UsageReading::Used,
-            &HiddenRows::new(),
-        );
-        assert_eq!(logos[0].values, vec![String::from("0%")]);
     }
 
     /// A grouped row (Claude's CLI sessions, SuperGrok's product slices) is a
@@ -1007,10 +1063,7 @@ mod tests {
             UsageReading::Left,
             &HiddenRows::new(),
         );
-        assert_eq!(
-            logos[0].values,
-            vec![String::from("100%"), String::from("100%")]
-        );
+        assert_eq!(logos[0].values, vec![String::from("82%")]);
         assert_eq!(
             tooltip(&content, UsageReading::Left),
             "zai · 100% 100%\nopenrouter · $40"
@@ -1095,7 +1148,7 @@ mod tests {
 
     /// With every metric of the selected provider hidden it has no value, so
     /// the chip falls through to the next candidate the way a provider
-    /// without a value always has, and the logos look keeps its stars.
+    /// without a value always has. Logos also leaves out hidden metrics.
     #[test]
     fn name_look_skips_a_provider_whose_metrics_are_all_hidden() {
         let report = two_entries(None);
@@ -1120,7 +1173,7 @@ mod tests {
             segments(MenuBarLook::Name, &HiddenRows::new())[0].slug,
             "openai"
         );
-        assert_eq!(segments(MenuBarLook::Logos, &hidden).len(), 2);
+        assert_eq!(segments(MenuBarLook::Logos, &hidden).len(), 1);
 
         let only =
             json!({"primary":null, "entries":[entry("openai", "gpt", &[("Session", 100.0)])]});

@@ -104,7 +104,6 @@ enum Theme {
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct LogoStripKey {
     segments: Vec<LogoSegment>,
-    line_counts: Vec<usize>,
 }
 
 /// One premeasured provider segment captured by the AppKit drawing block.
@@ -115,7 +114,6 @@ struct LogoStripItem {
     values: Vec<Retained<NSString>>,
     label_width: f64,
     value_width: f64,
-    line_count: usize,
 }
 
 impl Theme {
@@ -603,10 +601,6 @@ fn apply_strip_icon(state: &mut TrayState) {
         }
         StatusItemContent::Logos => {
             let key = LogoStripKey {
-                line_counts: segments
-                    .iter()
-                    .map(|segment| segment.values.len())
-                    .collect(),
                 segments: segments.clone(),
             };
             if state.menu_bar_logo_key.as_ref() != Some(&key) {
@@ -1486,13 +1480,8 @@ const LOGO_MARK_BOX: f64 = 16.0;
 /// Space between a mark and its short name, and between a label and its values.
 const LOGO_LABEL_GAP: f64 = 4.0;
 /// A single value uses the larger menu-bar text size.
-const LOGO_SINGLE_VALUE_FONT_SIZE: f64 = 12.0;
-/// Two values use a compact, tightly stacked text size.
-const LOGO_STACKED_VALUE_FONT_SIZE: f64 = 9.0;
-/// Two 9 pt values overlap by 2 pt, matching OpenUsage's tight stack.
-const LOGO_STACKED_LINE_STEP: f64 = 7.0;
-
-/// Build one AppKit template image for provider marks and their starred values.
+const LOGO_SINGLE_VALUE_FONT_SIZE: f64 = 13.0;
+/// Build one AppKit template image for provider marks and one readable summary value each.
 fn logo_strip_image(segments: &[LogoSegment]) -> Retained<NSImage> {
     debug_assert!(!segments.is_empty());
     // SAFETY: AppKit exposes this immutable font-weight constant for the life of the process.
@@ -1500,11 +1489,8 @@ fn logo_strip_image(segments: &[LogoSegment]) -> Retained<NSImage> {
     let label_font = NSFont::systemFontOfSize_weight(LOGO_SINGLE_VALUE_FONT_SIZE, semibold);
     let single_value_font =
         NSFont::monospacedDigitSystemFontOfSize_weight(LOGO_SINGLE_VALUE_FONT_SIZE, semibold);
-    let stacked_value_font =
-        NSFont::monospacedDigitSystemFontOfSize_weight(LOGO_STACKED_VALUE_FONT_SIZE, semibold);
     let label_attributes = font_attributes(&label_font);
     let single_value_attributes = font_attributes(&single_value_font);
-    let stacked_value_attributes = font_attributes(&stacked_value_font);
 
     let items: Vec<LogoStripItem> = segments
         .iter()
@@ -1524,18 +1510,12 @@ fn logo_strip_image(segments: &[LogoSegment]) -> Retained<NSImage> {
             let values: Vec<Retained<NSString>> = segment
                 .values
                 .iter()
-                .take(2)
+                .take(1)
                 .map(|value| NSString::from_str(value))
                 .collect();
-            let line_count = values.len();
-            let value_attributes = if line_count > 1 {
-                &stacked_value_attributes
-            } else {
-                &single_value_attributes
-            };
             let value_width = values
                 .iter()
-                .map(|value| text_width(value, value_attributes))
+                .map(|value| text_width(value, &single_value_attributes))
                 .fold(0.0_f64, f64::max);
             LogoStripItem {
                 mark,
@@ -1543,7 +1523,6 @@ fn logo_strip_image(segments: &[LogoSegment]) -> Retained<NSImage> {
                 values,
                 label_width,
                 value_width,
-                line_count,
             }
         })
         .collect();
@@ -1585,30 +1564,8 @@ fn logo_strip_image(segments: &[LogoSegment]) -> Retained<NSImage> {
             if item.label_width > 0.0 {
                 x += LOGO_LABEL_GAP;
             }
-            let stacked = item.line_count > 1;
-            let value_attributes = if stacked {
-                &stacked_value_attributes
-            } else {
-                &single_value_attributes
-            };
-            let font_size = if stacked {
-                LOGO_STACKED_VALUE_FONT_SIZE
-            } else {
-                LOGO_SINGLE_VALUE_FONT_SIZE
-            };
-            let line_step = if stacked {
-                LOGO_STACKED_LINE_STEP
-            } else {
-                font_size
-            };
-            let text_height = if stacked {
-                font_size + line_step * item.line_count.saturating_sub(1) as f64
-            } else {
-                single_line_height
-            };
-            let text_y = dst.origin.y + (LOGO_STRIP_HEIGHT - text_height) / 2.0;
-            for (line, value) in item.values.iter().enumerate() {
-                draw_status_text(value, x, text_y + line as f64 * line_step, value_attributes);
+            for value in &item.values {
+                draw_status_text(value, x, single_line_y, &single_value_attributes);
             }
             x += item.value_width;
             if index + 1 < items.len() {
