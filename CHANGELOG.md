@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+### Security
+
+- **The tray's self-update stops reading a response once it passes its size
+  limit.** The release check and the binary and checksum downloads now read
+  through the same capped reader the providers use. A response without a
+  `Content-Length` used to be buffered whole before the download limit was
+  compared, and the release check had no limit at all.
+
 ## [1.33.0] — 2026-10-07
 
 ### Added
