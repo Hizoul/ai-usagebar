@@ -392,12 +392,32 @@ impl AnthropicConfig {
     /// accounts identically; the widget layers its `--cache-dir` override on
     /// top of the cache returned here.
     pub fn account_target(&self, label: &str) -> Result<(CredsTarget, Cache)> {
-        let active = crate::anthropic::cli_account::home_claude_json()
+        self.account_target_with(label, self.active_cli_label().as_deref())
+    }
+
+    /// The named account the `claude` CLI is signed into right now, if any —
+    /// the `cli_active` that [`account_target_with`] takes. Reads
+    /// `~/.claude.json`, so tests inject the label instead.
+    ///
+    /// [`account_target_with`]: AnthropicConfig::account_target_with
+    pub fn active_cli_label(&self) -> Option<String> {
+        crate::anthropic::cli_account::home_claude_json()
             .ok()
             .and_then(|path| {
                 crate::anthropic::cli_account::resolve_active_label(&path, &self.all_accounts())
-            });
-        self.account_target_with(label, active.as_deref())
+            })
+    }
+
+    /// What the default (unlabelled) Claude entry reads: config
+    /// `credentials_path` as an explicit strict read, otherwise the platform
+    /// default, which alone gets the macOS Keychain fallback.
+    pub fn default_creds_target(&self) -> CredsTarget {
+        match self.credentials_path.clone() {
+            Some(path) => CredsTarget::Explicit(path),
+            None => {
+                CredsTarget::Default(crate::anthropic::creds::default_path().unwrap_or_default())
+            }
+        }
     }
 
     /// The pure half of [`account_target`](AnthropicConfig::account_target),
@@ -4700,6 +4720,24 @@ api_key = "synthetic-account"
             .account_target_probing("personal", Some("personal"), |_| false)
             .unwrap();
         assert!(matches!(moved, CredsTarget::Default(_)), "{moved:?}");
+    }
+
+    #[test]
+    fn the_default_entry_reads_config_credentials_path_strictly() {
+        let cfg = AnthropicConfig {
+            credentials_path: Some("/tmp/claude-home/.credentials.json".into()),
+            ..Default::default()
+        };
+
+        assert!(
+            matches!(&cfg.default_creds_target(), CredsTarget::Explicit(path)
+                if path == Path::new("/tmp/claude-home/.credentials.json")),
+        );
+        // Without one, the platform default — the only target with a Keychain fallback.
+        assert!(matches!(
+            AnthropicConfig::default().default_creds_target(),
+            CredsTarget::Default(_)
+        ));
     }
 
     #[test]
