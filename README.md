@@ -825,6 +825,11 @@ privileges, and does not overwrite user configuration.
 
 ### macOS menu bar and Windows tray
 
+For macOS releases, move **AI Usage.app** from the archive into `/Applications`
+and open it. The bundle includes the tray, CLI and TUI, and gives menu-bar
+managers a stable application identity. See [installation](macos/INSTALL.md),
+including migration from a bare tray executable and Hidden Bar troubleshooting.
+
 `ai-usagebar-tray` shows the same report in a popover that opens from the
 macOS menu bar or the Windows notification area. The **Popover Style** setting
 (Settings → Appearance) picks its look: **Classic** (the default, shown in the

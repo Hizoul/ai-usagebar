@@ -73,6 +73,12 @@ Each release is also published at
 
 ### Fixed
 
+- macOS release archives include **AI Usage.app**, with a stable bundle ID
+  and a Finder icon based on the Windows tray artwork. The install guide uses
+  `/Applications` so menu-bar managers can identify the tray, and documents
+  Hidden Bar's macOS 27 issues with bare executables and user-local bundles.
+  Standalone binaries remain available for command-line use and the self-updater.
+
 - **A metric hidden in Customize no longer sets the provider's percentage.**
   The Native popover's provider tab and the macOS menu bar's Name chip showed
   the highest percentage among all of a provider's windows, including one
