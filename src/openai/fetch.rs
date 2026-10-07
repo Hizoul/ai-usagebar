@@ -86,7 +86,17 @@ pub async fn fetch_snapshot_routed(
     // Maybe refresh — Codex CLI doesn't always populate expires_at, so we use
     // the id_token's exp claim.
     let now = Utc::now().timestamp();
-    if oauth::needs_refresh(auth.tokens.expires_at_secs(), now) {
+    let stale_token = oauth::needs_refresh(auth.tokens.expires_at_secs(), now);
+    let have_refresh = !auth.tokens.refresh_token.trim().is_empty();
+    if stale_token && !have_refresh {
+        // A signed-out credentials file or a flow without refresh tokens has
+        // an empty `refresh_token`. Don't POST an empty grant (the token
+        // endpoint answers 400 and we would record an auth error). Also clear
+        // any stale token-endpoint error from older builds, then continue with
+        // the current access token: only the real usage request (or the
+        // blank-token check below) decides whether to fall back to cache.
+        cache.clear_last_error();
+    } else if stale_token {
         match tokio::time::timeout(
             REFRESH_TIMEOUT,
             oauth::refresh(client, &endpoints.token, &auth.tokens.refresh_token),
@@ -139,6 +149,19 @@ pub async fn fetch_snapshot_routed(
             }
             Err(_) => return handle_auth_failure(cache, plan_hint.as_deref(), true),
         }
+    }
+
+    // A blank access token is a signed-out credentials file, never a rate
+    // limit: sending `Authorization: Bearer ` would earn a 401/429, and the
+    // 429 variant would arm the backoff so the card stays wrong after
+    // re-login. Checked after any refresh so a blank-access/live-refresh
+    // shape self-repairs first.
+    if auth.tokens.access_token.trim().is_empty() {
+        return fallback_silent(
+            cache,
+            plan_hint.as_deref(),
+            AppError::Credentials("no access token; run `codex login` to log in".into()),
+        );
     }
 
     match tokio::time::timeout(
