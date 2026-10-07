@@ -921,9 +921,7 @@ mod tests {
         let refresh = server
             .mock("POST", "/oauth/token")
             .with_status(200)
-            .with_body(
-                r#"{"access_token":"AT-FRESH","refresh_token":"RT-NEW","expires_in":3600}"#,
-            )
+            .with_body(r#"{"access_token":"AT-FRESH","refresh_token":"RT-NEW","expires_in":3600}"#)
             .expect(1)
             .create_async()
             .await;
