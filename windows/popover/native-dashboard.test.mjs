@@ -110,6 +110,74 @@ try {
   assert.match(leftDashboard, /aria-label="Z.AI 0%"/);
   assert.match(leftDashboard, /aria-label="SuperGrok 93%"/);
   assert.match(leftDashboard, /aria-label="Claude 100%"/);
+  // A value headline (a prepaid balance meter) is a figure, not a quota window: the tab keeps
+  // ranking percent windows in either reading — the rule the menu-bar chip follows — and a
+  // provider with only a balance chips its figure, the same either way.
+  const valueRow = (label, usedPercent) => ({
+    ...card.rows[0], key: `metric:${label}`, label, usedPercent, leftPercent: 100 - usedPercent,
+    headline: 'value', value: '$0.25',
+  });
+  const valueDashboard = (showAs) => renderToStaticMarkup(React.createElement(TooltipProvider, {},
+    React.createElement(LanguageProvider, { language: 'pt-BR' },
+      React.createElement(NativeDashboard, {
+        cards: [
+          { ...card, id: 'deepseek', title: 'DeepSeek', rows: [valueRow('Balance', 95), quotaRow('Weekly', 12)] },
+          { ...card, id: 'openrouter', title: 'OpenRouter', rows: [valueRow('Credit balance', 40)] },
+        ],
+        hint: false, layout: { ...emptyLayout(), popoverStyle: 'native', showAs }, nowMs, payload,
+        onCustomizeProvider() {}, onDismissHint() {}, onOpenCustomize() {}, onOpenSettings() {},
+        onRowAction() {}, onRowMenuOpenChange() {}, onSwitchAccount() {},
+        onToggleCollapse() {}, onToggleShowAs() {},
+      }))));
+  assert.match(valueDashboard('used'), /aria-label="DeepSeek 12%"/);
+  assert.match(valueDashboard('left'), /aria-label="DeepSeek 88%"/);
+  assert.match(valueDashboard('used'), /aria-label="OpenRouter \$0\.25"/);
+  assert.match(valueDashboard('left'), /aria-label="OpenRouter \$0\.25"/);
+
+  // A metric hidden in Customize never counts: Z.AI with Session and Weekly at 0% and the
+  // monthly MCP window at 18% switched off reads 0% used (100% left), not 18%. A hidden window
+  // with the highest percent loses to the visible ones; with every metric hidden the tab falls
+  // back to what the card still shows (a balance, else a dash).
+  const idleZai = {
+    ...card, id: 'zai', title: 'Z.AI',
+    rows: [quotaRow('Session', 0), quotaRow('Weekly', 0), quotaRow('MCP', 18)],
+  };
+  const busyKimi = {
+    ...card, id: 'kimi', title: 'Kimi',
+    rows: [quotaRow('Session', 30), quotaRow('Weekly', 30), quotaRow('MCP', 90)],
+  };
+  const allHidden = {
+    ...card, id: 'openai', title: 'Codex',
+    rows: [quotaRow('Session', 40), { kind: 'text', key: 'text:Balance', label: 'Balance', value: '$7' }],
+  };
+  const nothingLeft = { ...card, id: 'cursor', title: 'Cursor', rows: [quotaRow('Session', 40)] };
+  const hiddenDashboard = (showAs, rows) => renderToStaticMarkup(React.createElement(TooltipProvider, {},
+    React.createElement(LanguageProvider, { language: 'pt-BR' },
+      React.createElement(NativeDashboard, {
+        cards: [idleZai, busyKimi, allHidden, nothingLeft],
+        hint: false, layout: { ...emptyLayout(), popoverStyle: 'native', showAs, rows }, nowMs, payload,
+        onCustomizeProvider() {}, onDismissHint() {}, onOpenCustomize() {}, onOpenSettings() {},
+        onRowAction() {}, onRowMenuOpenChange() {}, onSwitchAccount() {},
+        onToggleCollapse() {}, onToggleShowAs() {},
+      }))));
+  const off = (...keys) => ({ always: [], demand: [], off: Object.fromEntries(keys.map((key) => [key, true])) });
+  const hiddenRows = {
+    zai: off('metric:MCP'),
+    kimi: off('metric:MCP'),
+    openai: off('metric:Session'),
+    cursor: off('metric:Session'),
+  };
+  const hiddenUsed = hiddenDashboard('used', hiddenRows);
+  assert.match(hiddenUsed, /aria-label="Z.AI 0%"/);
+  assert.match(hiddenUsed, /aria-label="Kimi 30%"/);
+  assert.match(hiddenUsed, /aria-label="Codex \$7"/);
+  assert.match(hiddenUsed, /aria-label="Cursor —"/);
+  assert.match(hiddenDashboard('left', hiddenRows), /aria-label="Z.AI 100%"/);
+  // Nothing hidden: the tab still reads the busiest window.
+  const unhidden = hiddenDashboard('used', {});
+  assert.match(unhidden, /aria-label="Z.AI 18%"/);
+  assert.match(unhidden, /aria-label="Kimi 90%"/);
+  assert.match(unhidden, /aria-label="Codex 40%"/);
   // A waiting release shows the same Update available card as Classic, above the provider tabs.
   const withUpdate = renderToStaticMarkup(React.createElement(TooltipProvider, {},
     React.createElement(LanguageProvider, { language: 'en' },
