@@ -18,7 +18,6 @@ pub mod balance;
 pub mod cache;
 pub mod catalog;
 pub mod claude_desktop;
-pub mod claude_sessions;
 pub mod commandcode;
 pub mod config;
 pub mod context;

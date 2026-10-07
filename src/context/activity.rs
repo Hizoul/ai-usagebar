@@ -31,8 +31,12 @@ use serde_json::Value;
 /// next to each session's `.json`. This bounds the walk if something else ever
 /// fills the directory.
 const MAX_WALK_ENTRIES: usize = 4_096;
+/// Session files actually opened per scan. The Waybar tooltip scans on every
+/// tick, so a directory full of crash leftovers must stay cheap: at most this
+/// many reads of at most [`MAX_SESSION_BYTES`] each.
+const MAX_SESSION_READS: usize = 256;
 /// A session file is a few hundred bytes. Anything far larger is not one.
-const MAX_SESSION_BYTES: u64 = 64 * 1024;
+const MAX_SESSION_BYTES: u64 = 8 * 1024;
 
 /// How many of an account's live interactive sessions are working, and how
 /// many are waiting on the user.
@@ -150,6 +154,7 @@ pub fn scan_dir(config_dir: &Path, probe: &impl ProcessProbe) -> SessionActivity
     let Ok(entries) = fs::read_dir(config_dir.join("sessions")) else {
         return activity;
     };
+    let mut reads = 0;
     for entry in entries.take(MAX_WALK_ENTRIES).flatten() {
         let Some(pid) = file_pid(&entry.file_name().to_string_lossy()) else {
             continue;
@@ -158,6 +163,10 @@ pub fn scan_dir(config_dir: &Path, probe: &impl ProcessProbe) -> SessionActivity
         if !entry.file_type().is_ok_and(|kind| kind.is_file()) {
             continue;
         }
+        if reads == MAX_SESSION_READS {
+            break;
+        }
+        reads += 1;
         let Some(session) = read_session(&entry.path()) else {
             continue;
         };
@@ -467,6 +476,21 @@ mod tests {
         std::os::unix::fs::symlink(&outside, dir.path().join("sessions").join("101.json")).unwrap();
 
         assert!(scan_dir(dir.path(), &FakeProbe::default().with(101, None)).is_idle());
+    }
+
+    /// The tooltip scans on every tick: a directory holding far more session
+    /// files than any machine runs costs a bounded number of reads.
+    #[test]
+    fn a_crowded_directory_is_read_only_up_to_the_cap() {
+        let dir = config_dir();
+        let pids: Vec<u32> = (1000..1000 + MAX_SESSION_READS as u32 + 20).collect();
+        for &pid in &pids {
+            session(&dir, pid, "busy");
+        }
+
+        let activity = scan_dir(dir.path(), &running(&pids));
+
+        assert_eq!(activity.working, MAX_SESSION_READS);
     }
 
     #[test]

@@ -1050,18 +1050,33 @@ async fn anthropic_output(cli: &Cli, config: &Config) -> Result<WaybarOutput> {
         };
 
     let theme = theme_from_cli(cli);
+    let sessions = tooltip_sessions(&creds_target, &crate::context::activity::SystemProbe);
 
-    Ok(render_with_theme(&outcome, &theme, cli))
+    Ok(render_with_theme(&outcome, &theme, cli, sessions.as_ref()))
 }
 
-fn render_with_theme(outcome: &FetchOutcome, theme: &Theme, cli: &Cli) -> WaybarOutput {
+/// The live sessions of the account this module shows, read from the same
+/// target its quota was fetched from, so `--account work` reports work's
+/// sessions (#356). `None` for a target with no config directory (Desktop).
+fn tooltip_sessions(
+    target: &CredsTarget,
+    probe: &impl crate::context::activity::ProcessProbe,
+) -> Option<crate::context::activity::SessionActivity> {
+    target
+        .config_dir()
+        .map(|dir| crate::context::activity::scan_dir(&dir, probe))
+}
+
+fn render_with_theme(
+    outcome: &FetchOutcome,
+    theme: &Theme,
+    cli: &Cli,
+    claude_sessions: Option<&crate::context::activity::SessionActivity>,
+) -> WaybarOutput {
     let format_owned = cli
         .format
         .clone()
         .unwrap_or_else(|| DEFAULT_FORMAT.to_string());
-    let claude_sessions = crate::claude_sessions::sessions_dir().and_then(|dir| {
-        crate::claude_sessions::scan(&dir, &crate::claude_sessions::ProdLiveness, Utc::now())
-    });
     let input = RenderInput {
         outcome,
         theme,
@@ -1072,7 +1087,7 @@ fn render_with_theme(outcome: &FetchOutcome, theme: &Theme, cli: &Cli) -> Waybar
         format_pace_color: cli.format_pace_color,
         tooltip_pace_pts: cli.tooltip_pace_pts,
         now: Utc::now(),
-        claude_sessions: claude_sessions.as_ref(),
+        claude_sessions,
     };
     render_anthropic(&input)
 }
@@ -1223,6 +1238,36 @@ mod tests {
         }
     }
 
+    /// #356: the tooltip reads the sessions of the account whose quota it
+    /// shows — a named account's own directory, not `~/.claude`.
+    #[test]
+    fn tooltip_sessions_come_from_the_shown_accounts_directory() {
+        struct Running;
+        impl crate::context::activity::ProcessProbe for Running {
+            fn is_running(&self, _pid: u32, _start_time: Option<&str>) -> bool {
+                true
+            }
+        }
+        let work = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir(work.path().join("sessions")).unwrap();
+        std::fs::write(
+            work.path().join("sessions").join("4242.json"),
+            r#"{"pid": 4242, "kind": "interactive", "status": "waiting"}"#,
+        )
+        .unwrap();
+        let target = CredsTarget::Named {
+            path: work.path().join(".credentials.json"),
+            config_dir: work.path().to_path_buf(),
+        };
+
+        let sessions = tooltip_sessions(&target, &Running).expect("a config directory");
+        assert_eq!((sessions.working, sessions.waiting), (0, 1));
+
+        // A credential file with no directory around it names no sessions.
+        let bare = CredsTarget::Explicit("credentials.json".into());
+        assert!(tooltip_sessions(&bare, &Running).is_none());
+    }
+
     #[test]
     fn render_with_theme_uses_cli_overrides() {
         let cli = {
@@ -1233,7 +1278,7 @@ mod tests {
         };
         let outcome = dummy_outcome();
         let theme = Theme::default().with_overrides(cli.color_low.clone(), None, None, None);
-        let out = render_with_theme(&outcome, &theme, &cli);
+        let out = render_with_theme(&outcome, &theme, &cli, None);
         // Bar text should contain our format substitution, wrapped in the
         // overridden low-color span.
         assert!(out.text.contains("test:25"));

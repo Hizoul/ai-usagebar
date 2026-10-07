@@ -1232,9 +1232,13 @@ another operating system (a config directory shared across a dual boot) never
 counts. Agent SDK runs (`entrypoint: "sdk-cli"`, as `claude -p` and background
 agents write) are not counted, and the files are only ever read.
 
-When the feature is disabled, nothing under `~/.claude/projects` or any
-account's `sessions/` is read. Context options remain in TOML rather than the
-Settings modal.
+When the feature is disabled, nothing under `~/.claude/projects` is read and
+`usage` reads no `sessions/` directory. The Waybar widget's Claude tooltip is
+separate and always on: it shows the same `2 working · 1 waiting` line for the
+account the module displays, read the same way from the directory beside that
+module's credentials. A Claude Desktop profile (`--desktop`) has no such
+directory and shows no line. Context options remain in TOML
+rather than the Settings modal.
 
 ### Settings overlay
 

@@ -309,7 +309,9 @@ vendor's response shape drifts:
   `context/activity.rs` counts working/waiting sessions from each account's
   `sessions/<pid>.json` (#356), read-only; tests seed a temp directory and pass
   a fake `ProcessProbe`, never `SystemProbe`, and the report seam is
-  `attach_session_activity_with`, which also takes the live CLI label.
+  `attach_session_activity_with`, which also takes the live CLI label. It is
+  the only reader of those files: the Waybar tooltip and `usage --json` both
+  find the directory through `CredsTarget::config_dir`.
 - `src/tui/settings.rs` — Settings overlay (toml_edit-backed,
   auto-signals waybar after save)
 - `src/tui/panels.rs` — native ratatui per-vendor panels

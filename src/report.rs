@@ -20,7 +20,6 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::json;
 
-use crate::anthropic::creds::CredsTarget;
 use crate::config::Config;
 use crate::context::activity::{ProcessProbe, SessionActivity, SystemProbe};
 use crate::context::{ContextScan, ContextSession, ContextUsage};
@@ -615,13 +614,7 @@ fn claude_config_dir(config: &Config, entry_id: &str, cli_active: Option<&str>) 
         None if entry_id == "anthropic" => config.anthropic.default_creds_target(),
         None => return None,
     };
-    let dir = match target {
-        CredsTarget::Named { config_dir, .. } => config_dir,
-        CredsTarget::Default(path) | CredsTarget::Explicit(path) => path.parent()?.to_path_buf(),
-        CredsTarget::Desktop(_) => return None,
-    };
-    // A bare relative file name has an empty parent: no directory to read.
-    (!dir.as_os_str().is_empty()).then_some(dir)
+    target.config_dir()
 }
 
 fn scan_activity_targets(

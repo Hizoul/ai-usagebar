@@ -2,6 +2,17 @@
 
 ### Changed
 
+- **The Claude tooltip's session line follows the account the module shows.**
+  It reads the `sessions/` directory beside the credentials that module fetches
+  its quota from, so `--account work` shows work's sessions and a Claude Desktop
+  profile (`--desktop`) shows none, where 1.33.0 read `~/.claude` or the bar's
+  `$CLAUDE_CONFIG_DIR` for every module. Two consequences for setups that
+  differ from the default: a module with `--creds-path` or `[anthropic]
+  credentials_path` reads `sessions/` next to that file, and an exported
+  `$CLAUDE_CONFIG_DIR` no longer moves the default module's line, just as it
+  never moved its quota. Point `credentials_path` at that directory's
+  `.credentials.json`, or add it as an account, to see its sessions (#356).
+
 - **The macOS menu bar's Name look is now called Quattro.** It draws one chip
   the way the Quattro bar does, the selected provider's logo, an optional short
   name and its highest percentage, so it takes that bar's name in Settings →
@@ -23,6 +34,19 @@
   five-minute backoff, so the card stayed wrong even after logging back in. A
   blank access token is now a credentials error with the login hint, no request
   is fired, and no backoff is armed (#370).
+
+- **The Claude tooltip's session line counts the right sessions.** It now
+  shares `usage --json`'s reader (#356), so the two can no longer disagree, and
+  with it the reader's rules. Agent SDK runs, which also write
+  `kind: "interactive"` (`entrypoint: "sdk-cli"`, as `claude -p` and background
+  agents such as claude-mem's observers do), no longer read as "working". A file
+  named for another pid, a symlink or a file written on another operating
+  system no longer counts, nor, on Linux, a zombie process. Crash leftovers no
+  longer crowd a live session out of a 64-file cap taken before filtering; a
+  scan now reads at most 256 files of 8 KiB. macOS checks the pid with
+  `kill(pid, 0)` instead of spawning `ps` for every file on every tick, and
+  Windows asks `OpenProcess` whether the process is still running instead of
+  trusting any status updated in the last half hour.
 
 ## [1.33.0] — 2026-10-07
 
