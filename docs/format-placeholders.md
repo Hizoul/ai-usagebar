@@ -21,6 +21,7 @@ metrics expand to an empty string unless noted otherwise.
 | Kiro CLI | `kir` | Nous Research | `nrs` |
 | OpenCode Go | `ocg` | Command Code | `cmc` |
 | Ollama Cloud | `oll` | SuperGrok | `sgk` |
+| Devin | `dvn` | | |
 
 The same codes ride the `ai-usagebar usage --json` report as each entry's
 `short_name`, so a native frontend can draw a Waybar-style provider tag without
@@ -416,6 +417,18 @@ ledger refills. A plan the release does not know, or a response without the
 credit ledger, leaves the monthly family and `{cc_credits_reset}` at `—`.
 `{session_pct}` and `{weekly_pct}` alias the 5-hour and weekly windows.
 
+
+## Devin CLI
+
+`{devin_daily_pct}`, `{devin_daily_reset}`, `{devin_daily_elapsed}`,
+`{devin_daily_pace}`, `{devin_daily_pace_indicator}` and the corresponding
+`devin_weekly_*` placeholders describe consumed daily and weekly quota. The
+official CLI reports remaining percentages; ai-usagebar inverts them so higher
+values consistently mean more quota used. `{weekly_pct}` and
+`{weekly_reset}` alias the Devin weekly window. There is no 5-hour session, so
+`{session_pct}` and its related placeholders remain empty. The optional
+`{devin_overage_balance}` display uses the tested account's six-decimal USD
+interpretation; its currency contract is not verified for all accounts.
 
 ## Ollama Cloud
 

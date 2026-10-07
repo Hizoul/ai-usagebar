@@ -28,6 +28,7 @@ pub mod custom;
 pub mod deepinfra;
 pub mod deepseek;
 pub mod detect;
+pub mod devin;
 pub mod display;
 pub mod error;
 pub mod format;

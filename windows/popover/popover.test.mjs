@@ -34,6 +34,8 @@ import {
   hintPending,
   absorbPayload,
   setRowEnabled,
+  hiddenMetricKeys,
+  prefsForCard,
   moveRowToList,
   LAYOUT_KEY,
   normalizeLayout,
@@ -60,6 +62,7 @@ import {
   usageGoalPercent,
   prettyMetricLabel,
   shortcutFromKeyEvent,
+  displayShortcut,
   defaultStars,
   toggleStar,
   metricRowKey,
@@ -1013,6 +1016,39 @@ assert.equal(resetAlternate(badStampRow, 'exact', resetNow, utc), '');
   assert.equal(shortcutFromKeyEvent(null), null);
 }
 
+// --- displayShortcut -------------------------------------------------------------
+
+{
+  // macOS shows the canonical "Win"/"Alt" modifiers as "Cmd"/"Option"; the stored value is untouched.
+  assert.equal(displayShortcut('Win+U', 'macos'), 'Cmd+U');
+  assert.equal(displayShortcut('Alt+U', 'macos'), 'Option+U');
+  assert.equal(displayShortcut('Ctrl+Alt+Shift+Win+K', 'macos'), 'Ctrl+Option+Shift+Cmd+K');
+  assert.equal(displayShortcut('Win+U', 'windows'), 'Win+U');
+  assert.equal(displayShortcut('Win+U', ''), 'Win+U');
+  assert.equal(displayShortcut('', 'macos'), '');
+  assert.equal(displayShortcut(undefined, 'macos'), '');
+}
+
+// --- ShortcutRecorder wiring guard -----------------------------------------------
+// The macOS tray is a WKWebView, and WebKit does not focus a <button> when it is
+// clicked (WebKit bug 22261), so the recorder must capture the chord on `document`
+// while recording rather than on the button. There is no DOM runner here to catch a
+// regression to a button-local handler, so pin the wiring.
+{
+  const source = readFileSync(
+    new URL('./src/components/ShortcutRecorder.tsx', import.meta.url),
+    'utf8',
+  );
+  assert.ok(
+    source.includes('document.addEventListener("keydown"'),
+    'ShortcutRecorder must listen for keydown on document',
+  );
+  assert.ok(
+    !source.includes('onKeyDown={'),
+    'ShortcutRecorder must not put the recording handler on the button',
+  );
+}
+
 // --- update status helpers -------------------------------------------------------
 
 {
@@ -1582,6 +1618,7 @@ assert.equal(resolvedTheme('system'), 'light');
     stars,
     order: ['anthropic'],
     show_as: 'left',
+    hidden_rows: {},
   });
   // The menu bar follows the Used/Left reading, so the strip message carries it.
   assert.equal(stripCommand({ ...seeded, showAs: 'used' }, cards).show_as, 'used');
@@ -1605,6 +1642,37 @@ assert.equal(resolvedTheme('system'), 'light');
     },
   };
   assert.deepEqual(stripCommand(layout, cards).order, ['openai', 'anthropic']);
+}
+
+{
+  // A metric switched off in Customize does not count toward the macOS name chip's
+  // highest window: the strip message names it, under the key the host derives
+  // (src/tray/strip.rs metric_key). A hidden text row is not a metric and stays out.
+  const payload = parseHostPayload({
+    entries: [{
+      id: 'zai',
+      display_name: 'Z.AI',
+      sections: [
+        { type: 'metric', label: 'Session (5h)', percent: 0 },
+        { type: 'metric', label: 'Weekly', percent: 0 },
+        { type: 'metric', label: 'MCP tools (monthly)', percent: 18 },
+        { type: 'text', label: 'Plan', value: 'Pro' },
+      ],
+    }],
+  });
+  const cards = projectCards(payload, 0);
+  const zai = cards[0];
+  let prefs = setRowEnabled(prefsForCard(zai, emptyLayout()), 'metric:MCP tools (monthly)', false);
+  prefs = setRowEnabled(prefs, 'text:Plan', false);
+  const layout = { ...emptyLayout(), rows: { zai: prefs } };
+  assert.deepEqual(hiddenMetricKeys(zai, layout), ['metric:MCP tools (monthly)']);
+  assert.deepEqual(stripCommand(layout, cards).hidden_rows, { zai: ['metric:MCP tools (monthly)'] });
+  // Switched back on, nothing is hidden.
+  const shown = { ...layout, rows: { zai: setRowEnabled(prefs, 'metric:MCP tools (monthly)', true) } };
+  assert.deepEqual(hiddenMetricKeys(zai, shown), []);
+  assert.deepEqual(stripCommand(shown, cards).hidden_rows, {});
+  // hideExtras switches non-metric rows off by default; it never hides a metric.
+  assert.deepEqual(stripCommand({ ...emptyLayout(), hideExtras: true }, cards).hidden_rows, {});
 }
 
 {

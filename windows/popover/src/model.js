@@ -1027,8 +1027,20 @@ export function stripCommand(layout, cards) {
   } else {
     for (const id of Object.keys(source)) stars[id] = source[id];
   }
+  // The macOS name chip leaves out the metrics hidden here, like the native tab.
+  const hiddenRows = {};
+  for (const card of cards || []) {
+    const keys = hiddenMetricKeys(card, layout || emptyLayout());
+    if (keys.length) hiddenRows[card.id] = keys;
+  }
   // The menu bar's percentages follow the popover's Used/Left reading.
-  return { style: "bars", stars, order, show_as: normalizeShowAs(layout && layout.showAs) };
+  return {
+    style: "bars",
+    stars,
+    order,
+    show_as: normalizeShowAs(layout && layout.showAs),
+    hidden_rows: hiddenRows,
+  };
 }
 
 function cleanIdList(list) {
@@ -1398,6 +1410,19 @@ export function visibleRowsFor(card, opts) {
     if (row) out.push(row);
   }
   return out;
+}
+
+/**
+ * Keys of the card's metric rows switched off in Customize. A hidden metric
+ * does not count toward the provider's headline percentage: the native tab
+ * and, through `stripCommand`, the macOS menu bar's name chip both skip it.
+ * @returns {string[]}
+ */
+export function hiddenMetricKeys(card, layout) {
+  const off = prefsForCard(card, layout).off || {};
+  return (card.rows || [])
+    .filter((row) => row.kind === "metric" && off[rowKey(row)])
+    .map(rowKey);
 }
 
 export function cardHasExtras(card, hideExtras, prefs) {
@@ -1841,6 +1866,18 @@ export function shortcutFromKeyEvent(event) {
   if (event.metaKey) parts.push("Win");
   parts.push(key);
   return parts.join("+");
+}
+
+// Display-only spelling of a stored shortcut. macOS names the canonical `Win`
+// and `Alt` modifiers "Cmd" and "Option"; the value itself stays "Win+U" so the
+// host still registers it.
+export function displayShortcut(value, os) {
+  const text = String(value || "");
+  if (os !== "macos") return text;
+  return text
+    .split("+")
+    .map((part) => (part === "Win" ? "Cmd" : part === "Alt" ? "Option" : part))
+    .join("+");
 }
 
 // Collapses "system" into the scheme the OS currently prefers.

@@ -13,7 +13,46 @@ use std::time::Duration;
 
 use chrono::{DateTime, Local, Utc};
 
-use crate::usage::{ResetCredit, ResetCredits};
+use crate::countdown;
+use crate::pacing;
+use crate::usage::{ResetCredit, ResetCredits, UsageWindow};
+use crate::vendor::RenderOpts;
+
+/// The five per-window placeholder values every windowed renderer registers
+/// (`pct`, `reset`, `elapsed` and the two pace glyphs). A window the account
+/// does not report yields empty strings, the missing-placeholder convention.
+#[derive(Default)]
+pub struct WindowPlaceholders {
+    pub pct: String,
+    pub reset: String,
+    pub elapsed: String,
+    pub ratio_pace: String,
+    pub point_pace: String,
+}
+
+pub fn window_placeholders(
+    window: Option<&UsageWindow>,
+    opts: &RenderOpts,
+    now: DateTime<Utc>,
+) -> WindowPlaceholders {
+    let Some(window) = window else {
+        return WindowPlaceholders::default();
+    };
+    let pace = pacing::calc(
+        window.utilization_pct,
+        window.resets_at,
+        now,
+        window.window_duration,
+        opts.pace_tolerance,
+    );
+    WindowPlaceholders {
+        pct: window.utilization_pct.to_string(),
+        reset: countdown::format(window.resets_at, now),
+        elapsed: pace.elapsed_pct.to_string(),
+        ratio_pace: pace.ratio_pace.glyph().to_string(),
+        point_pace: pace.point_pace.glyph().to_string(),
+    }
+}
 
 /// A monetary amount, with the sign outside the symbol. `format!("${v:.2}")`
 /// puts it inside — `$-5.71` — which reads as a typo rather than as debt, and

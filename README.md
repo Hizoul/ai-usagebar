@@ -1,6 +1,6 @@
 # ai-usagebar
 
-Native Omarchy Quattro panel, Waybar widget, and tabbed TUI for AI plan usage across **Claude**, **Codex/ChatGPT**, **GitHub Copilot**, **Z.AI (GLM)**, **OpenRouter**, **DeepSeek**, **DeepInfra**, **Kimi**, **Nous Research**, **OpenCode Go**, **Command Code**, and other supported AI coding services.
+Native Omarchy Quattro panel, Waybar widget, and tabbed TUI for AI plan usage across **Claude**, **Codex/ChatGPT**, **GitHub Copilot**, **Z.AI (GLM)**, **OpenRouter**, **DeepSeek**, **DeepInfra**, **Kimi**, **Nous Research**, **OpenCode Go**, **Command Code**, **Devin**, and other supported AI coding services.
 
 ai-usagebar began as a Rust port of
 [`claudebar`](https://github.com/mryll/claudebar) and remains drop-in
@@ -250,9 +250,12 @@ the popover's Options — Customize (Classic only), Settings, Refresh, Detect
 Providers, Open TUI, Start at Login, Check for Updates, About, and Quit — in
 the popover's language. On its first run the
 tray detects which vendors already have a credential on this PC (local files
-and keys only, never the network) and turns exactly those on in
-`config.toml` — it never turns a vendor off. Settings adds a global shortcut
-that toggles the popover from anywhere, the poll interval, and an update mode
+and keys only, never the network) and enables eligible vendors in
+`config.toml` — it never turns a vendor off. Opt-in-only providers such as
+Devin are never activated by automatic detection, including **Detect Providers**;
+enable Devin explicitly in Settings or with `[devin] enabled = true`. Settings
+adds a global shortcut that toggles the popover from anywhere, the poll interval,
+and an update mode
 (Automatic / Notify me / Off) that installs new releases from GitHub after
 verifying their `.sha256`; all three live in the `[tray]` section of
 `config.toml` (`shortcut`, `refresh_minutes` = 1, 5 or 10; default 5;
@@ -299,6 +302,7 @@ come from environment variables or `config.toml`.
 | OpenCode Go | API key (`OPENCODE_GO_API_KEY` env or `[opencode-go] api_key` in config) | Enable `[opencode-go]`, then enter the key in the Omarchy settings panel or set the environment variable. |
 | Command Code | Existing `commandcode` or pi login | Enable `[commandcode]` and sign in to either one once. No key to paste; `COMMANDCODE_API_KEY` overrides if you prefer one. |
 | Model Studio | Existing `bl auth login --console` (Alibaba Cloud) | Opt in (`[modelstudio]`), install the official `bl` CLI, and run `bl auth login --console` once. Reports the Token Plan's 5-hour and weekly percentage windows with resets, through the same console gateway the CLI uses; the credential file `~/.bailian/config.json` is only ever read. |
+| Devin | Existing official Devin CLI login | Opt in (`[devin]`) after signing in with the Devin CLI. Reuses its existing `credentials.toml` read-only; ai-usagebar never logs in, refreshes, or writes credentials. Reports daily and weekly quota usage and an optional overage balance. |
 
 ### Nous credits and OpenCode Go
 
@@ -306,7 +310,10 @@ Nous usage percentage is calculated from the subscription-credit pool only:
 `(monthly subscription credits - subscription credits remaining) / monthly subscription credits`.
 Top-up/purchased credits are not mixed into that percentage. When the Portal
 reports them, the tooltip and TUI show subscription credits, top-up credits, and
-total usable credits as separate values.
+total usable credits as separate values. `[nous] headline = "amount"` puts those
+credits still usable on the bar instead of the percentage, the way the
+prepaid-balance vendors do; the percentage keeps the meter, the severity colour
+and the detail line. The default is `"percent"`.
 
 Nous login is interactive because the device code is authorized in the browser.
 Leave the terminal open until it reports that login completed, then refresh the

@@ -537,6 +537,17 @@ assert.equal(model.brandIconFile({id: 'openai'}), 'openai.svg');
 assert.equal(model.brandIconFile({id: 'supergrok'}), 'grok.svg');
 assert.equal(model.brandIconFile({id: 'grokbot'}), 'grokbot.svg');
 assert.equal(model.brandIconFile({id: 'copilot'}), 'copilot.svg');
+assert.equal(model.brandIconFile({id: 'devin'}), 'devin.svg');
+assert.equal(model.brandIconFile({id: 'devin@work'}), 'devin.svg');
+assert.equal(model.brandIconFile({id: 'custom:devin', brand: 'devin'}), 'devin.svg');
+const devinMark = fs.readFileSync(new URL('./icons/devin.svg', import.meta.url), 'utf8');
+assert.match(devinMark, /viewBox="0 0 24 24"/);
+assert.match(devinMark, /<path\s/);
+// BrandMark's colorization uses the source luminance. Match the white
+// monochrome artwork contract so dark themes can tint Devin like Codex.
+assert.match(devinMark, /<svg\b[^>]*\bfill="#ffffff"/);
+assert.doesNotMatch(devinMark, /\bfill="(?:#000(?:000)?|black)"/i);
+assert.doesNotMatch(devinMark, /<(?:script|image|foreignObject|use)\b|\bhref\s*=|\bon\w+\s*=/i);
 assert.equal(model.brandIconFile({id: 'kimi'}), 'kimi.svg');
 assert.equal(model.brandIconFile({id: 'opencode-go'}), 'opencode.svg');
 assert.equal(model.brandIconFile({id: 'lyceum'}), '');
@@ -560,7 +571,7 @@ assert.equal(model.brandIconFile({id: 'anthropic', brand: 'openai'}), 'openai.sv
 const slugs = [
   'anthropic', 'anthropic_api', 'openai', 'copilot', 'zai', 'openrouter',
   'deepseek', 'kimi', 'kilo', 'novita', 'moonshot', 'grok', 'supergrok', 'grokbot',
-  'antigravity', 'cursor', 'minimax', 'kiro', 'nous', 'opencode-go', 'lyceum', 'commandcode'
+  'antigravity', 'cursor', 'minimax', 'kiro', 'nous', 'opencode-go', 'lyceum', 'commandcode', 'devin'
 ];
 const byMark = {};
 for (const slug of slugs) {

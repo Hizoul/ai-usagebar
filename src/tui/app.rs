@@ -867,6 +867,12 @@ async fn build_outcome(client: &Client, config: &Config, tab: &TabId) -> Result<
             .await?;
             Ok(outcome.into())
         }
+        VendorId::Devin => {
+            let cache = crate::cache::Cache::for_vendor("devin")?;
+            let outcome =
+                crate::devin::fetch::fetch_snapshot(&config.devin, &cache, DEFAULT_TTL).await?;
+            Ok(outcome.into())
+        }
         VendorId::Minimax => {
             let (api_key, cache) = api_key_and_cache(config, vendor, tab.account.as_deref())?;
             let endpoints = crate::minimax::fetch::Endpoints::for_region(&config.minimax.region);
