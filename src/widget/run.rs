@@ -1059,6 +1059,9 @@ fn render_with_theme(outcome: &FetchOutcome, theme: &Theme, cli: &Cli) -> Waybar
         .format
         .clone()
         .unwrap_or_else(|| DEFAULT_FORMAT.to_string());
+    let claude_sessions = crate::claude_sessions::sessions_dir().and_then(|dir| {
+        crate::claude_sessions::scan(&dir, &crate::claude_sessions::ProdLiveness, Utc::now())
+    });
     let input = RenderInput {
         outcome,
         theme,
@@ -1069,6 +1072,7 @@ fn render_with_theme(outcome: &FetchOutcome, theme: &Theme, cli: &Cli) -> Waybar
         format_pace_color: cli.format_pace_color,
         tooltip_pace_pts: cli.tooltip_pace_pts,
         now: Utc::now(),
+        claude_sessions: claude_sessions.as_ref(),
     };
     render_anthropic(&input)
 }

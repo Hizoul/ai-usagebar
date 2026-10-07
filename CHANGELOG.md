@@ -11,6 +11,15 @@ Each release is also published at
 
 ### Added
 
+- **The Claude tooltip shows live Claude Code session status.** Claude Code
+  rewrites `<CLAUDE_CONFIG_DIR>/sessions/<pid>.json` whenever an interactive
+  session's status changes; the widget now reads those files (read-only,
+  bounded to 64 files of 8 KiB each) and appends one dim line to Claude's
+  tooltip — "2 working · 1 waiting" — counting only interactive sessions
+  whose process identity still checks out: `procStart` against procfs field
+  22 on Linux (recycled pids included), `ps` on macOS, and a thirty-minute
+  recency check on Windows where neither is available. A missing sessions
+  directory renders nothing; an all-idle summary stays silent (#356).
 - **`[nous] headline = "amount"` puts the Nous Research credits balance on the
   bar**, the way the prepaid-balance vendors already do, instead of the consumed
   percentage of the monthly allocation. There is no tank to state: the plan's
