@@ -35,7 +35,10 @@ enabled = false           # opt in, then press c in ai-usagebar-tui
 # While enabled, `usage` (and the tray/Omarchy panels built on it) also shows
 # the most recent Claude Code sessions on the Claude entry as a "Sessions"
 # group: one row per session with its context health on the same severity
-# colors as quota meters, plus the model and last-active time.
+# colors as quota meters, plus the model and last-active time. Each Claude
+# account whose sessions are working or waiting on you also gets an "Activity"
+# row ("2 working · 1 waiting") and an `activity` field, read from the
+# `sessions/` directory in that account's config directory.
 
 # Quota-threshold desktop notifications. On by default at 97%: a window that
 # crosses the threshold raises one notification per crossing (Linux uses

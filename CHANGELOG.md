@@ -11,6 +11,53 @@ Each release is also published at
 
 ### Added
 
+- **`usage --json` says which Claude Code sessions are working or waiting on
+  you.** With `[context] enabled`, each Claude account whose sessions are busy
+  or stopped on a permission prompt or a question gets an `Activity` row such
+  as `2 working · 1 waiting`, so every panel built on the report shows it with
+  no frontend change, plus an additive `activity` field
+  (`{"working": 2, "waiting": 1}`) for frontends that want an icon. It is read
+  from the `sessions/<pid>.json` files Claude Code keeps in the config directory
+  the account's credentials are fetched from, so an account `account switch`
+  moved into the default slot is read from `~/.claude` like its quota. Those
+  files outlive a crashed Claude Code, so a session counts only while a process
+  with its pid is running — on Linux, the same process by the start time Claude
+  Code recorded, so a recycled pid does not count either — and a file written on
+  another operating system never does. Agent SDK runs (`entrypoint: "sdk-cli"`,
+  which `claude -p` and background agents use) are not counted. The files are
+  only read; an idle account gets neither the row nor the field (#356).
+
+### Changed
+
+- macOS **Menu Bar Shows → Logos** displays one readable allowance value per
+  provider instead of two tightly stacked percentages. Like Quattro's default
+  auto window and the Name chip, it selects the highest used percentage across
+  visible quota windows (the lowest remaining percentage in Left). A fresh short
+  window no longer obscures a mostly spent monthly allowance. Hidden metrics
+  stay excluded; Used/Left still follows the existing preference. Chart and
+  the detailed popover keep their multiple metrics.
+
+### Fixed
+
+- macOS release archives include **AI Usage.app**, with a stable bundle ID
+  and a Finder icon based on the Windows tray artwork. The install guide uses
+  `/Applications` so menu-bar managers can identify the tray, and documents
+  Hidden Bar's macOS 27 issues with bare executables and user-local bundles.
+  Standalone binaries remain available for command-line use and the self-updater.
+
+## [1.33.0] — 2026-10-07
+
+### Added
+
+- **The Claude tooltip shows live Claude Code session status.** Claude Code
+  rewrites `<CLAUDE_CONFIG_DIR>/sessions/<pid>.json` whenever an interactive
+  session's status changes; the widget now reads those files (read-only,
+  bounded to 64 files of 8 KiB each) and appends one dim line to Claude's
+  tooltip — "2 working · 1 waiting" — counting only interactive sessions
+  whose process identity still checks out: `procStart` against procfs field
+  22 on Linux (recycled pids included), `ps` on macOS, and a thirty-minute
+  recency check on Windows where neither is available. A missing sessions
+  directory renders nothing; an all-idle summary stays silent (#356).
 - **`[nous] headline = "amount"` puts the Nous Research credits balance on the
   bar**, the way the prepaid-balance vendors already do, instead of the consumed
   percentage of the monthly allocation. There is no tank to state: the plan's
@@ -52,16 +99,7 @@ Each release is also published at
   reading: Left shows the remainder of the most-used window, and the alert
   state follows the used share. Both are the Quattro counterparts of the tray's
   Customize switches and Show Usage As (#340, #353).
-
 ### Changed
-
-- macOS **Menu Bar Shows → Logos** displays one readable allowance value per
-  provider instead of two tightly stacked percentages. Like Quattro's default
-  auto window and the Name chip, it selects the highest used percentage across
-  visible quota windows (the lowest remaining percentage in Left). A fresh short
-  window no longer obscures a mostly spent monthly allowance. Hidden metrics
-  stay excluded; Used/Left still follows the existing preference. Chart and
-  the detailed popover keep their multiple metrics.
 
 - **Omarchy Quattro: Antigravity gets model-pool buttons, like Cursor.** Gemini
   and Claude & GPT OSS are independent pools, so the panel gains a button for
@@ -3902,7 +3940,8 @@ vendors. Highlights:
 - Live API smoke test suite (`make smoke`) that exercises the real
   undocumented endpoints to detect schema drift before users do.
 
-[Unreleased]: https://github.com/akitaonrails/ai-usagebar/compare/v1.32.0...HEAD
+[Unreleased]: https://github.com/akitaonrails/ai-usagebar/compare/v1.33.0...HEAD
+[1.33.0]: https://github.com/akitaonrails/ai-usagebar/compare/v1.32.0...v1.33.0
 [1.32.0]: https://github.com/akitaonrails/ai-usagebar/compare/v1.31.0...v1.32.0
 [1.31.0]: https://github.com/akitaonrails/ai-usagebar/compare/v1.30.0...v1.31.0
 [1.30.0]: https://github.com/akitaonrails/ai-usagebar/compare/v1.29.0...v1.30.0

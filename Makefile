@@ -50,6 +50,11 @@ test:
 	$(MAKE) desktop-test
 	$(MAKE) plugin-test
 	$(MAKE) mint-test
+	$(MAKE) macos-package-test
+
+.PHONY: macos-package-test
+macos-package-test:
+	python3 -m unittest discover -s macos -p 'test_package_app.py'
 
 changelog-check:
 	./scripts/check-changelog-immutable.sh

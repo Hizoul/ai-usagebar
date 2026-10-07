@@ -7,6 +7,16 @@ own look — on macOS, one provider at a time behind tabs of logos and values,
 over AppKit glass). Both draw the same provider card: metrics, reset times,
 pace notes, the reset popover, the row menu and account switching.
 
+Install **AI Usage.app** in `/Applications` from the macOS release archive; see
+[INSTALL.md](INSTALL.md) for release and source-build instructions. Its stable
+bundle identity lets menu-bar managers recognize the app, including Hidden Bar
+on macOS 27. The packaging step uses no developer certificate or notarization
+credentials; the standalone executables remain available for CLI use.
+Hidden Bar on macOS 27 can also hide bundles in `~/Applications`, so use the
+system Applications folder; see the install guide's troubleshooting notes.
+The Finder icon reuses `windows/tray-icon.svg`; regenerate its `.icns` sizes
+with `swift macos/render-icon.swift` after changing that artwork.
+
 **Settings → Menu Bar → Menu Bar Shows** draws the usage **Chart** (the default)
 from up to two starred metrics per provider, or **Logos**, each starred
 provider's logo followed by one readable percentage. Logos takes the highest

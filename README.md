@@ -711,6 +711,12 @@ existing consumers remain compatible. `short_name` is the same three-letter
 code `{vendor_short}` prints, so a frontend that wants a compact provider tag
 takes it from the report instead of keeping its own table.
 
+With `[context] enabled`, a Claude entry whose Claude Code sessions are working
+or waiting on you also carries `activity`, e.g. `{"working": 2, "waiting": 1}`,
+and an `Activity` text row reading `2 working · 1 waiting`. Both are omitted,
+not zeroed, while that account has nothing running; see
+[Local context overlay](#local-context-overlay).
+
 ## Standalone TUI
 
 The TUI does not depend on Waybar. Run it directly in a local terminal, over
@@ -824,6 +830,11 @@ only after a right-click. It installs no service, asks for no elevated
 privileges, and does not overwrite user configuration.
 
 ### macOS menu bar and Windows tray
+
+For macOS releases, move **AI Usage.app** from the archive into `/Applications`
+and open it. The bundle includes the tray, CLI and TUI, and gives menu-bar
+managers a stable application identity. See [installation](macos/INSTALL.md),
+including migration from a bare tray executable and Hidden Bar troubleshooting.
 
 `ai-usagebar-tray` shows the same report in a popover that opens from the
 macOS menu bar or the Windows notification area. The **Popover Style** setting
@@ -1205,8 +1216,25 @@ The reader handles Claude Code's undocumented local JSONL defensively:
 - it does not follow discovered symlinks;
 - it performs filesystem work off the UI thread.
 
-When the feature is disabled, nothing under `~/.claude/projects` is read.
-Context options remain in TOML rather than the Settings modal.
+While enabled, `usage` (and every panel built on `usage --json`) also says
+what each Claude account's live sessions are doing: an `Activity` row such as
+`2 working · 1 waiting`, read from the `sessions/` directory Claude Code keeps
+in that account's config directory — the directory of the credentials file its
+quota is fetched from, so `~/.claude` by default, and `~/.claude` too for an
+account `account switch` made the live login. The default entry follows
+`credentials_path`, not the `CLAUDE_CONFIG_DIR` of the shell that runs
+`usage`; give another directory its own account to see its sessions.
+
+Those files outlive a crashed Claude Code, so a session counts only while a
+process with its pid is running — on Linux, the process that started when the
+file says it did, which also rules out a recycled pid. A file written on
+another operating system (a config directory shared across a dual boot) never
+counts. Agent SDK runs (`entrypoint: "sdk-cli"`, as `claude -p` and background
+agents write) are not counted, and the files are only ever read.
+
+When the feature is disabled, nothing under `~/.claude/projects` or any
+account's `sessions/` is read. Context options remain in TOML rather than the
+Settings modal.
 
 ### Settings overlay
 

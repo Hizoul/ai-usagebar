@@ -407,6 +407,10 @@ jobs:
             cp "$bins/$bin" "$bin-macos-${{ matrix.arch }}"
             sidecar "$bin-macos-${{ matrix.arch }}"
           done
+          python3 -m unittest discover -s macos -p 'test_package_app.py'
+          version=$(sed -n 's/^version = "\([^"]*\)"/\1/p' Cargo.toml | head -1)
+          python3 macos/package-app.py "$bins" "$STAGE/AI Usage.app" "$version"
+          plutil -lint "$STAGE/AI Usage.app/Contents/Info.plist"
           cp LICENSE README.md config.example.toml "$STAGE/"
           tar czf ${{ matrix.artifact }}.tar.gz -C "$STAGE" .
           sidecar ${{ matrix.artifact }}.tar.gz
@@ -500,12 +504,15 @@ jobs:
             echo
             echo '```bash'
             echo "# Apple Silicon; use ai-usagebar-macos-x86_64.tar.gz on an Intel Mac"
-            echo "mkdir -p ~/.local/bin"
-            echo "curl -fsSL https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/ai-usagebar-macos-aarch64.tar.gz | tar xz -C ~/.local/bin ai-usagebar-tray ai-usagebar ai-usagebar-tui"
-            echo "~/.local/bin/ai-usagebar-tray"
+            echo "curl -fLO https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/ai-usagebar-macos-aarch64.tar.gz"
+            echo "tar xzf ai-usagebar-macos-aarch64.tar.gz './AI Usage.app'"
+            echo '# Quit an existing copy first; use Finder to replace it if already installed.'
+            echo 'mv "AI Usage.app" /Applications/'
+            echo 'open "/Applications/AI Usage.app"'
             echo '```'
             echo
             echo "The menu-bar tray updates itself from later releases (Settings → Updates). The bare *-macos-* assets are what it downloads; they are not needed by hand."
+            echo "Launch the .app so macOS and menu-bar managers can identify it. When migrating from a bare executable, quit it first and toggle Launch at Login off and on in the app to update the saved path."
             echo
             echo "## Checksums (SHA256)"
             echo '```'
