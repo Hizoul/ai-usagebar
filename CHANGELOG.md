@@ -9,6 +9,19 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Fixed
+
+- **A metric hidden in Customize no longer sets the provider's percentage.**
+  The Native popover's provider tab and the macOS menu bar's Name chip showed
+  the highest percentage among all of a provider's windows, including one
+  switched off in Customize, so Z.AI with Session and Weekly at `0%` and the
+  monthly MCP window hidden at `18%` still read `18%`. Hidden metrics are now
+  left out, so it reads `0%` (`100%` left). With every metric of the provider
+  hidden, the tab falls back to its balance or `—`, and the Name chip moves on
+  to the next provider with a value, as it does for a provider with no value.
+  Stars are unaffected: the Chart and Logos looks still show the starred
+  metrics.
+
 ## [1.32.0] — 2026-10-04
 
 ### Added
