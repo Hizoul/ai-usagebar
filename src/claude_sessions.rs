@@ -120,7 +120,13 @@ impl Liveness for ProdLiveness {
         {
             let _ = (pid, proc_start);
             match updated_at_ms {
-                Some(updated) => now.timestamp_millis() - updated <= RECENT_WINDOW_MS,
+                // Saturating so an absurd future or past stamp cannot overflow
+                // in debug builds; a future stamp is not "recent", it is bad
+                // data, and does not count.
+                Some(updated) => {
+                    let now_ms = now.timestamp_millis();
+                    updated <= now_ms && now_ms.saturating_sub(updated) <= RECENT_WINDOW_MS
+                }
                 None => false,
             }
         }

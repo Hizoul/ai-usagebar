@@ -9,7 +9,7 @@ Each release is also published at
 
 ## [Unreleased]
 
-## [1.33.0] — 2026-10-06
+## [1.33.0] — 2026-10-07
 
 ### Added
 
