@@ -1,13 +1,6 @@
-# Changelog
-
-All notable changes to **ai-usagebar** are recorded here. The format is based on
-[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
-follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-Each release is also published at
-<https://github.com/akitaonrails/ai-usagebar/releases>.
-
 ## [Unreleased]
+
+## [1.33.0] — 2026-10-07
 
 ### Added
 
@@ -26,28 +19,6 @@ Each release is also published at
   another operating system never does. Agent SDK runs (`entrypoint: "sdk-cli"`,
   which `claude -p` and background agents use) are not counted. The files are
   only read; an idle account gets neither the row nor the field (#356).
-
-### Changed
-
-- macOS **Menu Bar Shows → Logos** displays one readable allowance value per
-  provider instead of two tightly stacked percentages. Like Quattro's default
-  auto window and the Name chip, it selects the highest used percentage across
-  visible quota windows (the lowest remaining percentage in Left). A fresh short
-  window no longer obscures a mostly spent monthly allowance. Hidden metrics
-  stay excluded; Used/Left still follows the existing preference. Chart and
-  the detailed popover keep their multiple metrics.
-
-### Fixed
-
-- macOS release archives include **AI Usage.app**, with a stable bundle ID
-  and a Finder icon based on the Windows tray artwork. The install guide uses
-  `/Applications` so menu-bar managers can identify the tray, and documents
-  Hidden Bar's macOS 27 issues with bare executables and user-local bundles.
-  Standalone binaries remain available for command-line use and the self-updater.
-
-## [1.33.0] — 2026-10-07
-
-### Added
 
 - **The Claude tooltip shows live Claude Code session status.** Claude Code
   rewrites `<CLAUDE_CONFIG_DIR>/sessions/<pid>.json` whenever an interactive
@@ -101,6 +72,14 @@ Each release is also published at
   Customize switches and Show Usage As (#340, #353).
 ### Changed
 
+- macOS **Menu Bar Shows → Logos** displays one readable allowance value per
+  provider instead of two tightly stacked percentages. Like Quattro's default
+  auto window and the Name chip, it selects the highest used percentage across
+  visible quota windows (the lowest remaining percentage in Left). A fresh short
+  window no longer obscures a mostly spent monthly allowance. Hidden metrics
+  stay excluded; Used/Left still follows the existing preference. Chart and
+  the detailed popover keep their multiple metrics.
+
 - **Omarchy Quattro: Antigravity gets model-pool buttons, like Cursor.** Gemini
   and Claude & GPT OSS are independent pools, so the panel gains a button for
   each (`showAntigravityGemini`, `showAntigravityClaudeGpt`, both on). The top
@@ -118,6 +97,12 @@ Each release is also published at
   usage value, logos, provider name, color-coding, then all providers.
 
 ### Fixed
+
+- macOS release archives include **AI Usage.app**, with a stable bundle ID
+  and a Finder icon based on the Windows tray artwork. The install guide uses
+  `/Applications` so menu-bar managers can identify the tray, and documents
+  Hidden Bar's macOS 27 issues with bare executables and user-local bundles.
+  Standalone binaries remain available for command-line use and the self-updater.
 
 - **A metric hidden in Customize no longer sets the provider's percentage.**
   The Native popover's provider tab and the macOS menu bar's Name chip showed
