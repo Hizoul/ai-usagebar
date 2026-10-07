@@ -17,6 +17,13 @@
   delegate now declares `required property int index`. A QML test opens the
   drop-down and fails on that warning.
 
+- **A signed-out Anthropic credentials file reports 'run `claude`', not a rate
+  limit.** A blank `accessToken` was sent as `Authorization: Bearer `, whose
+  401/429 answer was shown as a transient error — and the 429 variant armed the
+  five-minute backoff, so the card stayed wrong even after logging back in. A
+  blank access token is now a credentials error with the login hint, no request
+  is fired, and no backoff is armed (#370).
+
 ## [1.33.0] — 2026-10-07
 
 ### Added
