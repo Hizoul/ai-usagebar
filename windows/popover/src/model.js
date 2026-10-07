@@ -201,7 +201,7 @@ function normalizeOs(value) {
 
 // The menu-bar look the host reports; anything else reads as the default chart.
 function normalizeMenuBarLook(value) {
-  return value === "logos" || value === "name" ? value : "chart";
+  return value === "logos" || value === "quattro" ? value : "chart";
 }
 
 // The host's refresh interval; anything outside the offered set reads as the
@@ -1027,7 +1027,7 @@ export function stripCommand(layout, cards) {
   } else {
     for (const id of Object.keys(source)) stars[id] = source[id];
   }
-  // The macOS name chip leaves out the metrics hidden here, like the native tab.
+  // The macOS Quattro chip leaves out the metrics hidden here, like the native tab.
   const hiddenRows = {};
   for (const card of cards || []) {
     const keys = hiddenMetricKeys(card, layout || emptyLayout());
@@ -1415,7 +1415,7 @@ export function visibleRowsFor(card, opts) {
 /**
  * Keys of the card's metric rows switched off in Customize. A hidden metric
  * does not count toward the provider's headline percentage: the native tab
- * and, through `stripCommand`, the macOS menu bar's name chip both skip it.
+ * and, through `stripCommand`, the macOS menu bar's Quattro chip both skip it.
  * @returns {string[]}
  */
 export function hiddenMetricKeys(card, layout) {

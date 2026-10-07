@@ -1,5 +1,13 @@
 ## [Unreleased]
 
+### Changed
+
+- **The macOS menu bar's Name look is now called Quattro.** It draws one chip
+  the way the Quattro bar does, the selected provider's logo, an optional short
+  name and its highest percentage, so it takes that bar's name in Settings →
+  Menu Bar → Menu Bar Shows. `[tray] menu_bar_style` is written as `"quattro"`;
+  `"name"`, what 1.32.0 saved, is still read as the same look.
+
 ### Fixed
 
 - **The Plasma settings page no longer logs `ReferenceError: index is not

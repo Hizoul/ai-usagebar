@@ -120,7 +120,6 @@
 /** @typedef {{}} MonthlyInputs */
 /** @typedef {{}} Monthly_LowercaseInputs */
 /** @typedef {{}} MoreInputs */
-/** @typedef {{}} NameInputs */
 /** @typedef {{}} NativeInputs */
 /** @typedef {{}} New_UpdateInputs */
 /** @typedef {{}} New_Version_ReadyInputs */
@@ -167,6 +166,7 @@
 /** @typedef {{}} ProviderInputs */
 /** @typedef {{}} Provider_Is_UnavailableInputs */
 /** @typedef {{}} ProvidersInputs */
+/** @typedef {{}} QuattroInputs */
 /** @typedef {{}} QuitInputs */
 /** @typedef {{}} Quota_AlertsInputs */
 /** @typedef {{}} Quota_Alerts_HintInputs */
@@ -706,7 +706,7 @@ export const menu_bar_short_name = /** @type {(inputs: Menu_Bar_Short_NameInputs
 };
 
 export const menu_bar_short_name_hint = /** @type {(inputs: Menu_Bar_Short_Name_HintInputs) => LocalizedString} */ () => {
-	return /** @type {LocalizedString} */ (`Ao lado do logotipo no modo Nome. Um provedor sem logotipo sempre mostra o nome.`)
+	return /** @type {LocalizedString} */ (`Ao lado do logotipo no modo Quattro. Um provedor sem logotipo sempre mostra o nome.`)
 };
 
 export const menu_bar_shows = /** @type {(inputs: Menu_Bar_ShowsInputs) => LocalizedString} */ () => {
@@ -714,7 +714,7 @@ export const menu_bar_shows = /** @type {(inputs: Menu_Bar_ShowsInputs) => Local
 };
 
 export const menu_bar_shows_hint = /** @type {(inputs: Menu_Bar_Shows_HintInputs) => LocalizedString} */ () => {
-	return /** @type {LocalizedString} */ (`Gráfico e Logotipos mostram as métricas marcadas de todos os provedores. Nome mostra o maior uso do provedor selecionado.`)
+	return /** @type {LocalizedString} */ (`Gráfico e Logotipos mostram as métricas marcadas de todos os provedores. Quattro mostra o maior uso do provedor selecionado.`)
 };
 
 export const metric_plural = /** @type {(inputs: Metric_PluralInputs) => LocalizedString} */ () => {
@@ -743,10 +743,6 @@ export const monthly_lowercase = /** @type {(inputs: Monthly_LowercaseInputs) =>
 
 export const more = /** @type {(inputs: MoreInputs) => LocalizedString} */ () => {
 	return /** @type {LocalizedString} */ (`mais`)
-};
-
-export const name = /** @type {(inputs: NameInputs) => LocalizedString} */ () => {
-	return /** @type {LocalizedString} */ (`Nome`)
 };
 
 export const native = /** @type {(inputs: NativeInputs) => LocalizedString} */ () => {
@@ -931,6 +927,10 @@ export const provider_is_unavailable = /** @type {(inputs: Provider_Is_Unavailab
 
 export const providers = /** @type {(inputs: ProvidersInputs) => LocalizedString} */ () => {
 	return /** @type {LocalizedString} */ (`Provedores`)
+};
+
+export const quattro = /** @type {(inputs: QuattroInputs) => LocalizedString} */ () => {
+	return /** @type {LocalizedString} */ (`Quattro`)
 };
 
 export const quit = /** @type {(inputs: QuitInputs) => LocalizedString} */ () => {

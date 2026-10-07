@@ -9,7 +9,7 @@ export interface RowPrefs {
 export type TimeFormat = "12" | "24" | "auto";
 export type Language = "en" | "pt-BR" | "ko";
 export type PopoverStyle = "classic" | "native";
-export type MenuBarLook = "chart" | "logos" | "name";
+export type MenuBarLook = "chart" | "logos" | "quattro";
 
 export interface Layout {
   alwaysShowPace: boolean;
@@ -250,7 +250,7 @@ export interface Payload {
   hostError: string;
   /** macOS menu-bar look the host draws. */
   menuBarLook: MenuBarLook;
-  /** Whether the name look draws the short name beside the logo. */
+  /** Whether the Quattro look draws the short name beside the logo. */
   menuBarShortName: boolean;
   notificationsEnabled: boolean;
   notificationsThreshold: number;

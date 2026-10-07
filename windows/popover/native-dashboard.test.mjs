@@ -263,17 +263,17 @@ try {
   });
   assert.match(providersMenuBar, /Logotipos/);
   assert.doesNotMatch(providersMenuBar, /Identificar provedores por|Mostrar todos os provedores|Ocultar valor de uso/);
-  // The name look is a third choice of the same picker, not a separate set of controls.
-  const nameMenuBar = settingsTab('general', {
+  // The Quattro look is a third choice of the same picker, not a separate set of controls.
+  const quattroMenuBar = settingsTab('general', {
     ...settingsProps,
     layout: { ...emptyLayout(), popoverStyle: 'classic' },
-    payload: { ...settingsPayload, menuBarLook: 'name' },
+    payload: { ...settingsPayload, menuBarLook: 'quattro' },
   });
-  assert.match(nameMenuBar, /Barra de menus mostra/);
-  assert.match(nameMenuBar, /Nome/);
-  assert.doesNotMatch(nameMenuBar, /Identificar provedores por|Mostrar todos os provedores|Ocultar valor de uso/);
-  // The short-name switch belongs to the name look only.
-  assert.match(nameMenuBar, /Mostrar nome curto/);
+  assert.match(quattroMenuBar, /Barra de menus mostra/);
+  assert.match(quattroMenuBar, /Quattro/);
+  assert.doesNotMatch(quattroMenuBar, /Identificar provedores por|Mostrar todos os provedores|Ocultar valor de uso/);
+  // The short-name switch belongs to the Quattro look only.
+  assert.match(quattroMenuBar, /Mostrar nome curto/);
   assert.doesNotMatch(chartMenuBar, /Mostrar nome curto/);
   assert.doesNotMatch(providersMenuBar, /Mostrar nome curto/);
   const footerMarkup = renderToStaticMarkup(React.createElement(TooltipProvider, {},

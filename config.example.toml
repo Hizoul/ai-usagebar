@@ -106,7 +106,7 @@
 # (banner with an Install button; default) | off (no background checks).
 # updates = "notify"
 # macOS menu bar: "bars" (default) draws the usage chart; "provider" draws each
-# provider's logo followed by its value; "name" draws one chip, the logo, the
+# provider's logo followed by its value; "quattro" draws one chip, the logo, the
 # short name (cld, cdx, …) and the highest percentage among all the windows of
 # the provider selected in the popover, like the Quattro bar, leaving out any
 # metric hidden in the popover's Customize. Chart shows up to two starred
@@ -115,7 +115,8 @@
 # In the Left reading this is the lowest remaining percentage. Hidden metrics
 # are excluded. Settings → Menu Bar → Menu Bar Shows sets it.
 # menu_bar_style = "bars"
-# The "name" chip's short name; false leaves just the logo and the value. A
+# "name", the 1.32.0 spelling of "quattro", is still read as it.
+# The "quattro" chip's short name; false leaves just the logo and the value. A
 # provider with no logo keeps its name. Settings → Menu Bar → Show Short Name.
 # menu_bar_short_name = true
 
