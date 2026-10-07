@@ -6,12 +6,14 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
 use crate::countdown;
-use crate::format::{placeholders, reset_credit_lines, reset_credits, substitute, updated_at_hm};
-use crate::pacing::{self, PaceSeverity};
+use crate::format::{
+    placeholders, reset_credit_lines, reset_credits, substitute, updated_at_hm, window_placeholders,
+};
+use crate::pacing::PaceSeverity;
 use crate::pango::{color_span, escape, severity_color, severity_for};
 use crate::theme::Theme;
 use crate::tooltip::{Line as TooltipLine, push_window, render_bordered};
-use crate::usage::{OpenAiSnapshot, OpenAiSource, UsageWindow};
+use crate::usage::{OpenAiSnapshot, OpenAiSource};
 use crate::vendor::{RenderOpts, VendorId, VendorOutcome};
 use crate::waybar::{Class, WaybarOutput};
 
@@ -110,39 +112,6 @@ pub fn build_placeholders(
                 .join(", "),
         ),
     ])
-}
-
-#[derive(Default)]
-struct WindowPlaceholderValues {
-    pct: String,
-    reset: String,
-    elapsed: String,
-    ratio_pace: String,
-    point_pace: String,
-}
-
-fn window_placeholders(
-    window: Option<&UsageWindow>,
-    opts: &RenderOpts,
-    now: DateTime<Utc>,
-) -> WindowPlaceholderValues {
-    let Some(window) = window else {
-        return WindowPlaceholderValues::default();
-    };
-    let pace = pacing::calc(
-        window.utilization_pct,
-        window.resets_at,
-        now,
-        window.window_duration,
-        opts.pace_tolerance,
-    );
-    WindowPlaceholderValues {
-        pct: window.utilization_pct.to_string(),
-        reset: countdown::format(window.resets_at, now),
-        elapsed: pace.elapsed_pct.to_string(),
-        ratio_pace: pace.ratio_pace.glyph().to_string(),
-        point_pace: pace.point_pace.glyph().to_string(),
-    }
 }
 
 pub fn severity(snap: &OpenAiSnapshot) -> PaceSeverity {

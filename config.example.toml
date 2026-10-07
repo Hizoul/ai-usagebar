@@ -11,7 +11,7 @@
 # Valid: anthropic | anthropic_api | openai | copilot | zai | openrouter | deepseek
 #        | kimi | kilo | novita | moonshot | grok | supergrok | grokbot | antigravity
 #        | cursor | minimax | kiro | nous | opencode-go | commandcode | ollama
-#        | orcarouter | modelstudio | lyceum
+#        | orcarouter | modelstudio | lyceum | devin
 # When unset, the TUI opens on the Overview (all vendors at once); set this to
 # open directly on a vendor's tab instead.
 # primary = "anthropic"
@@ -108,7 +108,8 @@
 # macOS menu bar: "bars" (default) draws the usage chart; "provider" draws each
 # provider's logo followed by its value; "name" draws one chip, the logo, the
 # short name (cld, cdx, …) and the highest percentage among all the windows of
-# the provider selected in the popover, like the Quattro bar. Chart and logos
+# the provider selected in the popover, like the Quattro bar, leaving out any
+# metric hidden in the popover's Customize. Chart and logos
 # show the metrics starred in each provider (up to two). Settings → Menu Bar → Menu Bar Shows sets it.
 # menu_bar_style = "bars"
 # The "name" chip's short name; false leaves just the logo and the value. A
@@ -564,6 +565,12 @@ enabled = false
 # Run `ai-usagebar auth nous login`; logout removes only the Nous entry.
 [nous]
 enabled = false
+# Which number goes on the bar: the consumed percentage of the monthly
+# allocation ("percent", the default) or the credits still usable ("amount"),
+# the way the prepaid-balance vendors do. There is no tank to state — the plan's
+# monthly credits are the percentage's own denominator — and the percentage
+# keeps the meter, the severity colour and the detail line either way.
+# headline = "amount"
 
 # OpenCode Go — usage from /zen/go/v1/usage. Opt in only after exporting the
 # API key under this variable; the key itself is never written to this example.
@@ -598,3 +605,13 @@ enabled = false
 # Override the bl CLI's config directory (default ~/.bailian; the
 # BAILIAN_CONFIG_DIR env var does the same at runtime, and this wins).
 # config_dir = "/home/you/.bailian"
+
+# Devin CLI quota. This reuses the official CLI's existing credentials file
+# read-only: %APPDATA%/devin/credentials.toml on Windows, or
+# ${XDG_DATA_HOME:-~/.local/share}/devin/credentials.toml on Linux and macOS
+# (the CLI's documented paths; macOS is untested here). The token is held in
+# memory for the request only; no login, refresh, or credential write is
+# performed by ai-usagebar.
+[devin]
+enabled = false
+# credentials_path = "/home/you/.local/share/devin/credentials.toml"

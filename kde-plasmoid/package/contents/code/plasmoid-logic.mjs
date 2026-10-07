@@ -346,18 +346,26 @@ export function panelCells(entry, options) {
         return [];
     if (entry.status === 'error')
         return [{label: '', text: '⚠', severity: 'critical', percent: null}];
-    const cells = [];
+    // The same partition headline() applies: a grouped row sits under its own
+    // heading below the meters and is not a quota window, so it stands in only
+    // when the entry has nothing else.
+    const metrics = [];
+    const grouped = [];
     for (const s of entry.sections) {
-        if (s.type !== 'metric' || cells.length >= max)
+        if (s.type !== 'metric')
             continue;
-        cells.push({
-            label: shortLabel(s.label),
-            text: s.percent === null ? s.value : `${s.percent}%`,
-            severity: s.severity,
-            percent: s.percent,
-        });
+        if (s.group)
+            grouped.push(s);
+        else
+            metrics.push(s);
     }
-    return cells;
+    const chosen = metrics.length ? metrics : grouped;
+    return chosen.slice(0, max).map(s => ({
+        label: shortLabel(s.label),
+        text: s.percent === null ? s.value : `${s.percent}%`,
+        severity: s.severity,
+        percent: s.percent,
+    }));
 }
 
 // The card view (viewMode "VendorCards") projects one card per entry the

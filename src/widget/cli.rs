@@ -425,6 +425,7 @@ pub enum Vendor {
     #[value(name = "modelstudio")]
     ModelStudio,
     Lyceum,
+    Devin,
 }
 
 impl Vendor {
@@ -456,6 +457,7 @@ impl Vendor {
             Vendor::OrcaRouter => crate::vendor::VendorId::OrcaRouter,
             Vendor::ModelStudio => crate::vendor::VendorId::ModelStudio,
             Vendor::Lyceum => crate::vendor::VendorId::Lyceum,
+            Vendor::Devin => crate::vendor::VendorId::Devin,
         }
     }
 }
@@ -554,6 +556,7 @@ fn id_to_vendor(id: crate::vendor::VendorId) -> Vendor {
         crate::vendor::VendorId::OrcaRouter => Vendor::OrcaRouter,
         crate::vendor::VendorId::ModelStudio => Vendor::ModelStudio,
         crate::vendor::VendorId::Lyceum => Vendor::Lyceum,
+        crate::vendor::VendorId::Devin => Vendor::Devin,
     }
 }
 

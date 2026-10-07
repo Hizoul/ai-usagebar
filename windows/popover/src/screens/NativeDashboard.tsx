@@ -5,7 +5,7 @@ import { Hint } from "@/components/Hint";
 import { ProviderIcon } from "@/components/ProviderIcon";
 import { ProviderSection } from "@/components/ProviderSection";
 import type { RowAction } from "@/components/RowMenu";
-import { accountSwitchFor, nextUpdateLabel, sendCommand } from "../model.js";
+import { accountSwitchFor, hiddenMetricKeys, nextUpdateLabel, rowKey, sendCommand } from "../model.js";
 import { DashboardBanners } from "./Dashboard";
 import type { Card, Layout, MetricRow, Payload } from "@/lib/types";
 import { m } from "@/paraglide/messages.js";
@@ -38,22 +38,25 @@ function primaryMetric(card: Card): MetricRow | undefined {
  * The tab's number: the highest-percent quota window, like the Quattro bar's
  * default `auto` window (`maxPercent` in `omarchy/Model.js`), so a spent weekly
  * limit is not hidden behind an idle 5h session reading 0%. Grouped rows stand
- * in only when the card has no other percentage.
+ * in only when the card has no other percentage. A metric hidden in Customize
+ * never counts, so the tab cannot show a number the card below leaves out.
  */
-function previewMetric(card: Card): MetricRow | undefined {
-  const percents = card.rows.filter((row): row is MetricRow => row.kind === "metric" && row.headline === "percent");
+function previewMetric(card: Card, layout: Layout): MetricRow | undefined {
+  const hidden = new Set(hiddenMetricKeys(card, layout));
+  const shown = { ...card, rows: card.rows.filter((row) => !hidden.has(rowKey(row))) };
+  const percents = shown.rows.filter((row): row is MetricRow => row.kind === "metric" && row.headline === "percent");
   const windows = percents.filter((row) => !row.grouped);
   const candidates = windows.length ? windows : percents;
-  if (!candidates.length) return primaryMetric(card);
+  if (!candidates.length) return primaryMetric(shown);
   return candidates.reduce((best, row) => (row.usedPercent > best.usedPercent ? row : best));
 }
 
 /** The tab's text in the layout's Used/Left reading, like the meters below it. */
-function providerPreview(card: Card, showAs: Layout["showAs"]): string {
-  const metric = previewMetric(card);
+function providerPreview(card: Card, layout: Layout): string {
+  const metric = previewMetric(card, layout);
   if (metric) {
     if (metric.headline === "value") return metric.value;
-    return `${showAs === "used" ? metric.usedPercent : metric.leftPercent}%`;
+    return `${layout.showAs === "used" ? metric.usedPercent : metric.leftPercent}%`;
   }
   if (card.error) return "—";
   const balance = card.rows.find((row) => row.kind === "text" && /balance|credit/i.test(row.label));
@@ -128,7 +131,7 @@ export function NativeDashboard({
           <div ref={wheelScrollRef} className="native-tabs native-provider-tabs" role="group" aria-label={m.providers()}>
             {cards.map((card) => {
               const active = selected?.id === card.id;
-              const preview = providerPreview(card, layout.showAs);
+              const preview = providerPreview(card, layout);
               // Logo and value only, to fit more tabs: the name is in the hint, the label and the card below.
               return (
                 <Hint key={card.id} content={card.title}>

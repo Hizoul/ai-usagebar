@@ -20,6 +20,7 @@ back to its `short_name` (`cmc`).
 | `openrouter.svg` | OpenRouter | Simple Icons `openrouter` | CC0-1.0 |
 | `cursor.svg` | Cursor | Simple Icons `cursor` | CC0-1.0 |
 | `grok.svg` | Grok, SuperGrok | [lobe-icons](https://github.com/lobehub/lobe-icons) `grok` | [MIT](https://github.com/lobehub/lobe-icons/blob/master/LICENSE) |
+| `devin.svg` | Devin | [lobe-icons static SVG](https://github.com/lobehub/lobe-icons/blob/master/packages/static-svg/icons/devin.svg), path geometry preserved; fixed 24px dimensions for Qt | MIT; notice in [LICENSE-lobe-icons.txt](LICENSE-lobe-icons.txt) |
 | `grokbot.svg` | Grok Bot | Official logomark from [x.ai/bot](https://x.ai/bot) / Grok Bot.app (head with eye cutouts) | Identification use; [xAI brand guidelines](https://x.ai/legal/brand-guidelines) |
 | `zhipu.svg` | Z.AI | lobe-icons `zhipu` | MIT |
 | `moonshot.svg` | Moonshot | lobe-icons `moonshot` | MIT |
