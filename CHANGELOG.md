@@ -36,7 +36,6 @@ Each release is also published at
   Used/Left reading. The chip now ranks only percent headlines, the rule the
   tab's `previewMetric` already applies, and a value headline stands in only
   when the provider has no window (fixes #349).
->>>>>>> origin/main
 
 ## [1.32.0] — 2026-10-04
 

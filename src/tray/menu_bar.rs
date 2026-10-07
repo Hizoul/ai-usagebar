@@ -941,6 +941,7 @@ mod tests {
                 Some(selected),
                 true,
                 reading,
+                &HiddenRows::new(),
             )[0]
             .values
             .clone()
