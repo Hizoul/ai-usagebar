@@ -939,16 +939,16 @@ mod tests {
             .create_async()
             .await;
 
-        let (_td, cache) = cache_fixture();
-        let mut f = NamedTempFile::new().unwrap();
-        f.write_all(
+        let (td, cache) = cache_fixture();
+        let creds_path = td.path().join("auth.json");
+        std::fs::write(
+            &creds_path,
             br#"{"tokens":{
                 "access_token":"","refresh_token":"RT-OLD",
                 "id_token":"","account_id":"acc"
             }}"#,
         )
         .unwrap();
-        f.flush().unwrap();
 
         let client = reqwest::Client::new();
         let endpoints = Endpoints {
@@ -957,7 +957,7 @@ mod tests {
         };
         let out = fetch_snapshot(
             &client,
-            f.path(),
+            &creds_path,
             &cache,
             &endpoints,
             Duration::from_secs(0),
