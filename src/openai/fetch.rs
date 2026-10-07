@@ -859,4 +859,172 @@ mod tests {
         assert!(error.is_transient(), "{error}");
         assert_eq!(looks.load(Ordering::SeqCst), ROUTE_ATTEMPTS + 1);
     }
+
+    #[tokio::test]
+    async fn a_blank_access_token_is_a_credentials_error_not_a_rate_limit() {
+        // Signed-out credentials file: `.expect(0)` on every endpoint is the
+        // assertion - a blank Bearer must never reach the network, where it
+        // would earn a 401/429 and the 429 variant would arm the backoff.
+        let mut server = mockito::Server::new_async().await;
+        let refresh = server
+            .mock("POST", "/oauth/token")
+            .expect(0)
+            .create_async()
+            .await;
+        let usage = server
+            .mock("GET", "/backend-api/wham/usage")
+            .expect(0)
+            .create_async()
+            .await;
+
+        let (_td, cache) = cache_fixture();
+        let mut f = NamedTempFile::new().unwrap();
+        f.write_all(
+            br#"{"tokens":{
+                "access_token":"","refresh_token":"",
+                "id_token":"","account_id":"acc"
+            }}"#,
+        )
+        .unwrap();
+        f.flush().unwrap();
+
+        let client = reqwest::Client::new();
+        let endpoints = Endpoints {
+            usage: format!("{}/backend-api/wham/usage", server.url()),
+            token: format!("{}/oauth/token", server.url()),
+        };
+        let err = fetch_snapshot(
+            &client,
+            f.path(),
+            &cache,
+            &endpoints,
+            Duration::from_secs(0),
+        )
+        .await
+        .unwrap_err();
+
+        assert!(
+            matches!(err, AppError::Credentials(ref msg) if msg.contains("run `codex login`")),
+            "blank access token must be a credentials error with the login hint, got {err:?}"
+        );
+        assert!(
+            cache.backoff_remaining().is_none(),
+            "a signed-out file must never arm the 429 backoff"
+        );
+        refresh.assert_async().await;
+        usage.assert_async().await;
+    }
+
+    #[tokio::test]
+    async fn a_blank_access_token_self_repairs_when_refresh_token_is_valid() {
+        let mut server = mockito::Server::new_async().await;
+        let refresh = server
+            .mock("POST", "/oauth/token")
+            .with_status(200)
+            .with_body(
+                r#"{"access_token":"AT-FRESH","refresh_token":"RT-NEW","expires_in":3600}"#,
+            )
+            .expect(1)
+            .create_async()
+            .await;
+        let usage = server
+            .mock("GET", "/backend-api/wham/usage")
+            .match_header("authorization", "Bearer AT-FRESH")
+            .with_status(200)
+            .with_body(
+                r#"{"plan_type":"plus","rate_limit":{
+                    "primary_window":{"used_percent":5,"limit_window_seconds":18000,"reset_at":1779597324},
+                    "secondary_window":null
+                }}"#,
+            )
+            .expect(1)
+            .create_async()
+            .await;
+
+        let (_td, cache) = cache_fixture();
+        let mut f = NamedTempFile::new().unwrap();
+        f.write_all(
+            br#"{"tokens":{
+                "access_token":"","refresh_token":"RT-OLD",
+                "id_token":"","account_id":"acc"
+            }}"#,
+        )
+        .unwrap();
+        f.flush().unwrap();
+
+        let client = reqwest::Client::new();
+        let endpoints = Endpoints {
+            usage: format!("{}/backend-api/wham/usage", server.url()),
+            token: format!("{}/oauth/token", server.url()),
+        };
+        let out = fetch_snapshot(
+            &client,
+            f.path(),
+            &cache,
+            &endpoints,
+            Duration::from_secs(0),
+        )
+        .await
+        .unwrap();
+
+        refresh.assert_async().await;
+        usage.assert_async().await;
+        assert!(!out.stale);
+        assert_eq!(out.snapshot.session.as_ref().unwrap().utilization_pct, 5);
+    }
+
+    #[tokio::test]
+    async fn empty_refresh_token_clears_old_last_error_on_transient_fallback() {
+        let mut server = mockito::Server::new_async().await;
+        let refresh = server
+            .mock("POST", "/oauth/token")
+            .expect(0)
+            .create_async()
+            .await;
+
+        let (_td, cache) = cache_fixture();
+        cache
+            .write_payload(
+                br#"{"plan_type":"plus","rate_limit":{
+                    "primary_window":{"used_percent":12,"limit_window_seconds":18000,"reset_at":1779597324},
+                    "secondary_window":null
+                }}"#,
+            )
+            .unwrap();
+        cache.write_last_error(400, "Invalid request format");
+
+        // Expired credentials with a live access token but no refresh token.
+        let mut f = NamedTempFile::new().unwrap();
+        f.write_all(
+            br#"{"tokens":{
+                "access_token":"AT-VALID","refresh_token":"",
+                "id_token":"","account_id":"acc"
+            }}"#,
+        )
+        .unwrap();
+        f.flush().unwrap();
+
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_millis(200))
+            .build()
+            .unwrap();
+        let endpoints = Endpoints {
+            usage: "http://127.0.0.1:1/backend-api/wham/usage".into(),
+            token: format!("{}/oauth/token", server.url()),
+        };
+        let outcome = fetch_snapshot(
+            &client,
+            f.path(),
+            &cache,
+            &endpoints,
+            Duration::from_secs(0),
+        )
+        .await
+        .unwrap();
+
+        assert!(outcome.stale);
+        assert!(outcome.last_error.is_none());
+        assert!(cache.read_last_error().is_none());
+        refresh.assert_async().await;
+    }
 }
