@@ -27,6 +27,14 @@ Each release is also published at
   which `claude -p` and background agents use) are not counted. The files are
   only read; an idle account gets neither the row nor the field (#356).
 
+### Fixed
+
+- macOS release archives include **AI Usage.app**, with a stable bundle ID
+  and a Finder icon based on the Windows tray artwork. The install guide uses
+  `/Applications` so menu-bar managers can identify the tray, and documents
+  Hidden Bar's macOS 27 issues with bare executables and user-local bundles.
+  Standalone binaries remain available for command-line use and the self-updater.
+
 ## [1.33.0] — 2026-10-07
 
 ### Added
@@ -100,12 +108,6 @@ Each release is also published at
   usage value, logos, provider name, color-coding, then all providers.
 
 ### Fixed
-
-- macOS release archives include **AI Usage.app**, with a stable bundle ID
-  and a Finder icon based on the Windows tray artwork. The install guide uses
-  `/Applications` so menu-bar managers can identify the tray, and documents
-  Hidden Bar's macOS 27 issues with bare executables and user-local bundles.
-  Standalone binaries remain available for command-line use and the self-updater.
 
 - **A metric hidden in Customize no longer sets the provider's percentage.**
   The Native popover's provider tab and the macOS menu bar's Name chip showed
