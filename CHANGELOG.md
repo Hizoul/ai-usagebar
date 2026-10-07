@@ -1,5 +1,14 @@
 ## [Unreleased]
 
+### Fixed
+
+- **The Plasma settings page no longer logs `ReferenceError: index is not
+  defined`.** The "Current vendor" drop-down's delegate declares
+  `required property`, and in Qt 6 that stops `index` being injected, so
+  the `highlighted` binding threw once per row every time the page opened. The
+  delegate now declares `required property int index`. A QML test opens the
+  drop-down and fails on that warning.
+
 ## [1.33.0] — 2026-10-07
 
 ### Added
