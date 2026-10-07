@@ -11,6 +11,31 @@ Each release is also published at
 
 ### Fixed
 
+- **A metric hidden in Customize no longer sets the provider's percentage.**
+  The Native popover's provider tab and the macOS menu bar's Name chip showed
+  the highest percentage among all of a provider's windows, including one
+  switched off in Customize, so Z.AI with Session and Weekly at `0%` and the
+  monthly MCP window hidden at `18%` still read `18%`. Hidden metrics are now
+  left out, so it reads `0%` (`100%` left). With every metric of the provider
+  hidden, the tab falls back to its balance or `—`, and the Name chip moves on
+  to the next provider with a value, as it does for a provider with no value.
+  Stars are unaffected: the Chart and Logos looks still show the starred
+  metrics.
+- **KDE plasmoid: grouped session rows no longer take a panel cell.** The
+  compact representation's cells came from the first metric sections in report
+  order, grouped or not, so a full Claude Code context session (or a SuperGrok
+  product slice) could occupy the second cell beside the quota windows. The
+  cells now apply the same partition the headline does: ungrouped quota rows
+  first, grouped rows standing in only when an entry has nothing else
+  (fixes #348).
+- **macOS menu bar: the Name chip never lets a balance outrank a quota
+  window.** A value-headline metric that also carries a percent (a prepaid
+  balance meter, a Cursor credit grant) entered the chip's highest-window
+  race on the host side only, so the chip could show its money figure while
+  the Native tab that selects it showed the percent window, in either
+  Used/Left reading. The chip now ranks only percent headlines, the rule the
+  tab's `previewMetric` already applies, and a value headline stands in only
+  when the provider has no window (fixes #349).
 - **macOS menu bar shows DeepInfra's USD balance.** The Swift balance mirror
   did not include `{dif_balance}` in its FORMAT slot or balance field dispatch,
   so a DeepInfra entry rendered with no balance value. It is appended at
