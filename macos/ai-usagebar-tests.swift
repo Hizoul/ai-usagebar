@@ -568,6 +568,33 @@ func testParserBalances() {
     assertEqual(kiro?.sessionLabel, "Credits", "kiro session label")
     assertEqual(kiro?.sessionTag, "cr", "kiro session tag")
     assertNil(kiro?.weekly, "kiro suppresses duplicate weekly window")
+
+    // Devin: daily quota at 54-56 (empty session alias on 1, 2, 13), weekly at 3, 4, 14.
+    let dvn = snapshot(FORMAT, vendor: "devin",
+                       fields: fields(through: 56, set: [
+                          0: "Devin", 3: "31", 4: "2d", 14: "40", 16: "dvn",
+                          54: "15", 55: "2h", 56: "25"
+                       ]))
+    assertEqual(dvn?.hasUsageWindows, true, "devin shows windows")
+    assertNil(dvn?.creditBalance, "devin has no balance-only creditBalance")
+    assertEqual(dvn?.session?.pct, 15, "devin daily pct mapped to session window")
+    assertEqual(dvn?.session?.reset, "2h", "devin daily reset")
+    assertEqual(dvn?.session?.elapsed, 25, "devin daily elapsed")
+    assertEqual(dvn?.sessionLabel, "Daily", "devin session label is Daily")
+    assertEqual(dvn?.sessionTag, "1d", "devin session tag is 1d")
+    assertEqual(dvn?.weekly?.pct, 31, "devin weekly pct")
+    assertEqual(dvn?.weekly?.reset, "2d", "devin weekly reset")
+    assertEqual(dvn?.weekly?.elapsed, 40, "devin weekly elapsed")
+    assertEqual(dvn?.weeklyLabel, "Weekly", "devin weekly label is Weekly")
+    assertEqual(dvn?.weeklyTag, "7d", "devin weekly tag is 7d")
+
+    let dvnOldBinary = snapshot(FORMAT, vendor: "devin",
+                                fields: fields(through: 16, set: [
+                                   0: "Devin", 3: "31", 4: "2d", 14: "40", 16: "dvn"
+                                ]))
+    assertEqual(dvnOldBinary?.hasUsageWindows, true, "devin old binary shows windows")
+    assertNil(dvnOldBinary?.session, "devin old binary has no daily window")
+    assertEqual(dvnOldBinary?.weekly?.pct, 31, "devin old binary still parses weekly window")
 }
 
 // ─── Run ─────────────────────────────────────────────────────────────────
