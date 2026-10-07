@@ -24,6 +24,15 @@
   blank access token is now a credentials error with the login hint, no request
   is fired, and no backoff is armed (#370).
 
+- **macOS menu bar: wire Devin daily and weekly quotas.** The Devin CLI reports
+  daily and weekly quota windows but deliberately avoids faking a 5-hour
+  session on the session alias, so selecting Devin left the daily quota
+  unparsed and the primary bar blank. Append `{devin_daily_pct}`,
+  `{devin_daily_reset}`, and `{devin_daily_elapsed}` to the menu bar `FORMAT`
+  string at slots 54-56, route the daily quota to the primary window with the
+  `1d` tag and `Daily` label, and keep the weekly window on the `7d` tag and
+  `Weekly` label.
+
 ## [1.33.0] — 2026-10-07
 
 ### Added
