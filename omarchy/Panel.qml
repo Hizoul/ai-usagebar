@@ -668,10 +668,17 @@ Panel {
           else if (row.label === "Other Models") api = row.percent
         }
         if (auto !== null && api !== null && auto !== undefined && api !== undefined) {
+          // This branch exists for a STALE Model.js during a plugin hot
+          // reload, so it must not call any Model.* helper the fresh panel
+          // code expects — percentText included. Format locally.
+          var fmt = function(p) {
+            var v = (showAs === "left") ? (100 - p) : p
+            return v + "%"
+          }
           pools = {
-            text: Model.percentText(auto, showAs) + " · " + Model.percentText(api, showAs),
-            tooltip: "Cursor Models " + Model.percentText(auto, showAs)
-              + " · Other Models " + Model.percentText(api, showAs),
+            text: fmt(auto) + " · " + fmt(api),
+            tooltip: "Cursor Models " + fmt(auto)
+              + " · Other Models " + fmt(api),
             segments: [],
             tooltipRows: []
           }

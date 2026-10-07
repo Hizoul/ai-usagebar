@@ -172,6 +172,7 @@ export function Settings({
           <ShortcutRecorder
             error={payload.shortcutError}
             value={payload.shortcut}
+            os={payload.os}
             onChange={(value) => sendCommand("set-shortcut", { value })}
           />
         </SettingRow>

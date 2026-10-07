@@ -464,6 +464,7 @@ pub enum VendorSnapshot {
     OrcaRouter(OrcaRouterSnapshot),
     ModelStudio(ModelStudioSnapshot),
     Lyceum(LyceumSnapshot),
+    Devin(DevinSnapshot),
     /// A `[[custom]]` provider. Which one is not in the snapshot: the caller
     /// that fetched it holds the `CustomProviderConfig`, and the cache
     /// directory is keyed by its `id`.
@@ -1047,6 +1048,18 @@ pub struct ModelStudioSnapshot {
     pub session: Option<UsageWindow>,
     /// Weekly window. `None` when `per1WeekPercentage` was absent.
     pub weekly: Option<UsageWindow>,
+}
+
+/// Devin CLI quota snapshot. The CLI reports remaining percentages, while
+/// renderers and report consumers use consumed percentages consistently.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DevinSnapshot {
+    pub daily: Option<UsageWindow>,
+    pub weekly: Option<UsageWindow>,
+    /// Exact value from the CLI's overageBalanceMicros field. Its USD meaning
+    /// is empirically observed for the tested account, not a universal API
+    /// contract; only renderers perform that display conversion.
+    pub overage_balance_micros: Option<i64>,
 }
 
 /// Worst-of severity class for the Waybar bar text color. Mirrors

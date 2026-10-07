@@ -207,6 +207,7 @@ fn credential_present(cfg: &Config, id: VendorId, probes: &Probes) -> bool {
         VendorId::ModelStudio => {
             any_exists(probes, [crate::modelstudio::config_path(&cfg.modelstudio)])
         }
+        VendorId::Devin => any_exists(probes, [crate::devin::credentials_path(&cfg.devin)]),
         // Nothing to check: handled by `needs_credential`, never reached.
         VendorId::Antigravity => true,
         // Key-only providers: the environment and inline checks above are the
@@ -510,6 +511,21 @@ mod tests {
         assert_eq!(codex.kind, AuthKind::Oauth);
         assert!(!codex.configured);
         assert_eq!(codex.login, "codex login");
+    }
+
+    #[test]
+    fn devin_catalog_row_uses_only_its_configured_local_credential_file() {
+        let mut cfg = Config::default();
+        let path = PathBuf::from("/fixture/devin/credentials.toml");
+        cfg.devin.credentials_path = Some(path.clone());
+        let exists = |candidate: &Path| candidate == path;
+        let rows = statuses_with(&cfg, &probes(&|_| false, &exists, &|_| false));
+        let devin = row(&rows, "devin");
+        assert_eq!(devin.kind, AuthKind::Local);
+        assert!(devin.needs_credential);
+        assert!(devin.configured);
+        assert_eq!(devin.env, "");
+        assert_eq!(devin.login, "");
     }
 
     #[test]

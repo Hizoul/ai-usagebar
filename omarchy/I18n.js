@@ -3,12 +3,13 @@
 // display via displayLabel(). Locale "auto" follows Qt.locale() / $LANG.
 
 var DEFAULT_LOCALE = "en"
-var SUPPORTED = ["en", "ru", "pt-BR"]
+var SUPPORTED = ["en", "ru", "pt-BR", "ko"]
 
 var MONTHS = {
   en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
   ru: ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"],
-  "pt-BR": ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]
+  "pt-BR": ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"],
+  ko: ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"]
 }
 
 var LABELS = {
@@ -46,6 +47,16 @@ var LABELS = {
     "Gemini": "Gemini",
     "Claude & GPT OSS": "Claude e GPT OSS",
     "Resets": "Redefinições",
+    "Auto + Composer": "Auto + Composer"
+  },
+  ko: {
+    "Cursor Models": "Cursor 모델",
+    "Other Models": "기타 모델",
+    "On-Demand": "온디맨드",
+    "Credits": "크레딧",
+    "Cursor Other Models": "Cursor 기타 모델",
+    "Cursor On Demand": "Cursor 온디맨드",
+    "Resets": "초기화",
     "Auto + Composer": "Auto + Composer"
   }
 }
@@ -131,6 +142,7 @@ var MESSAGES = {
     "language.en": "English",
     "language.ru": "Русский",
     "language.pt-BR": "Português (Brasil)",
+    "language.ko": "한국어",
     "primary.help": "Used by the CLI, Waybar, TUI, and as this panel's preferred provider.",
     "providers.help": "Which providers are fetched at all. Turn one off and it leaves the bar, panel and reports until you switch it back on; turning one on takes effect on the next refresh. Saving a credential for a provider keeps switching it on.",
     "auth.help": "OAuth login opens in a terminal. Complete it, then return here, choose the provider as primary, save, and press Refresh.",
@@ -180,6 +192,7 @@ var MESSAGES = {
     "ready": "Ready",
     "error": "Error",
     "reset.due": "Reset due",
+    "reset.date": "{month} {day}",
     "reset.in": "Resets in {duration} · {clock}",
     "updated.unavailable": "Updated time unavailable",
     "updated.just_now": "Updated just now",
@@ -257,6 +270,7 @@ var MESSAGES = {
     "language.en": "English",
     "language.ru": "Русский",
     "language.pt-BR": "Português (Brasil)",
+    "language.ko": "한국어",
     "primary.help": "Используется CLI, Waybar, TUI и как предпочтительный провайдер этой панели.",
     "providers.help": "Какие провайдеры вообще опрашиваются. Выключенный пропадает из трея, панели и отчётов, пока не включите снова; включение действует со следующего обновления. Сохранение ключа само включает провайдера.",
     "auth.help": "OAuth открывается в терминале. Завершите вход, вернитесь сюда, выберите провайдера основным, сохраните и нажмите «Обновить».",
@@ -306,6 +320,7 @@ var MESSAGES = {
     "ready": "Готово",
     "error": "Ошибка",
     "reset.due": "Пора сбросить",
+    "reset.date": "{month} {day}",
     "reset.in": "Сброс через {duration} · {clock}",
     "updated.unavailable": "Время обновления недоступно",
     "updated.just_now": "Обновлено только что",
@@ -383,6 +398,7 @@ var MESSAGES = {
     "language.en": "English",
     "language.ru": "Русский",
     "language.pt-BR": "Português (Brasil)",
+    "language.ko": "한국어",
     "primary.help": "Usado pelo CLI, Waybar, TUI e como provedor preferido deste painel.",
     "providers.help": "Quais provedores são consultados. Desligar remove da barra, do painel e dos relatórios até ligar de novo; ligar vale na próxima atualização. Salvar uma credencial mantém o provedor ligado.",
     "auth.help": "O login OAuth abre no terminal. Conclua, volte aqui, escolha o provedor como principal, salve e pressione Atualizar.",
@@ -432,6 +448,7 @@ var MESSAGES = {
     "ready": "Pronto",
     "error": "Erro",
     "reset.due": "Redefinição devida",
+    "reset.date": "{month} {day}",
     "reset.in": "Redefine em {duration} · {clock}",
     "updated.unavailable": "Horário de atualização indisponível",
     "updated.just_now": "Atualizado agora",
@@ -440,6 +457,134 @@ var MESSAGES = {
     "duration.days_hours": "{days}d {hours}h",
     "duration.hours_minutes": "{hours}h {minutes}m",
     "duration.minutes": "{minutes}m"
+  },
+  ko: {
+    "app.name": "AI 사용량",
+    "hero.settings": "설정",
+    "hero.settings_meta": "표시, 제공자, API 키",
+    "hero.settings_detail": "저장하기 전까지 기존 설정은 그대로 유지됩니다.",
+    "hero.usage_limits": "사용량과 한도",
+    "hero.loading": "제공자 불러오는 중",
+    "hero.usage_report": "사용량 보고서",
+    "hero.provider_unavailable": "제공자를 사용할 수 없음",
+    "action.refresh": "사용량 새로 고침",
+    "action.settings": "설정",
+    "action.back": "사용량으로 돌아가기",
+    "action.retry": "다시 시도",
+    "action.terminal_settings": "터미널 설정 열기",
+    "action.save": "설정 저장",
+    "action.saving": "저장 중…",
+    "metric.left": "{percent}% 남음",
+    "metrics.help": "각 공급자가 표시할 지표를 선택하세요. 끈 지표는 패널, 상단 바, 툴팁에서 사라지고, 최고 백분율을 고를 때 무시됩니다. 마지막으로 켜진 지표는 끌 수 없습니다. 즉시 적용됩니다.",
+    "metrics.window_monthly": "월간",
+    "metrics.window_session": "세션 (5시간)",
+    "metrics.window_weekly": "주간 (7일)",
+    "pool.antigravity_gemini": "Gemini",
+    "pool.antigravity_third_party": "Claude & GPT OSS",
+    "section.metrics": "지표",
+    "section.show_as": "사용량 표시",
+    "section.usage": "사용량",
+    "section.usage_balance": "사용량 및 잔액",
+    "section.settings": "설정",
+    "section.display": "표시",
+    "section.bar_window": "상단 바 기간",
+    "section.language": "언어",
+    "section.primary": "기본 제공자",
+    "section.providers": "제공자",
+    "section.auth": "인증",
+    "section.credentials": "자격 증명",
+    "loading.config": "설정 불러오는 중…",
+    "loading.providers": "설정된 제공자를 모으는 중…",
+    "empty.no_usage": "사용량을 보고한 제공자가 없습니다.",
+    "show_as.help": "백분율을 같은 기간에서 사용한 양으로 읽을지 남은 양으로 읽을지 선택합니다. 즉시 적용됩니다.",
+    "show_as.left": "남음",
+    "show_as.used": "사용함",
+    "status.cached": "캐시된 데이터 · 제공자가 새 응답을 주지 못했습니다.",
+    "status.refresh_failed": "새로 고치지 못해 이전 보고서를 표시합니다. {error}",
+    "status.filter_miss": "‘{id}’와 일치하는 항목이 없습니다. 제공자 설정을 비우거나 ai-usagebar usage --json의 id를 사용하세요.",
+    "status.saved": "설정을 저장했습니다. 사용량을 새로 고치는 중입니다.",
+    "status.nous_login": "터미널에서 Nous Research 로그인을 엽니다.",
+    "status.copilot_login": "터미널에서 GitHub 로그인을 엽니다. 완료한 뒤 GitHub Copilot을 기본으로 선택하고 저장하세요.",
+    "status.vendor_on": "켬 — 보고서에 포함합니다.",
+    "status.vendor_off": "끔 — 가져오지 않습니다.",
+    "status.will_clear": "삭제 예정",
+    "status.env_set": "환경 변수에 설정됨",
+    "status.inline_set": "설정 파일에 저장됨",
+    "status.not_set": "설정 안 됨",
+    "tip.pool_gemini": "Gemini · {percent}%",
+    "tip.pool_third_party": "Claude & GPT OSS · {percent}%",
+    "toggle.brand_icons": "공급자 로고 표시",
+    "toggle.brand_icons_desc": "상단 바와 패널에 각 공급자의 고유 마크를 표시합니다. 끄면 이전의 일반 아이콘으로 돌아갑니다: 공급자가 하나일 때는 로봇 아이콘, \"상단 바에 모든 공급자 표시\"가 켜져 있을 때는 각 칩에 공급자의 짧은 코드를 표시합니다. 기본적으로 켜져 있습니다. 즉시 적용됩니다.",
+    "toggle.show_value": "상단 바에 사용량 값 표시",
+    "toggle.show_value_desc": "끄면 상단 바에 아이콘만 표시합니다. 패널과 툴팁에는 전체 사용량이 그대로 나옵니다. 즉시 적용됩니다.",
+    "toggle.show_provider": "상단 바에 제공자 이름 표시",
+    "toggle.show_provider_desc": "켜면 Waybar의 {vendor_short}처럼 상단 바 항목 앞에 제공자 약칭(cld, gpt, zai, agy)을 붙입니다. 기본값은 끔입니다. 즉시 적용됩니다.",
+    "toggle.show_all": "상단 바에 모든 제공자 표시",
+    "toggle.show_all_desc": "켜면 하나씩 순환하지 않고 설정된 모든 제공자의 아이콘과 사용량을 상단 바에 한꺼번에 표시합니다. 클릭하면 패널이 열리고, 휠로 볼 항목을 고릅니다. 기본값은 끔입니다. 즉시 적용됩니다.",
+    "toggle.color_code": "사용량 수준별 색상 표시",
+    "toggle.color_code_desc": "사용량이 오르면 Omarchy 테마 색으로 바 값, 패널 미터, 툴팁을 초록 → 노랑 → 주황 → 빨강으로 칠합니다. 끄면 모두 한 가지 전경색을 씁니다. 기본값은 끔입니다. 즉시 적용됩니다.",
+    "bar_window.help": "상단 바에 표시할 할당량입니다. 해당 기간이 없는 제공자는 최고값으로 대체합니다. 즉시 적용됩니다.",
+    "bar_window.auto": "최고값(자동)",
+    "bar_window.session": "5시간(세션)",
+    "bar_window.weekly": "7일(주간)",
+    "bar_window.monthly": "월간",
+    "language.help": "패널과 설정에 쓸 언어입니다. 자동은 시스템 언어를 따릅니다.",
+    "language.auto": "시스템(자동)",
+    "language.en": "English",
+    "language.ru": "Русский",
+    "language.pt-BR": "Português (Brasil)",
+    "language.ko": "한국어",
+    "primary.help": "CLI, Waybar, TUI에서 사용하고 이 패널에서 우선 표시하는 제공자입니다.",
+    "providers.help": "가져올 제공자를 고릅니다. 끈 제공자는 다시 켤 때까지 바, 패널, 보고서에서 빠지고, 켠 제공자는 다음 새로 고침부터 반영됩니다. 제공자의 자격 증명을 저장하면 그 제공자는 켜진 상태로 유지됩니다.",
+    "auth.help": "OAuth 로그인은 터미널에서 열립니다. 완료한 뒤 이곳으로 돌아와 제공자를 기본으로 선택하고 저장한 다음 새로 고치세요.",
+    "auth.nous": "Nous Research로 로그인",
+    "auth.copilot": "GitHub Copilot으로 로그인",
+    "credentials.help": "저장된 값은 셸에 불러오지 않습니다. 현재 값을 유지하려면 비워 두고, 설정 파일의 자격 증명을 지우려면 삭제 버튼을 누르세요. 환경 변수가 우선합니다.",
+    "credentials.keep_blank": "현재 자격 증명을 유지하려면 비워 두세요",
+    "credentials.paste": "{label} 붙여넣기",
+    "credentials.keep_key": "저장된 키 유지",
+    "credentials.clear_key": "설정 파일에 저장된 키 삭제",
+    "credentials.credential": "자격 증명",
+    "credentials.new_key": "새 키",
+    "credentials.env_override": "환경 변수 우선",
+    "credentials.stored": "저장됨",
+    "credentials.not_configured": "설정 안 됨",
+    "detail.auto_composer": "Auto + Composer",
+    "detail.named_api_on": "지정 / API 모델 · 온디맨드 켬",
+    "detail.named_api_off": "지정 / API 모델 · 온디맨드 끔",
+    "detail.used_of": "{limit} 중 {used} 사용({percent}%)",
+    "detail.on_demand_used_of": "온디맨드 {limit} 중 {used} 사용({percent}%)",
+    "credentials.api_key": "API 키",
+    "credentials.note.admin_spend": "관리자 키 — 월간 지출",
+    "credentials.note.billing_spend": "결제 잔액과 월간 지출",
+    "credentials.note.coding_plan": "코딩 플랜 사용량",
+    "credentials.note.account_balance": "계정 잔액",
+    "credentials.note.management_key": "추론 키가 아닌 관리 키",
+    "credentials.note.token_plan": "Token Plan 구독 키",
+    "credentials.note.usage_quota": "사용 할당량",
+    "credentials.note.credit_balance": "크레딧 잔액",
+    "error.binary_old": "설치된 ai-usagebar 바이너리가 네이티브 설정보다 오래된 버전입니다. 패키지를 업데이트하거나 터미널 설정을 사용하세요.",
+    "error.apply": "설정 명령이 저장을 확인하지 않았습니다.",
+    "pool.models": "Cursor 모델",
+    "pool.other": "기타 모델",
+    "pool.demand": "온디맨드",
+    "pool.credits": "크레딧",
+    "tip.pool_models": "Cursor 모델 · {percent}%",
+    "tip.pool_other": "Cursor 기타 모델 · {percent}%",
+    "tip.pool_demand": "Cursor 온디맨드 · {percent}%",
+    "tip.cached": "캐시됨",
+    "ready": "준비됨",
+    "error": "오류",
+    "reset.due": "초기화 예정",
+    "reset.date": "{month} {day}일",
+    "reset.in": "{duration} 후 초기화 · {clock}",
+    "updated.unavailable": "업데이트 시각 없음",
+    "updated.just_now": "방금 업데이트됨",
+    "updated.ago": "{duration} 전 업데이트됨",
+    "duration.now": "지금",
+    "duration.days_hours": "{days}일 {hours}시간",
+    "duration.hours_minutes": "{hours}시간 {minutes}분",
+    "duration.minutes": "{minutes}분"
   }
 }
 
@@ -449,6 +594,7 @@ function normalizeLocaleTag(value) {
   if (text.indexOf("pt") === 0) return "pt-BR"
   if (text.indexOf("ru") === 0) return "ru"
   if (text.indexOf("en") === 0) return "en"
+  if (text.indexOf("ko") === 0) return "ko"
   var dash = text.indexOf("-")
   var under = text.indexOf("_")
   var cut = dash >= 0 ? dash : under
@@ -576,7 +722,7 @@ function formatReset(resetAt, nowMs, locale) {
   var at = new Date(resetMs)
   var clock = pad2(at.getHours()) + ":" + pad2(at.getMinutes())
   if (!isSameLocalDay(at, new Date(Number(nowMs))))
-    clock = monthName(locale, at.getMonth()) + " " + at.getDate() + " " + clock
+    clock = t(locale, "reset.date", { month: monthName(locale, at.getMonth()), day: at.getDate() }) + " " + clock
   return t(locale, "reset.in", {
     duration: formatDuration(remaining, locale),
     clock: clock

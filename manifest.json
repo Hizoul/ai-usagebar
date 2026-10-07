@@ -103,7 +103,8 @@
           "auto",
           "en",
           "pt-BR",
-          "ru"
+          "ru",
+          "ko"
         ],
         "defaultValue": "auto"
       },

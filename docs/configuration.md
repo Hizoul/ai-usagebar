@@ -24,7 +24,7 @@ ai-usagebar-tui --config ./config.test.toml
 #                         # | zai | openrouter | deepseek | deepinfra | kimi | kilo | novita
 #                         # | moonshot | grok | supergrok | grokbot | antigravity | cursor
 #                         # | minimax | kiro | nous | opencode-go | commandcode
-#                         # | orcarouter | modelstudio | lyceum
+#                         # | orcarouter | modelstudio | lyceum | devin
 
 [context]
 enabled = false           # opt in, then press c in ai-usagebar-tui
@@ -237,7 +237,29 @@ enabled = false            # disabled by default; enable after `bl auth login --
 # read-only. The region×site pair recorded there picks the console gateway
 # (cn-beijing/ap-southeast-1 × domestic/international).
 # config_dir = "/home/you/.bailian"   # or set BAILIAN_CONFIG_DIR at runtime
+
+[devin]
+enabled = false            # disabled by default; enable after signing in with Devin CLI
+# Reuses the official Devin CLI credential file read-only. Defaults to
+# %APPDATA%/devin/credentials.toml on Windows, or
+# ${XDG_DATA_HOME:-~/.local/share}/devin/credentials.toml on Linux and macOS
+# (the CLI's documented paths; macOS is untested here).
+# An explicit credentials_path needs no home directory to resolve.
+# credentials_path = "/home/you/.local/share/devin/credentials.toml"
 ```
+
+Devin remains opt-in when its CLI login is present. First-run detection and
+`detect --all` do not enable it; set `enabled = true` explicitly to activate
+the provider.
+
+Devin reports daily and weekly remaining percentages, which ai-usagebar
+converts to consumed percentages for consistent meters. A window whose reset
+time arrives without a remaining percentage (the encoding omits zero values) is
+shown as fully used. Its optional
+`overageBalanceMicros` value is displayed as USD to six decimal places based on
+the tested account; that currency interpretation is not a verified universal
+contract. The existing CLI token is read only for the status request and cache
+identity. ai-usagebar does not sign in, refresh, or rewrite Devin credentials.
 
 For more than one OpenRouter key, see the
 [OpenRouter account guide](openrouter-accounts.md). The existing singular
@@ -327,6 +349,12 @@ Balance vendors default to `"amount"`; `[openrouter]`, which always has a
 denominator of its own, defaults to `"percent"`. Setting `display_limit` does
 not switch the headline by itself, and choosing `"percent"` with no limit from
 either source leaves the amount on the bar rather than inventing a percentage.
+
+`[nous]` takes `headline` as well, and needs no `display_limit`: its plan's
+monthly credits are already the percentage's denominator. `"amount"` puts the
+credits still usable on the bar — the Portal's total usable credits, falling
+back to top-up credits and then to subscription credits — and leaves the
+consumed percentage in the meter, the severity colour and the detail line.
 
 The Omarchy panel, the KDE plasmoid and the tray popover (Windows and macOS)
 read the metric's own `headline` field out of `usage --json` rather than

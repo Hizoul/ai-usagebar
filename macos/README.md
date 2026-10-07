@@ -16,7 +16,8 @@ of the provider selected in the popover (the Native style's tabs; the
 `[ui] primary` provider, then the first one with a value, until you pick one).
 Like Quattro's default window, it takes the highest of all the provider's
 windows, starred or not, the same value its tab shows: a spent weekly limit
-reads `100%` even while the 5h session reads `0%`. **Show Short Name** turns the name off,
+reads `100%` even while the 5h session reads `0%`. A metric hidden in
+Customize does not count. **Show Short Name** turns the name off,
 leaving the logo and the value; a provider with no logo keeps its name. The
 Logos and Name values follow **Preferences → Show Usage As**, like the popover's
 tabs and meters: what is left, by default, or what is used. With
@@ -33,6 +34,11 @@ footer's Options menu as a native menu, in the popover's language: Customize
 (Classic only), Settings, Refresh, Detect Providers, Open TUI, Start at Login,
 Check for Updates, About, and Quit; the items that name a screen open the
 popover on it. No Dock icon.
+
+The popover also toggles from anywhere with a configurable global shortcut,
+**Settings → General → Global Shortcut** (stored as `[tray] shortcut` in
+`config.toml`). On macOS the Command and Option keys are shown as `Cmd` and
+`Option`; the stored value keeps the canonical `Win`/`Alt` spelling.
 
 ![Right-click menu under the menu bar icon — Customize, Settings, Refresh, Detect Providers, Open TUI, Start at Login (checked), Check for Updates, About and Quit](../screenshots/macos-tray-right-click-menu.png)
 
@@ -85,8 +91,9 @@ The selector dynamically discovers **all providers** that ship in the binary via
   pool from the Grok Bot desktop app).
 - **Included-usage pools:** Cursor (Cursor Models and Other Models, both reset
   on the billing cycle).
-- **Balance-only:** OpenRouter, DeepSeek, Kimi, Kilo, Novita, Moonshot, Grok
-  (xAI), and Anthropic API. These have no 5h/weekly quota windows, so the app
+- **Balance-only:** OpenRouter, DeepSeek, DeepInfra, Kimi, Kilo, Novita,
+  Moonshot, Grok (xAI), Lyceum, and Anthropic API. These have no 5h/weekly
+  quota windows, so the app
   shows their balance/credits in the header (`cr <amount>`) and suppresses the
   session/weekly rows. Anthropic API additionally renders a spend-vs-limit
   bar when a monthly limit is configured.

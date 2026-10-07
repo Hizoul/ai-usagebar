@@ -106,6 +106,9 @@ pub fn has_local_credentials(vendor: VendorId, config: &Config) -> bool {
         VendorId::ModelStudio => crate::modelstudio::config_path(&config.modelstudio)
             .map(|path| crate::modelstudio::creds::config_present_at(&path))
             .unwrap_or(false),
+        VendorId::Devin => crate::devin::credentials_path(&config.devin)
+            .map(|path| path.is_file())
+            .unwrap_or(false),
     }
 }
 
@@ -284,9 +287,12 @@ pub struct DetectReport {
 
 /// The pure decision. Candidates are `all` minus `state.known`, or every
 /// vendor in `all` when `force`. A candidate is enabled when `probe` says it
-/// has credentials and the config doesn't already enable it. `known` becomes
-/// the union of the old set and `all`, in [`VendorId::all`] order, deduped —
-/// so a vendor is considered once per install, and once more per `force`.
+/// has credentials and the config doesn't already enable it. A vendor that is
+/// not [`VendorId::auto_detectable`] (Devin) is neither probed nor counted:
+/// its credentials are discoverable, but it is opt-in and detection, including
+/// `--all`, must not activate it. `known` becomes the union of the old set and
+/// `all`, in [`VendorId::all`] order, deduped — so a vendor is considered once
+/// per install, and once more per `force`.
 pub fn plan(
     config: &Config,
     state: &DetectState,
@@ -297,6 +303,7 @@ pub fn plan(
     let candidates: Vec<VendorId> = all
         .iter()
         .copied()
+        .filter(|vendor| vendor.auto_detectable())
         .filter(|vendor| force || !state.known.contains(vendor))
         .collect();
     let probed = candidates.len();
@@ -454,6 +461,14 @@ mod tests {
         assert!(!has_local_credentials(VendorId::Lyceum, &config));
     }
 
+    /// Vendors detection may probe: everything except opt-in-only providers.
+    fn detectable_count() -> usize {
+        VendorId::all()
+            .iter()
+            .filter(|vendor| vendor.auto_detectable())
+            .count()
+    }
+
     fn probe_in(present: &[VendorId]) -> impl Fn(VendorId) -> bool + '_ {
         move |vendor| present.contains(&vendor)
     }
@@ -512,6 +527,63 @@ mod tests {
         let plan = plan(&config, &state, &all, false, probe_in(&present));
 
         assert_eq!(plan.enable, vec![VendorId::Cursor]);
+    }
+
+    #[test]
+    fn an_opt_in_vendor_is_neither_probed_nor_counted() {
+        let config = Config::default();
+        let state = DetectState::default();
+        let all = [VendorId::Cursor, VendorId::Devin, VendorId::Kiro];
+        for force in [false, true] {
+            let probed_vendors = std::cell::RefCell::new(Vec::new());
+            let plan = plan(&config, &state, &all, force, |vendor| {
+                probed_vendors.borrow_mut().push(vendor);
+                true
+            });
+            assert_eq!(plan.enable, vec![VendorId::Cursor, VendorId::Kiro]);
+            assert_eq!(plan.probed, 2, "force={force}");
+            assert!(!probed_vendors.borrow().contains(&VendorId::Devin));
+            assert!(plan.known.contains(&VendorId::Devin));
+        }
+        assert!(
+            VendorId::all()
+                .iter()
+                .all(|vendor| vendor.auto_detectable() == (*vendor != VendorId::Devin))
+        );
+    }
+
+    #[test]
+    fn local_devin_credentials_never_auto_enable_an_opt_in_vendor() {
+        let dir = TempDir::new().unwrap();
+        let config_path = dir.path().join("config.toml");
+        let state_path = dir.path().join("detect.json");
+        let credential_path = dir.path().join("credentials.toml");
+        std::fs::write(&credential_path, "present").unwrap();
+
+        for (contents, expected_enabled) in [
+            ("", false),
+            ("[devin]\nenabled = false\n", false),
+            ("[devin]\nenabled = true\n", true),
+        ] {
+            std::fs::write(&config_path, contents).unwrap();
+            for force in [false, true] {
+                let report = run_once_with(Some(&config_path), &state_path, force, |vendor, _| {
+                    vendor == VendorId::Devin && credential_path.is_file()
+                })
+                .unwrap();
+
+                assert!(
+                    report.enabled.is_empty(),
+                    "{contents:?}, force={force}: {report:?}"
+                );
+                assert!(credential_path.is_file());
+                assert!(report.known.contains(&VendorId::Devin));
+                assert_eq!(
+                    Config::load_from(&config_path).unwrap().devin.enabled,
+                    expected_enabled
+                );
+            }
+        }
     }
 
     #[test]
@@ -659,6 +731,23 @@ mod tests {
         assert!(!copilot_hosts_present_at(dir.path()));
     }
 
+    #[test]
+    fn devin_local_credential_probe_checks_only_the_configured_file() {
+        let dir = TempDir::new().unwrap();
+        let credential_path = dir.path().join("credentials.toml");
+        let mut config = Config::default();
+        config.devin.credentials_path = Some(credential_path.clone());
+        assert!(!has_local_credentials(VendorId::Devin, &config));
+
+        std::fs::write(&credential_path, "not parsed during detection").unwrap();
+        assert!(has_local_credentials(VendorId::Devin, &config));
+
+        let directory = dir.path().join("directory");
+        std::fs::create_dir(&directory).unwrap();
+        config.devin.credentials_path = Some(directory);
+        assert!(!has_local_credentials(VendorId::Devin, &config));
+    }
+
     /// The whole cycle against a temp config and state, with the probe faked:
     /// enables land in the config with the user's text intact, the state
     /// records every vendor, and a second run has nothing left to do.
@@ -685,7 +774,7 @@ enabled = false
         // neither written nor reported as enabled.
         assert_eq!(report.enabled, vec![VendorId::Cursor]);
         assert_eq!(report.known, VendorId::all());
-        assert_eq!(report.probed, VendorId::all().len());
+        assert_eq!(report.probed, detectable_count());
         let after = Config::load_from(&config_path).unwrap();
         assert!(!after.is_enabled(VendorId::Zai), "an opt-out must survive");
         assert!(after.is_enabled(VendorId::Cursor));
@@ -725,7 +814,7 @@ enabled = false
         // user who wants Cursor back turns it on in Settings or in the file.
         let forced = run_once_with(Some(&config_path), &state_path, true, probe).unwrap();
         assert!(forced.enabled.is_empty(), "{forced:?}");
-        assert_eq!(forced.probed, VendorId::all().len());
+        assert_eq!(forced.probed, detectable_count());
         assert!(
             !Config::load_from(&config_path)
                 .unwrap()
@@ -806,7 +895,7 @@ enabled = false
         assert_eq!(json["enabled"], serde_json::json!(["cursor"]));
         assert_eq!(
             json["probed"],
-            serde_json::json!(VendorId::all().len() - 2),
+            serde_json::json!(detectable_count() - 2),
             "the two known vendors were not candidates"
         );
         let known = json["known"].as_array().unwrap();
