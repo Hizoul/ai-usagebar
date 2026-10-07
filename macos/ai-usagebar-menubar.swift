@@ -91,7 +91,10 @@ let POINT_CRITICAL_MIN = 10
 // `{oll_monthly_reset}` (50-51) carry Ollama Cloud's calendar-month pool;
 // empty when the account reports session/weekly instead. `{lyceum_balance}` (52)
 // carries Lyceum's USD balance. `{dif_balance}` (53) carries DeepInfra's
-// USD balance. A final literal
+// USD balance. `{devin_daily_pct}` / `{devin_daily_reset}` /
+// `{devin_daily_elapsed}` (54-56) carry Devin's daily quota pool (empty when
+// not selected); Devin's weekly pool uses the shared `{weekly_*}` placeholders.
+// A final literal
 // sentinel absorbs the widget's stale suffix, preserving these fields.
 let FORMAT = "{plan};;{session_pct};;{session_reset};;{weekly_pct};;{weekly_reset};;" +
              "{sonnet_pct};;{sonnet_reset};;{extra_pct};;{extra_spent};;{extra_limit};;" +
@@ -107,7 +110,8 @@ let FORMAT = "{plan};;{session_pct};;{session_reset};;{weekly_pct};;{weekly_rese
              "{sgk_period};;{minimax_video_pct};;{minimax_video_reset};;" +
              "{minimax_video_elapsed};;{minimax_video_weekly_pct};;{minimax_video_weekly_reset};;{minimax_video_weekly_elapsed};;" +
              "{copilot_chat_limit};;{copilot_completions_limit};;{copilot_premium_limit};;" +
-             "{oll_monthly_pct};;{oll_monthly_reset};;{lyceum_balance};;{dif_balance}"
+             "{oll_monthly_pct};;{oll_monthly_reset};;{lyceum_balance};;{dif_balance};;" +
+             "{devin_daily_pct};;{devin_daily_reset};;{devin_daily_elapsed}"
 
 let FORMAT_WITH_SENTINEL = FORMAT + ";;__aiub_end__"
 
@@ -717,6 +721,13 @@ func parse(_ text: String, vendor: String) -> Snapshot? {
         weeklyTag = "7d"
         sessionLabel = "Gemini 5h"
         weeklyLabel = "Gemini Weekly"
+    case "devin":
+        sessionWindow = quotaWindow(54, 55, 56)
+        weeklyWindow = quotaWindow(3, 4, 14)
+        sessionTag = "1d"
+        weeklyTag = "7d"
+        sessionLabel = "Daily"
+        weeklyLabel = "Weekly"
     default:
         weeklyWindow = quotaWindow(3, 4, 14)
         sessionTag = "5h"
