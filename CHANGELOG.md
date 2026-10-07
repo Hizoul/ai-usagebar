@@ -20,6 +20,47 @@ Each release is also published at
   metric's `headline` out of `usage --json` and are unaffected by the default;
   Waybar and GNOME are fed by the per-vendor formats and do not see it at all.
 
+### Fixed
+
+- **A metric hidden in Customize no longer sets the provider's percentage.**
+  The Native popover's provider tab and the macOS menu bar's Name chip showed
+  the highest percentage among all of a provider's windows, including one
+  switched off in Customize, so Z.AI with Session and Weekly at `0%` and the
+  monthly MCP window hidden at `18%` still read `18%`. Hidden metrics are now
+  left out, so it reads `0%` (`100%` left). With every metric of the provider
+  hidden, the tab falls back to its balance or `—`, and the Name chip moves on
+  to the next provider with a value, as it does for a provider with no value.
+  Stars are unaffected: the Chart and Logos looks still show the starred
+  metrics.
+- **KDE plasmoid: grouped session rows no longer take a panel cell.** The
+  compact representation's cells came from the first metric sections in report
+  order, grouped or not, so a full Claude Code context session (or a SuperGrok
+  product slice) could occupy the second cell beside the quota windows. The
+  cells now apply the same partition the headline does: ungrouped quota rows
+  first, grouped rows standing in only when an entry has nothing else
+  (fixes #348).
+- **macOS menu bar: the Name chip never lets a balance outrank a quota
+  window.** A value-headline metric that also carries a percent (a prepaid
+  balance meter, a Cursor credit grant) entered the chip's highest-window
+  race on the host side only, so the chip could show its money figure while
+  the Native tab that selects it showed the percent window, in either
+  Used/Left reading. The chip now ranks only percent headlines, the rule the
+  tab's `previewMetric` already applies, and a value headline stands in only
+  when the provider has no window (fixes #349).
+- **macOS menu bar shows DeepInfra's USD balance.** The Swift balance mirror
+  did not include `{dif_balance}` in its FORMAT slot or balance field dispatch,
+  so a DeepInfra entry rendered with no balance value. It is appended at
+  index 53 (keeping every existing index stable) with a parser test.
+- **Nous Research: an allocation that is spent to the last credit reports the
+  rounding residue instead of a clean zero, and 1.31.0/1.32.0 rejected the whole
+  account snapshot for it.** The Portal answers a drained plan with
+  `subscription.credits_remaining = -1.64e-20`, `optional_credit` refused any
+  value below zero ("account credit must be finite and non-negative"), and the
+  widget, panel and TUI showed `Nous Research account response schema mismatch`
+  for an account whose only problem was being at zero. A value within `1e-6` of
+  zero now reads as `0.0`; a genuinely negative balance is still an error, so the
+  guard against nonsense payloads is unchanged.
+
 ## [1.32.0] — 2026-10-04
 
 ### Added
