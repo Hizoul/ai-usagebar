@@ -264,6 +264,12 @@ func testParserBalances() {
                        fields: fields(through: 52, set: [52: "$7.77"]))
     assertEqual(lyc?.creditBalance, "$7.77", "lyceum balance via lyceum_balance")
     assertEqual(lyc?.hasUsageWindows, false, "lyceum suppresses 5h/7d windows")
+
+    // DeepInfra: balance at 53 (appended after lyceum_balance, keeping indices stable).
+    let dif = snapshot(FORMAT, vendor: "deepinfra",
+                       fields: fields(through: 53, set: [53: "$15.50"]))
+    assertEqual(dif?.creditBalance, "$15.50", "deepinfra balance via dif_balance")
+    assertEqual(dif?.hasUsageWindows, false, "deepinfra suppresses 5h/7d windows")
     assertEqual(moon?.hasUsageWindows, false, "moonshot suppresses 5h/7d windows")
 
     // Grok: balance at 22.

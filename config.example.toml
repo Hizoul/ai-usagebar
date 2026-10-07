@@ -106,7 +106,8 @@
 # macOS menu bar: "bars" (default) draws the usage chart; "provider" draws each
 # provider's logo followed by its value; "name" draws one chip, the logo, the
 # short name (cld, cdx, …) and the highest percentage among all the windows of
-# the provider selected in the popover, like the Quattro bar. Chart and logos
+# the provider selected in the popover, like the Quattro bar, leaving out any
+# metric hidden in the popover's Customize. Chart and logos
 # show the metrics starred in each provider (up to two). Settings → Menu Bar → Menu Bar Shows sets it.
 # menu_bar_style = "bars"
 # The "name" chip's short name; false leaves just the logo and the value. A
@@ -562,6 +563,12 @@ enabled = false
 # Run `ai-usagebar auth nous login`; logout removes only the Nous entry.
 [nous]
 enabled = false
+# Which number goes on the bar: the consumed percentage of the monthly
+# allocation ("percent", the default) or the credits still usable ("amount"),
+# the way the prepaid-balance vendors do. There is no tank to state — the plan's
+# monthly credits are the percentage's own denominator — and the percentage
+# keeps the meter, the severity colour and the detail line either way.
+# headline = "amount"
 
 # OpenCode Go — usage from /zen/go/v1/usage. Opt in only after exporting the
 # API key under this variable; the key itself is never written to this example.
