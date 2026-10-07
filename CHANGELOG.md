@@ -24,6 +24,14 @@
   blank access token is now a credentials error with the login hint, no request
   is fired, and no backoff is armed (#370).
 
+- **A signed-out OpenAI credentials file reports 'run `codex login`', not a rate
+  limit.** A blank `access_token` was sent as `Authorization: Bearer `, whose
+  401/429 answer was shown as a transient error - and the 429 variant armed the
+  five-minute backoff, so the card stayed wrong even after logging back in. In
+  addition, an empty `refresh_token` triggered an invalid refresh request. A
+  blank access token is now a credentials error with the login hint, empty
+  refresh tokens are skipped, no request is fired, and no backoff is armed.
+
 ## [1.33.0] — 2026-10-07
 
 ### Added
