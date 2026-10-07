@@ -9,6 +9,24 @@ Each release is also published at
 
 ## [Unreleased]
 
+### Added
+
+- **`usage --json` says which Claude Code sessions are working or waiting on
+  you.** With `[context] enabled`, each Claude account whose sessions are busy
+  or stopped on a permission prompt or a question gets an `Activity` row such
+  as `2 working · 1 waiting`, so every panel built on the report shows it with
+  no frontend change, plus an additive `activity` field
+  (`{"working": 2, "waiting": 1}`) for frontends that want an icon. It is read
+  from the `sessions/<pid>.json` files Claude Code keeps in the config directory
+  the account's credentials are fetched from, so an account `account switch`
+  moved into the default slot is read from `~/.claude` like its quota. Those
+  files outlive a crashed Claude Code, so a session counts only while a process
+  with its pid is running — on Linux, the same process by the start time Claude
+  Code recorded, so a recycled pid does not count either — and a file written on
+  another operating system never does. Agent SDK runs (`entrypoint: "sdk-cli"`,
+  which `claude -p` and background agents use) are not counted. The files are
+  only read; an idle account gets neither the row nor the field (#356).
+
 ## [1.33.0] — 2026-10-07
 
 ### Added
@@ -63,22 +81,6 @@ Each release is also published at
   reading: Left shows the remainder of the most-used window, and the alert
   state follows the used share. Both are the Quattro counterparts of the tray's
   Customize switches and Show Usage As (#340, #353).
-- **`usage --json` says which Claude Code sessions are working or waiting on
-  you.** With `[context] enabled`, each Claude account whose sessions are busy
-  or stopped on a permission prompt or a question gets an `Activity` row such
-  as `2 working · 1 waiting`, so every panel built on the report shows it with
-  no frontend change, plus an additive `activity` field
-  (`{"working": 2, "waiting": 1}`) for frontends that want an icon. It is read
-  from the `sessions/<pid>.json` files Claude Code keeps in the config directory
-  the account's credentials are fetched from, so an account `account switch`
-  moved into the default slot is read from `~/.claude` like its quota. Those
-  files outlive a crashed Claude Code, so a session counts only while a process
-  with its pid is running — on Linux, the same process by the start time Claude
-  Code recorded, so a recycled pid does not count either — and a file written on
-  another operating system never does. Agent SDK runs (`entrypoint: "sdk-cli"`,
-  which `claude -p` and background agents use) are not counted. The files are
-  only read; an idle account gets neither the row nor the field (#356).
-
 ### Changed
 
 - **Omarchy Quattro: Antigravity gets model-pool buttons, like Cursor.** Gemini
