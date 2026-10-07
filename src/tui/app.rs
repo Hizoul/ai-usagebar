@@ -625,15 +625,10 @@ async fn build_outcome(client: &Client, config: &Config, tab: &TabId) -> Result<
                     crate::anthropic::desktop_creds::account_target(config, label)?
                 }
                 Some(label) => config.anthropic.account_target(label)?,
-                None => {
-                    let target = match config.anthropic.credentials_path.clone() {
-                        Some(p) => crate::anthropic::creds::CredsTarget::Explicit(p),
-                        None => crate::anthropic::creds::CredsTarget::Default(
-                            crate::anthropic::creds::default_path().unwrap_or_default(),
-                        ),
-                    };
-                    (target, crate::cache::Cache::for_vendor("anthropic")?)
-                }
+                None => (
+                    config.anthropic.default_creds_target(),
+                    crate::cache::Cache::for_vendor("anthropic")?,
+                ),
             };
             let endpoints = crate::anthropic::fetch::Endpoints::default();
             let outcome = crate::anthropic::fetch_snapshot(
