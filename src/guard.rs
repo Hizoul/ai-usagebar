@@ -282,6 +282,51 @@ mod tests {
         std::fs::read_to_string(&path).ok()
     }
 
+    /// Every vendor-specific placeholder family the macOS menu bar parses must
+    /// appear in its `FORMAT` string. The Swift side mirrors the wire format by
+    /// hand; three vendors in a row shipped on main without their slot, so this
+    /// guard fails closed: registering a vendor's custom placeholders means
+    /// appending a token here (and the slot, append-only, in the mirror).
+    #[test]
+    fn macos_format_mirrors_every_vendor_placeholder_family() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("macos/ai-usagebar-menubar.swift");
+        let Ok(swift) = std::fs::read_to_string(&path) else {
+            return;
+        };
+        let format = match swift.split_once("let FORMAT = ") {
+            Some((_, rest)) => rest.split("__aiub_end__").next().unwrap_or(rest),
+            None => panic!("macOS menubar FORMAT string not found"),
+        };
+        let vendor_tokens = [
+            ("or_balance", "openrouter"),
+            ("ds_balance", "deepseek"),
+            ("kilo_balance", "kilo"),
+            ("nv_balance", "novita"),
+            ("km_balance", "moonshot"),
+            ("grok_balance", "grok"),
+            ("lyceum_balance", "lyceum"),
+            ("dif_balance", "deepinfra"),
+            ("devin_daily_pct", "devin"),
+            ("zai_mcp_pct", "zai"),
+            ("ocg_monthly_pct", "opencode_go"),
+            ("cc_monthly_pct", "commandcode"),
+            ("copilot_completions_pct", "copilot"),
+            ("sgk_period", "supergrok"),
+            ("minimax_video_pct", "minimax"),
+            ("oll_monthly_pct", "ollama"),
+            ("aapi_headline", "anthropic_api"),
+            ("cursor_total_pct", "cursor"),
+            ("scoped_model", "antigravity"),
+        ];
+        for (token, vendor) in vendor_tokens {
+            assert!(
+                format.contains(&format!("{{{token}}}")),
+                "macOS FORMAT is missing {{{token}}} — register {vendor}'s slot (append-only)"
+            );
+        }
+    }
+
     /// Every AUR source array must have a matching sha256sums array of the same
     /// length, both in PKGBUILDs and .SRCINFO files (#335).
     ///

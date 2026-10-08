@@ -83,6 +83,19 @@
   file without `procStart` counts while its pid is alive, and a file
   with no `kind` counts as interactive.
 
+- **HTTPS now trusts the OS certificate store.** The HTTP client compiled in
+  Mozilla's roots only, so a TLS-inspecting corporate proxy (its root installed
+  in the macOS keychain or the system store) failed every vendor request with an
+  opaque `error sending request`. The OS store is now consulted alongside the
+  bundled roots, and transport errors carry their source chain, so the
+  certificate cause (`UnknownIssuer` and friends) is visible instead of looking
+  like an outage (#377).
+
+- **A guard test keeps the macOS menu bar's FORMAT mirror complete.** Registering
+  a vendor's custom placeholders without appending their slot to the Swift
+  mirror now fails `cargo test`, after three vendors in a row shipped without
+  theirs (#372 was the third).
+
 ### Security
 
 - **The tray's self-update stops reading a response once it passes its size

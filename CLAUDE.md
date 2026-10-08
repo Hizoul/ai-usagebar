@@ -195,6 +195,13 @@ patch version instead.
   already. Build report metrics through
   `SectionBuilder::push_metric` so the absolute reset travels with its row;
   never recreate a per-vendor metric-order table in `report.rs`.
+- **Vendor registration includes the macOS mirror.** A vendor's custom
+  placeholders must be appended (never inserted — indices are stable
+  contracts) to the Swift `FORMAT` string in `macos/ai-usagebar-menubar.swift`
+  with their dispatch case, and a token added to the
+  `macos_format_mirrors_every_vendor_placeholder_family` guard in
+  `src/guard.rs`, which fails CI otherwise. Three vendors shipped without
+  their slot before this guard existed (#372 was the third).
 - **Tests are hermetic.** A `#[test]`/`#[tokio::test]` must never read or
   write a real `$HOME`/`$XDG` path (config, cache, creds, Omarchy theme)
   or branch on an ambient env var — the AUR `check()` runs `cargo test`
