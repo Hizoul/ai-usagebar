@@ -51,6 +51,15 @@
 
 ### Fixed
 
+- **The macOS menu bar's compact bars follow "Show Usage As: Left".** The
+  chart glyph previously mapped its bar fractions directly from used quota,
+  ignoring `state.usage_reading`. With Left reading selected, the popover
+  drew remaining quota while the menu bar stayed in Used mode (empty bars for
+  fresh quota, solid bars for exhausted quota). The chart fractions now
+  invert to remaining quota when Left reading is selected, matching the popover
+  meters — including a starred balance row's bar, whose chip text keeps its
+  figure the way the popover's headline does (#388).
+
 - **The Korean Omarchy panel no longer falls back to English for two labels.**
   The `LABELS` table was checked by asserting that a single key existed, so
   Korean shipped without `Gemini` and `Claude & GPT OSS` and quietly rendered

@@ -64,6 +64,12 @@ pub struct StripMetric {
     /// popover's Left reading shows it; `None` for a value headline or a row
     /// with no percent, which read the same either way.
     pub left_value: Option<String>,
+    /// The remaining share as bar fill for the compact Bars glyph: `Some`
+    /// whenever the row carries a percent, value headlines included — the
+    /// popover's meter flips those too, keeping only the headline figure
+    /// fixed. `None` for a row with no percent, which draws the same empty
+    /// bar either way.
+    pub left_fraction: Option<f64>,
     /// The report named this metric's own figure as its headline
     /// (`headline = "value"`, a prepaid balance): a figure, not a quota
     /// window, so it never wins the highest-window race the Quattro chip runs.
@@ -391,6 +397,7 @@ fn metrics_for_entry(entry: &Value, id: &str, name: &str) -> Vec<StripMetric> {
             .or_else(|| percent.map(|percent| format!("{}%", percent.round() as i64)))
             .unwrap_or_default();
         let value_headline = section.get("headline").and_then(Value::as_str) == Some("value");
+        let fraction = (percent.unwrap_or(0.0) / 100.0).clamp(0.0, 1.0);
         let left_value = percent
             .filter(|_| !value_headline)
             .map(|percent| format!("{}%", (100.0 - percent).max(0.0).round() as i64));
@@ -406,9 +413,10 @@ fn metrics_for_entry(entry: &Value, id: &str, name: &str) -> Vec<StripMetric> {
             key,
             label,
             value,
-            fraction: (percent.unwrap_or(0.0) / 100.0).clamp(0.0, 1.0),
+            fraction,
             bounded: true,
             left_value,
+            left_fraction: percent.map(|_| 1.0 - fraction),
             value_headline,
             grouped: !effective_group.is_empty(),
         });
