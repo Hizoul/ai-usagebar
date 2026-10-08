@@ -2,7 +2,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { m } from "@/paraglide/messages.js";
 import { getLocale, setLocale } from "@/paraglide/runtime.js";
 
-export type Language = "en" | "pt-BR" | "ko";
+export type Language = "en" | "pt-BR" | "ko" | "es";
 
 // Labels that reach the page as data rather than as a message: metric names from the Rust
 // report, the provider links and the star-limit error from `model.js`.

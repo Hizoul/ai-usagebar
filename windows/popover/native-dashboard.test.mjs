@@ -13,8 +13,10 @@ try {
   const { Settings } = await server.ssrLoadModule('/src/screens/Settings.tsx');
   const { Footer } = await server.ssrLoadModule('/src/components/Chrome.tsx');
   const { TooltipProvider } = await server.ssrLoadModule('/src/components/ui/tooltip.tsx');
-  const { LanguageProvider } = await server.ssrLoadModule('/src/lib/i18n.tsx');
+  const { LanguageProvider, translateUsage } = await server.ssrLoadModule('/src/lib/i18n.tsx');
   const { emptyLayout, emptyPayload } = await server.ssrLoadModule('/src/model.js');
+  // Usage strings from the report reach the page in English and are translated for display.
+  assert.equal(translateUsage('es', '54% left · 46% used · Limit reached'), '54% restante · 46% usado · Límite alcanzado');
   const nowMs = Date.parse('2026-09-24T11:00:00Z');
   const card = {
     id: 'anthropic', title: 'Claude', plan: '', stale: false, error: '', rows: [{
