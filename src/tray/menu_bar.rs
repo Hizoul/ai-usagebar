@@ -112,6 +112,21 @@ fn metric_text(metric: &StripMetric, reading: UsageReading) -> &str {
     }
 }
 
+/// The fractions painted by the compact Bars glyph (StatusItemContent::Chart),
+/// honoring the popover's `show_as` reading (Used vs Left).
+pub(super) fn chart_fractions(content: &StripContent, reading: UsageReading) -> Vec<f64> {
+    content
+        .bars
+        .iter()
+        .map(|metric| match reading {
+            UsageReading::Left if metric.left_value.is_some() => {
+                (1.0 - metric.fraction).clamp(0.0, 1.0)
+            }
+            _ => metric.fraction,
+        })
+        .collect()
+}
+
 /// One entry of the emergency menu attached to the status item when the
 /// popover's WKWebView could not be built (#249).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1212,5 +1227,30 @@ mod tests {
         assert_eq!(reading(json!({"show_as":"used"})), UsageReading::Used);
         assert_eq!(reading(json!({"show_as":"sideways"})), UsageReading::Used);
         assert_eq!(reading(json!({})), UsageReading::Used);
+    }
+
+    /// In the popover's Left reading the Chart glyph's bar fractions reflect what
+    /// is left, like the popover's meter fill: 40% used becomes 60% fill. In Used
+    /// mode they keep the used fraction (40%). A value headline with no percent
+    /// reads the same either way.
+    #[test]
+    fn chart_fractions_follow_the_left_reading() {
+        let report = json!({"primary":null, "entries":[
+            entry("zai", "zai", &[("Session (5h)", 0.0), ("Weekly", 40.0)]),
+            {"id":"anthropic", "status":"ready", "sections":[
+                {"type":"metric", "label":"Weekly", "percent":100, "value":"100%"}]},
+            {"id":"openrouter", "status":"ready", "sections":[
+                {"type":"metric", "label":"Credits", "value":"$4", "headline":"value", "percent":40}]},
+        ]});
+        let content = super::super::strip::content_from_payload(
+            &report,
+            &super::super::strip::Stars::new(),
+            &[],
+        );
+        let used = chart_fractions(&content, UsageReading::Used);
+        assert_eq!(used, vec![0.0, 0.4, 1.0, 0.4]);
+
+        let left = chart_fractions(&content, UsageReading::Left);
+        assert_eq!(left, vec![1.0, 0.6, 0.0, 0.4]);
     }
 }

@@ -590,7 +590,7 @@ fn apply_strip_icon(state: &mut TrayState) {
         }
         StatusItemContent::Chart => {
             state.menu_bar_logo_key = None;
-            let fractions: Vec<f64> = content.bars.iter().map(|metric| metric.fraction).collect();
+            let fractions = menu_bar::chart_fractions(&content, state.usage_reading);
             if let Ok(icon) = bars_icon(&fractions) {
                 let _ = state.tray.set_icon(Some(icon));
             }
