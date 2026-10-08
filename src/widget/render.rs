@@ -34,9 +34,9 @@ pub struct RenderInput<'a> {
     pub format_pace_color: bool,
     pub tooltip_pace_pts: bool,
     pub now: DateTime<Utc>,
-    /// Live Claude Code session status for the tooltip, when the sessions
-    /// directory yields any (#356). None = no line.
-    pub claude_sessions: Option<&'a crate::claude_sessions::SessionsSummary>,
+    /// What this account's live Claude Code sessions are doing, for the
+    /// tooltip (#356). `None`, or nothing working or waiting, = no line.
+    pub claude_sessions: Option<&'a crate::context::activity::SessionActivity>,
 }
 
 /// Compose the full Waybar output for an Anthropic snapshot.
@@ -561,7 +561,7 @@ fn render_default_tooltip(input: &RenderInput) -> String {
         }
     }
 
-    if let Some(text) = input.claude_sessions.and_then(|s| s.describe()) {
+    if let Some(text) = input.claude_sessions.and_then(|s| s.summary()) {
         lines.push(Line::Body("".into()));
         lines.push(Line::Body(format!(
             " <span foreground='{dim}'>  {text}</span>"
@@ -919,5 +919,34 @@ mod tests {
         let lines = wrap_words("aaa bbb ccc ddd eee fff", 8);
         // "aaa bbb" (7) fits; "ccc ddd" (7) fits next; "eee fff" (7) next.
         assert_eq!(lines, vec!["aaa bbb", "ccc ddd", "eee fff"]);
+    }
+
+    /// #356: the tooltip says what the account's live sessions are doing, and
+    /// says nothing when none are working or waiting.
+    #[test]
+    fn tooltip_names_working_and_waiting_sessions_only_when_there_are_some() {
+        use crate::context::activity::SessionActivity;
+        let oc = sample_outcome();
+        let theme = Theme::default();
+
+        let active = SessionActivity {
+            working: 2,
+            waiting: 1,
+        };
+        let mut inp = input(&oc, &theme);
+        inp.claude_sessions = Some(&active);
+        let out = render_anthropic(&inp);
+        assert!(
+            out.tooltip.contains("2 working · 1 waiting"),
+            "{}",
+            out.tooltip
+        );
+
+        let idle = SessionActivity::default();
+        let mut inp = input(&oc, &theme);
+        inp.claude_sessions = Some(&idle);
+        let quiet = render_anthropic(&inp);
+        assert!(!quiet.tooltip.contains("working"), "{}", quiet.tooltip);
+        assert!(!quiet.tooltip.contains("waiting"), "{}", quiet.tooltip);
     }
 }

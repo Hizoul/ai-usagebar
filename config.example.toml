@@ -136,8 +136,9 @@
 # below ~/.claude/projects, skips subagent transcripts and never follows
 # discovered symlinks. While enabled, `usage --json` also reports how many of
 # each Claude account's live sessions are working or waiting on you, read from
-# the `sessions/` directory beside its credentials file. Nothing is read while
-# this remains disabled.
+# the `sessions/` directory beside its credentials file. Disabled, neither is
+# read; the Waybar widget's Claude tooltip still shows that working/waiting
+# line for the account it displays, since that line is always on.
 [context]
 enabled = false
 # Where the view docks when opened: full (own screen) | split (beside the
