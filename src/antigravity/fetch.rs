@@ -2165,15 +2165,32 @@ mod tests {
     }
 
     fn missing_csrf() -> AppError {
+        missing_csrf_with("missing CSRF token")
+    }
+
+    fn missing_csrf_with(message: &str) -> AppError {
         AppError::Http {
             status: 401,
-            body: r#"{"code":"unauthenticated","message":"missing CSRF token"}"#.into(),
+            body: serde_json::json!({
+                "code": "unauthenticated",
+                "message": message,
+            })
+            .to_string(),
         }
     }
 
     #[test]
     fn only_agys_exact_missing_csrf_response_enables_remote_fallback() {
         assert!(is_missing_csrf(&missing_csrf()));
+        assert!(is_missing_csrf(&missing_csrf_with(
+            "unauthenticated: missing CSRF token"
+        )));
+        assert!(is_missing_csrf(&missing_csrf_with(
+            " unauthenticated: missing CSRF token "
+        )));
+        assert!(!is_missing_csrf(&missing_csrf_with(
+            "unauthenticated: invalid token"
+        )));
         assert!(!is_missing_csrf(&AppError::Http {
             status: 403,
             body: r#"{"code":"unauthenticated","message":"missing CSRF token"}"#.into(),
@@ -2945,6 +2962,64 @@ mod tests {
         )
         .await
         .expect("saved session bypasses agy's unusable local RPC");
+
+        root.assert_async().await;
+        status.assert_async().await;
+        quota.assert_async().await;
+        plan.assert_async().await;
+        assert_eq!(outcome.snapshot.source, AntigravitySource::Remote);
+    }
+
+    /// `agy` 1.3.1 prefixes the historical message with `unauthenticated: `.
+    /// That still means the local RPC is unusable, so the saved session must
+    /// answer the same way as the unprefixed wording above.
+    #[tokio::test]
+    async fn agys_prefixed_missing_csrf_response_uses_the_saved_session() {
+        let mut server = mockito::Server::new_async().await;
+        let eps = endpoints(&server);
+        let root = server
+            .mock("GET", "/")
+            .with_status(404)
+            .expect(1)
+            .create_async()
+            .await;
+        let status_path = format!("/{STATUS_RPC}");
+        let status = server
+            .mock("POST", status_path.as_str())
+            .with_status(401)
+            .with_body(
+                r#"{"code":"unauthenticated","message":"unauthenticated: missing CSRF token"}"#,
+            )
+            .expect(1)
+            .create_async()
+            .await;
+        let quota = quota_mock(&mut server, "KEYRING-AT")
+            .expect(1)
+            .create_async()
+            .await;
+        let plan = server
+            .mock("POST", "/daily/plan")
+            .match_header("authorization", "Bearer KEYRING-AT")
+            .with_status(200)
+            .with_body(r#"{"currentTier":{"name":"google_ai_pro"}}"#)
+            .expect(1)
+            .create_async()
+            .await;
+        let blob = keyring_blob(VALID, true);
+        let (_td, cache) = fixture();
+
+        let outcome = run(
+            &cache,
+            RemoteOverride {
+                credential: SavedCredential::Blob(&blob),
+                endpoints: Some(&eps),
+                local_bases: Some(vec![server.url().into()]),
+                ..Default::default()
+            },
+            Duration::ZERO,
+        )
+        .await
+        .expect("saved session bypasses agy 1.3.1's prefixed missing-CSRF RPC");
 
         root.assert_async().await;
         status.assert_async().await;
