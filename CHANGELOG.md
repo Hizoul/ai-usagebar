@@ -51,6 +51,15 @@
 
 ### Fixed
 
+- **Ollama Cloud credit-based Pro plans no longer show an empty quota.**
+  Fetch the documented `/api/balance` endpoint instead of `/api/usage`, which
+  now returns request/token history. Automatically detect monthly included
+  credits (such as Pro's $60 allowance) or legacy session/weekly limits.
+  Show remaining/allowance dollars and purchased credits, derive monthly
+  utilization from included credits, and preserve billing resets and actual
+  period lengths. Historical quota caches remain readable; usage-history
+  payloads are rejected rather than silently accepted as empty limits.
+
 - **The Korean Omarchy panel no longer falls back to English for two labels.**
   The `LABELS` table was checked by asserting that a single key existed, so
   Korean shipped without `Gemini` and `Claude & GPT OSS` and quietly rendered
