@@ -10,6 +10,12 @@
 
 ### Fixed
 
+- **`agy` 1.3.1's prefixed missing-CSRF message still falls back to the saved
+  Google session.** The CLI now answers `unauthenticated: missing CSRF token`
+  instead of the historical `missing CSRF token`. The matcher treated that as
+  a signed-out 401 and hid the working Cloud Code figures. Both wordings now
+  take the remote fallback (#376).
+
 - **The Plasma settings page no longer logs `ReferenceError: index is not
   defined`.** The "Current vendor" drop-down's delegate declares
   `required property`, and in Qt 6 that stops `index` being injected, so
