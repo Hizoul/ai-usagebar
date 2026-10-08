@@ -262,8 +262,10 @@ impl RemoteFallbackReason {
 }
 
 /// Local failures the saved Google session is allowed to answer. The `agy`
-/// response is matched structurally and exactly; an arbitrary local `401`
-/// remains a signed-out diagnosis and never triggers remote traffic.
+/// CSRF refusal is matched on status, code, and the `missing CSRF token`
+/// wording (including the `unauthenticated:` prefix `agy` 1.3.1 added). An
+/// arbitrary local `401` remains a signed-out diagnosis and never triggers
+/// remote traffic.
 fn remote_fallback_reason(error: &AppError) -> Option<RemoteFallbackReason> {
     if matches!(error, AppError::Credentials(message) if message == NO_LOCAL_SERVER) {
         Some(RemoteFallbackReason::NoLocalServer)
@@ -364,8 +366,9 @@ fn select_probe_error(errors: Vec<AppError>) -> AppError {
 
 /// `agy` currently serves no page containing its CSRF token, then returns this
 /// structured response from the status RPC. Matching the status, code, and
-/// message avoids treating an unrelated local service or a genuinely
-/// signed-out Antigravity product as permission to use the cloud fallback.
+/// the `missing CSRF token` wording avoids treating an unrelated local service
+/// or a genuinely signed-out Antigravity product as permission to use the
+/// cloud fallback. `agy` 1.3.1 prefixes that wording with `unauthenticated:`.
 fn is_missing_csrf(error: &AppError) -> bool {
     let AppError::Http { status: 401, body } = error else {
         return false;
@@ -377,8 +380,17 @@ fn is_missing_csrf(error: &AppError) -> bool {
         (body["code"].as_str(), body["message"].as_str()),
         (Some(code), Some(message))
             if code.eq_ignore_ascii_case("unauthenticated")
-                && message.trim().eq_ignore_ascii_case("missing CSRF token")
+                && is_missing_csrf_message(message)
     )
+}
+
+/// Historical wording, or that wording as the last colon-separated field so
+/// `agy` 1.3.1's `unauthenticated: missing CSRF token` still matches.
+fn is_missing_csrf_message(message: &str) -> bool {
+    message
+        .rsplit(':')
+        .next()
+        .is_some_and(|part| part.trim().eq_ignore_ascii_case("missing CSRF token"))
 }
 
 /// An error the user can do something about, as opposed to "that product is not
