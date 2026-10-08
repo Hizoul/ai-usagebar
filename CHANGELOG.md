@@ -51,6 +51,29 @@
 
 ### Fixed
 
+- **The Korean Omarchy panel no longer falls back to English for two labels.**
+  The `LABELS` table was checked by asserting that a single key existed, so
+  Korean shipped without `Gemini` and `Claude & GPT OSS` and quietly rendered
+  those two in English. Both are translated, and the contract test now requires
+  full key parity across every locale — the same rule `MESSAGES` already had,
+  which is why `MESSAGES` never drifted (#381).
+
+- **The tray popover's Portuguese money footnote now actually translates.**
+  `$X of $Y used` was rewritten through a pattern beginning with `\b`, which
+  can never match before a `$`, so the rewrite was dead and pt-BR users saw the
+  English footnote. Matching is now anchored on a line start or whitespace
+  rather than a word boundary — deliberately not a lookbehind, which only
+  reached Safari 16.4 while the macOS tray renders this in WebKit (#380).
+
+- **A blank Kimi access token reports a logged-out CLI instead of an opaque
+  401.** A credentials file carrying an empty `access_token` beside a future
+  `expires_at` is internally inconsistent — the CLI never writes one — but the
+  expiry was trusted, so `Authorization: Bearer ` went to the API. A blank
+  token now counts as expired, so the refresh token gets its chance and a
+  genuinely signed-out CLI says so. Completes the blank-token guard across
+  providers after Claude (#370) and Codex (#373) (#382).
+
+
 - **`agy` 1.3.1's prefixed missing-CSRF message still falls back to the saved
   Google session.** The CLI now answers `unauthenticated: missing CSRF token`
   instead of the historical `missing CSRF token`. The matcher treated that as

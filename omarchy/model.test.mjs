@@ -46,7 +46,23 @@ for (const locale of Array.from(i18n.SUPPORTED)) {
     assert.ok(value.trim().length > 0, `${locale}.${key} empty`);
   }
   assert.equal(i18n.MONTHS[locale].length, 12, `${locale} months`);
-  assert.ok(i18n.LABELS[locale]['Cursor Models'], `${locale} Cursor Models label`);
+}
+
+// LABELS drifted where MESSAGES could not: the check here used to assert that
+// a single key existed, so ko shipped without "Gemini" and "Claude & GPT OSS"
+// and fell back to English for them (#381). Same contract as MESSAGES now.
+const enLabelKeys = Object.keys(i18n.LABELS.en).sort();
+for (const locale of Array.from(i18n.SUPPORTED)) {
+  assert.deepEqual(
+    Object.keys(i18n.LABELS[locale]).sort(),
+    enLabelKeys,
+    `${locale} LABELS keys`,
+  );
+  for (const key of enLabelKeys) {
+    const value = i18n.LABELS[locale][key];
+    assert.equal(typeof value, 'string', `${locale}.LABELS.${key} type`);
+    assert.ok(value.trim().length > 0, `${locale}.LABELS.${key} empty`);
+  }
 }
 
 assert.equal(i18n.normalizeLocaleTag('auto'), 'auto');

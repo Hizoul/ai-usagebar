@@ -48,7 +48,14 @@ export function translateUsage(language: Language, value: string): string {
     .replace(/\bLimit reached\b/g, m.limit_reached({}, options));
   // The "$X of $Y used" footnote has no message of its own; pt-BR only.
   if (language !== "pt-BR") return translated;
-  return translated.replace(/\b(\$[\d,.]+) of (\$[\d,.]+) used\b/g, "$1 de $2 usados");
+  // `(^|\s)` rather than a leading `\b`: a word boundary cannot sit before
+  // `$`, so the original pattern matched nothing and this rewrite was dead
+  // (#380). A lookbehind would read better but only reached Safari 16.4, and
+  // the macOS tray renders this in WebKit.
+  return translated.replace(
+    /(^|\s)(\$[\d,.]+) of (\$[\d,.]+) used\b/g,
+    "$1$2 de $3 usados",
+  );
 }
 
 export function useI18n() {

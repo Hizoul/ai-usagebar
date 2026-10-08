@@ -57,6 +57,8 @@ var LABELS = {
     "Credits": "크레딧",
     "Cursor Other Models": "Cursor 기타 모델",
     "Cursor On Demand": "Cursor 온디맨드",
+    "Gemini": "Gemini",
+    "Claude & GPT OSS": "Claude 및 GPT OSS",
     "Resets": "초기화",
     "Auto + Composer": "Auto + Composer"
   },

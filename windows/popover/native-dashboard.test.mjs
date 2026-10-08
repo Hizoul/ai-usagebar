@@ -17,6 +17,15 @@ try {
   const { emptyLayout, emptyPayload } = await server.ssrLoadModule('/src/model.js');
   // Usage strings from the report reach the page in English and are translated for display.
   assert.equal(translateUsage('es', '54% left · 46% used · Limit reached'), '54% restante · 46% usado · Límite alcanzado');
+  // The pt-BR "$X of $Y used" rewrite was dead: its leading `\b` could never
+  // match before a `$` (#380). Assert it actually fires, at the start of a
+  // string and mid-string, and that other locales are left alone.
+  assert.equal(translateUsage('pt-BR', '$5.00 of $20.00 used'), '$5.00 de $20.00 usados');
+  assert.equal(
+    translateUsage('pt-BR', '46% used · $5.00 of $20.00 used'),
+    '46% usados · $5.00 de $20.00 usados',
+  );
+  assert.equal(translateUsage('en', '$5.00 of $20.00 used'), '$5.00 of $20.00 used');
   const nowMs = Date.parse('2026-09-24T11:00:00Z');
   const card = {
     id: 'anthropic', title: 'Claude', plan: '', stale: false, error: '', rows: [{
