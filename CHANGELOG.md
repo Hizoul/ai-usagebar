@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [1.34.0] — 2026-10-08
+
 ### Added
 
 - **Several GitHub Copilot accounts.** `[[copilot.accounts]]` names the logins
@@ -4089,7 +4091,8 @@ vendors. Highlights:
 - Live API smoke test suite (`make smoke`) that exercises the real
   undocumented endpoints to detect schema drift before users do.
 
-[Unreleased]: https://github.com/akitaonrails/ai-usagebar/compare/v1.33.0...HEAD
+[Unreleased]: https://github.com/akitaonrails/ai-usagebar/compare/v1.34.0...HEAD
+[1.34.0]: https://github.com/akitaonrails/ai-usagebar/compare/v1.33.0...v1.34.0
 [1.33.0]: https://github.com/akitaonrails/ai-usagebar/compare/v1.32.0...v1.33.0
 [1.32.0]: https://github.com/akitaonrails/ai-usagebar/compare/v1.31.0...v1.32.0
 [1.31.0]: https://github.com/akitaonrails/ai-usagebar/compare/v1.30.0...v1.31.0
