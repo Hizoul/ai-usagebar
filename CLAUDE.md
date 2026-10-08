@@ -196,12 +196,23 @@ patch version instead.
   `SectionBuilder::push_metric` so the absolute reset travels with its row;
   never recreate a per-vendor metric-order table in `report.rs`.
 - **Vendor registration includes the macOS mirror.** A vendor's custom
-  placeholders must be appended (never inserted — indices are stable
-  contracts) to the Swift `FORMAT` string in `macos/ai-usagebar-menubar.swift`
-  with their dispatch case, and a token added to the
-  `macos_format_mirrors_every_vendor_placeholder_family` guard in
-  `src/guard.rs`, which fails CI otherwise. Three vendors shipped without
-  their slot before this guard existed (#372 was the third).
+  placeholders must be appended (never inserted — the Swift side reads fields
+  by index, so those are stable contracts) to the `FORMAT` string in
+  `macos/ai-usagebar-menubar.swift`, with their dispatch case. Three vendors
+  shipped without their slot before this was guarded (#372 was the third).
+  Every `VendorId` is classified in `macos_mirror` in `src/guard.rs`, as
+  either `Slot(token)` — it has its own field in the mirror — or
+  `Generic(tokens)` — the bar renders it from the generic `session_*`/
+  `weekly_*` placeholders, which are named so the claim is checkable. **The
+  match is exhaustive, so a new vendor does not compile until it is
+  classified**; that is the point, because the hand-written token list this
+  replaced could only catch a token that was listed *and* missing, and a
+  vendor absent from both it and the mirror passed in silence. Claimed tokens
+  are also checked against the placeholders Rust emits, so renaming one side
+  fails instead of leaving both sides agreeing about nothing. The mirror is a
+  deliberate subset — Rust emits ~289 placeholders and the bar asks for ~57 —
+  so which figures appear is a product decision; making the decision is not
+  optional.
 - **Tests are hermetic.** A `#[test]`/`#[tokio::test]` must never read or
   write a real `$HOME`/`$XDG` path (config, cache, creds, Omarchy theme)
   or branch on an ambient env var — the AUR `check()` runs `cargo test`

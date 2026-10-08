@@ -136,10 +136,16 @@
   certificate cause (`UnknownIssuer` and friends) is visible instead of looking
   like an outage (#377).
 
-- **A guard test keeps the macOS menu bar's FORMAT mirror complete.** Registering
-  a vendor's custom placeholders without appending their slot to the Swift
-  mirror now fails `cargo test`, after three vendors in a row shipped without
-  theirs (#372 was the third).
+- **A guard keeps the macOS menu bar's FORMAT mirror complete.** The bar parses
+  a flat format string by field index, so a vendor whose figures are missing
+  from it cannot be shown at all — three vendors in a row shipped that way
+  (#372 was the third). Every vendor is now classified in an exhaustive match:
+  either it has a slot of its own in the Swift mirror, or it names the generic
+  placeholders it renders through. Adding a vendor therefore does not compile
+  until someone decides which, and the claimed tokens are checked against both
+  the Swift format string and the placeholders Rust actually emits — so a
+  rename on either side fails rather than leaving the two agreeing about a
+  placeholder nothing produces.
 
 ### Security
 

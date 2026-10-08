@@ -165,6 +165,7 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
 
 #[cfg(test)]
 mod tests {
+    use crate::vendor::VendorId;
     use std::collections::BTreeMap;
 
     /// One released section's entries must not reappear anywhere else.
@@ -282,11 +283,121 @@ mod tests {
         std::fs::read_to_string(&path).ok()
     }
 
-    /// Every vendor-specific placeholder family the macOS menu bar parses must
-    /// appear in its `FORMAT` string. The Swift side mirrors the wire format by
-    /// hand; three vendors in a row shipped on main without their slot, so this
-    /// guard fails closed: registering a vendor's custom placeholders means
-    /// appending a token here (and the slot, append-only, in the mirror).
+    /// How the macOS menu bar mirrors one vendor's figures.
+    ///
+    /// Two cases, because the mirror is a deliberate *subset*: Rust emits 289
+    /// placeholders and the Swift `FORMAT` asks for 57 of them. Which figures
+    /// the bar shows is a product decision, not a mechanical fact, so it stays
+    /// written down — what is no longer optional is *making* the decision.
+    #[derive(Debug)]
+    enum MacosMirror {
+        /// The bar asks for this vendor's own placeholder. The token must be in
+        /// the Swift `FORMAT` and must still be emitted by Rust, so a rename on
+        /// either side fails instead of silently dropping the vendor's row.
+        Slot(&'static str),
+        /// The bar renders this vendor through these generic placeholders, so it
+        /// has no slot of its own. The tokens are listed rather than implied:
+        /// claiming "generic" has to be *true*, or it becomes a rubber stamp
+        /// that silences a vendor the bar actually cannot show.
+        Generic(&'static [&'static str]),
+    }
+
+    /// Exhaustive on purpose, and that is the entire fix: a new `VendorId` does
+    /// not compile until someone classifies it.
+    ///
+    /// What this replaces was a hand-written list of nineteen tokens. It could
+    /// only catch a token that was *listed* and missing from the mirror — a
+    /// vendor missing from both the list and the mirror passed in silence,
+    /// which is exactly how three vendors in a row shipped without their slot
+    /// (#372 was the third). Nothing tied that list to the set of vendors that
+    /// exist, so it could not close the hole it was written to close.
+    fn macos_mirror(id: VendorId) -> MacosMirror {
+        // The generic core every vendor without its own slot renders through.
+        const CORE: &[&str] = &["plan", "vendor_short", "session_pct", "weekly_pct"];
+        match id {
+            // Vendors with a slot of their own in the Swift FORMAT.
+            VendorId::AnthropicApi => MacosMirror::Slot("aapi_headline"),
+            VendorId::Antigravity => MacosMirror::Slot("scoped_model"),
+            VendorId::CommandCode => MacosMirror::Slot("cc_monthly_pct"),
+            VendorId::Copilot => MacosMirror::Slot("copilot_completions_pct"),
+            VendorId::Cursor => MacosMirror::Slot("cursor_total_pct"),
+            VendorId::Deepinfra => MacosMirror::Slot("dif_balance"),
+            VendorId::Deepseek => MacosMirror::Slot("ds_balance"),
+            VendorId::Devin => MacosMirror::Slot("devin_daily_pct"),
+            VendorId::Grok => MacosMirror::Slot("grok_balance"),
+            VendorId::Kilo => MacosMirror::Slot("kilo_balance"),
+            VendorId::Lyceum => MacosMirror::Slot("lyceum_balance"),
+            VendorId::Minimax => MacosMirror::Slot("minimax_video_pct"),
+            VendorId::Moonshot => MacosMirror::Slot("km_balance"),
+            VendorId::Novita => MacosMirror::Slot("nv_balance"),
+            VendorId::Ollama => MacosMirror::Slot("oll_monthly_pct"),
+            VendorId::OpenCodeGo => MacosMirror::Slot("ocg_monthly_pct"),
+            VendorId::Openrouter => MacosMirror::Slot("or_balance"),
+            VendorId::Supergrok => MacosMirror::Slot("sgk_period"),
+            VendorId::Zai => MacosMirror::Slot("zai_mcp_pct"),
+            // Vendors whose shape is a plain session and/or weekly window, which
+            // the bar already renders from the generic placeholders. Verified:
+            // each of these emits the core tokens listed here.
+            VendorId::Anthropic => MacosMirror::Generic(CORE),
+            VendorId::Openai => MacosMirror::Generic(CORE),
+            VendorId::Kimi => MacosMirror::Generic(CORE),
+            VendorId::Kiro => MacosMirror::Generic(CORE),
+            VendorId::ModelStudio => MacosMirror::Generic(CORE),
+            VendorId::NousResearch => MacosMirror::Generic(CORE),
+            VendorId::OrcaRouter => MacosMirror::Generic(CORE),
+            // Weekly-only: no 5h window, so it renders through the weekly half.
+            VendorId::Grokbot => MacosMirror::Generic(&["plan", "vendor_short", "weekly_pct"]),
+        }
+    }
+
+    /// Every placeholder key Rust actually hands to `format::placeholders`.
+    ///
+    /// Used to fail a token that no longer exists on the Rust side: the old
+    /// guard asserted only that the Swift `FORMAT` contained a literal, so a
+    /// Rust-side rename left both the list and the mirror agreeing about a
+    /// placeholder nothing produced any more.
+    fn rust_placeholder_keys() -> std::collections::BTreeSet<String> {
+        let mut out = std::collections::BTreeSet::new();
+        let mut files = super::rs_files_in("src");
+        files.sort();
+        for file in files {
+            let Ok(source) = std::fs::read_to_string(&file) else {
+                continue;
+            };
+            let code = super::production_code(&source);
+            // `("key",` and `.insert("key"` are the two shapes every vendor uses.
+            for (idx, _) in code.match_indices('"') {
+                let rest = &code[idx + 1..];
+                let Some(close) = rest.find('"') else { break };
+                let key = &rest[..close];
+                if key.is_empty()
+                    || !key
+                        .bytes()
+                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+                {
+                    continue;
+                }
+                let before = code[..idx].trim_end();
+                let after = rest[close + 1..].trim_start();
+                let opens_tuple = before.ends_with('(') && after.starts_with(',');
+                let is_insert = before.ends_with(".insert(");
+                if opens_tuple || is_insert {
+                    out.insert(key.to_string());
+                }
+            }
+        }
+        out
+    }
+
+    /// The macOS menu bar parses a flat `FORMAT` string by field index, so a
+    /// vendor whose figures are missing from it cannot be shown at all. Three
+    /// vendors shipped that way before this guard existed (#372 was the third).
+    ///
+    /// The contract is three-sided, and each side catches a different mistake:
+    /// the classification is exhaustive over `VendorId` (so a new vendor cannot
+    /// be forgotten), every claimed token must be in the Swift `FORMAT` (so the
+    /// mirror cannot lag), and every claimed token must still be emitted by
+    /// Rust (so a rename cannot leave the two sides agreeing about nothing).
     #[test]
     fn macos_format_mirrors_every_vendor_placeholder_family() {
         let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -298,32 +409,37 @@ mod tests {
             Some((_, rest)) => rest.split("__aiub_end__").next().unwrap_or(rest),
             None => panic!("macOS menubar FORMAT string not found"),
         };
-        let vendor_tokens = [
-            ("or_balance", "openrouter"),
-            ("ds_balance", "deepseek"),
-            ("kilo_balance", "kilo"),
-            ("nv_balance", "novita"),
-            ("km_balance", "moonshot"),
-            ("grok_balance", "grok"),
-            ("lyceum_balance", "lyceum"),
-            ("dif_balance", "deepinfra"),
-            ("devin_daily_pct", "devin"),
-            ("zai_mcp_pct", "zai"),
-            ("ocg_monthly_pct", "opencode_go"),
-            ("cc_monthly_pct", "commandcode"),
-            ("copilot_completions_pct", "copilot"),
-            ("sgk_period", "supergrok"),
-            ("minimax_video_pct", "minimax"),
-            ("oll_monthly_pct", "ollama"),
-            ("aapi_headline", "anthropic_api"),
-            ("cursor_total_pct", "cursor"),
-            ("scoped_model", "antigravity"),
-        ];
-        for (token, vendor) in vendor_tokens {
-            assert!(
-                format.contains(&format!("{{{token}}}")),
-                "macOS FORMAT is missing {{{token}}} — register {vendor}'s slot (append-only)"
-            );
+        let emitted = rust_placeholder_keys();
+        assert!(
+            emitted.len() > 100,
+            "the placeholder scan found only {} keys — the scan broke, not the mirror",
+            emitted.len()
+        );
+
+        for &id in VendorId::all() {
+            let tokens: Vec<&str> = match macos_mirror(id) {
+                MacosMirror::Slot(token) => vec![token],
+                MacosMirror::Generic(tokens) => {
+                    assert!(
+                        !tokens.is_empty(),
+                        "{id:?} claims the generic placeholders but names none — \
+                         list the tokens it renders through, or give it a slot"
+                    );
+                    tokens.to_vec()
+                }
+            };
+            for token in tokens {
+                assert!(
+                    format.contains(&format!("{{{token}}}")),
+                    "macOS FORMAT is missing {{{token}}} for {id:?} — append its slot \
+                     (never insert: the Swift side reads fields by index)"
+                );
+                assert!(
+                    emitted.contains(token),
+                    "{id:?} is mirrored through {{{token}}}, but no Rust code emits that \
+                     placeholder any more — it was renamed on one side only"
+                );
+            }
         }
     }
 
