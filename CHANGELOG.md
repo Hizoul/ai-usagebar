@@ -2,6 +2,11 @@
 
 ### Added
 
+- **Ollama Cloud provider mark in the Omarchy bar and panel.** Ship the
+  monochrome Lobe Icons SVG under MIT, with source provenance and the
+  existing LobeHub licence notice. The same mark is used for custom
+  providers that declare `brand = "ollama"`.
+
 - **Several GitHub Copilot accounts.** `[[copilot.accounts]]` names the logins
   `gh` already holds for a host, so a personal and a work plan can be watched
   side by side:
