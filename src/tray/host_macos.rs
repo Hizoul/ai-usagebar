@@ -594,7 +594,7 @@ fn apply_strip_icon(state: &mut TrayState) {
             if let Ok(icon) = bars_icon(&fractions) {
                 let _ = state.tray.set_icon(Some(icon));
             }
-            state.tray.set_icon_as_template(true);
+            state.tray.set_icon_templated(true);
             if let Some(image) = template_bars_image(&fractions) {
                 set_status_button_image(Some(&image));
             }
@@ -606,7 +606,7 @@ fn apply_strip_icon(state: &mut TrayState) {
             if state.menu_bar_logo_key.as_ref() != Some(&key) {
                 let image = logo_strip_image(&segments);
                 let _ = state.tray.set_icon(None);
-                state.tray.set_icon_as_template(true);
+                state.tray.set_icon_templated(true);
                 set_status_button_image(Some(&image));
                 state.menu_bar_logo_key = Some(key);
             }
@@ -630,7 +630,7 @@ fn set_static_status_icon(state: &mut TrayState) {
     if let Ok(icon) = static_icon() {
         let _ = state.tray.set_icon(Some(icon));
     }
-    state.tray.set_icon_as_template(true);
+    state.tray.set_icon_templated(true);
 }
 
 enum ShortcutOutcome {
@@ -1245,7 +1245,7 @@ fn build_tray() -> Result<TrayIcon, String> {
     // only while `TrayIcon::show_menu` runs.
     TrayIconBuilder::new()
         .with_icon(icon)
-        .with_icon_as_template(true)
+        .with_icon_templated(true)
         .with_menu_on_left_click(false)
         .with_menu_on_right_click(false)
         .build()
