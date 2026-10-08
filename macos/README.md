@@ -103,8 +103,9 @@ The selector dynamically discovers **all providers** that ship in the binary via
   pools, each with 5h/weekly tracking), GitHub Copilot (premium finite pool,
   with unlimited chat and completions reported cleanly), SuperGrok, Kiro,
   Nous Research, OpenCode Go (session, weekly, and monthly pools), Command Code
-  (session, weekly, and monthly pools), and Grok Bot (weekly included-usage
-  pool from the Grok Bot desktop app).
+  (session, weekly, and monthly pools), Grok Bot (weekly included-usage
+  pool from the Grok Bot desktop app), and Devin (daily and weekly quotas
+  from the Devin CLI).
 - **Included-usage pools:** Cursor (Cursor Models and Other Models, both reset
   on the billing cycle).
 - **Balance-only:** OpenRouter, DeepSeek, DeepInfra, Kimi, Kilo, Novita,
