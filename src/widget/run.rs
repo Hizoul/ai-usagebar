@@ -181,13 +181,13 @@ async fn build_output(cli: &Cli) -> Result<WaybarOutput> {
 
 fn validate_vendor_options(cli: &Cli, vendor: Vendor) -> Result<()> {
     if cli.account.is_some()
-        && !matches!(vendor, Vendor::Anthropic | Vendor::Openai)
+        && !matches!(vendor, Vendor::Anthropic | Vendor::Openai | Vendor::Copilot)
         && !Config::API_KEY_ACCOUNT_VENDORS.contains(&vendor.to_id())
     {
         return Err(AppError::Other(
-            "--account is supported only for Claude, Codex (OpenAI), and the API-key \
-             vendors with a [[<vendor>.accounts]] array: Z.AI, OpenRouter, DeepSeek, \
-             DeepInfra, Kilo, Novita, Moonshot, Grok, MiniMax, and OrcaRouter"
+            "--account is supported only for Claude, Codex (OpenAI), GitHub Copilot, and \
+             the API-key vendors with a [[<vendor>.accounts]] array: Z.AI, OpenRouter, \
+             DeepSeek, DeepInfra, Kilo, Novita, Moonshot, Grok, MiniMax, and OrcaRouter"
                 .into(),
         ));
     }
@@ -718,6 +718,19 @@ async fn anthropic_api_output(cli: &Cli, config: &Config) -> Result<WaybarOutput
 ///
 /// The login's path is resolved inside the fetch, under its lock, because
 /// `account switch --codex` can move it between two looks.
+/// Each named Copilot account gets its own cache subdir, so a label switch
+/// never serves the previous account's figures. The payload already carries a
+/// token-hash marker, so a stale cache is refused rather than misattributed;
+/// the subdir keeps both accounts warm instead of one evicting the other.
+fn copilot_cache(cli: &Cli) -> Result<Cache> {
+    Ok(match (cli.cache_dir.as_deref(), cli.account.as_deref()) {
+        (Some(root), Some(label)) => Cache::at(root.join("copilot").join(label)),
+        (Some(root), None) => Cache::at(root.join("copilot")),
+        (None, Some(label)) => Cache::for_vendor_account("copilot", label)?,
+        (None, None) => Cache::for_vendor("copilot")?,
+    })
+}
+
 fn openai_cache(cli: &Cli) -> Result<Cache> {
     Ok(match (cli.cache_dir.as_deref(), cli.account.as_deref()) {
         (Some(root), Some(label)) => Cache::at(root.join("openai").join(label)),
@@ -761,9 +774,10 @@ async fn openai_output(cli: &Cli, config: &Config) -> Result<WaybarOutput> {
 }
 
 async fn copilot_output(cli: &Cli, config: &Config) -> Result<WaybarOutput> {
-    let token = config.copilot.resolve_token()?;
+    let label = cli.account.as_deref();
+    let token = config.copilot.resolve_token(label)?;
     let client = http_client()?;
-    let cache = vendor_cache(cli, "copilot")?;
+    let cache = copilot_cache(cli)?;
     let endpoints = copilot::fetch::Endpoints::default();
     let outcome =
         match copilot::fetch_snapshot(&client, &token, &cache, &endpoints, DEFAULT_TTL).await {
@@ -1542,11 +1556,13 @@ mod tests {
     #[test]
     fn account_flag_rejects_unrelated_vendors() {
         let cli = cli_with(Some("work"), None, Some("/tmp/cache"));
-        for vendor in [Vendor::Copilot, Vendor::Cursor, Vendor::Kimi, Vendor::Kiro] {
+        for vendor in [Vendor::Cursor, Vendor::Kimi, Vendor::Kiro] {
             assert!(validate_vendor_options(&cli, vendor).is_err(), "{vendor:?}");
         }
         assert!(validate_vendor_options(&cli, Vendor::Anthropic).is_ok());
         assert!(validate_vendor_options(&cli, Vendor::Openai).is_ok());
+        // Copilot joined the named-account vendors in #378.
+        assert!(validate_vendor_options(&cli, Vendor::Copilot).is_ok());
     }
 
     #[test]
@@ -1556,7 +1572,12 @@ mod tests {
             .iter()
             .filter(|vendor| validate_vendor_options(&cli, **vendor).is_ok())
             .map(|vendor| vendor.to_id())
-            .filter(|id| !matches!(id, VendorId::Anthropic | VendorId::Openai))
+            .filter(|id| {
+                !matches!(
+                    id,
+                    VendorId::Anthropic | VendorId::Openai | VendorId::Copilot
+                )
+            })
             .collect();
         assert_eq!(accepted, Config::API_KEY_ACCOUNT_VENDORS);
     }

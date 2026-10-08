@@ -241,6 +241,26 @@ enabled = false
 # is normally installed; set this to pin the executable that runs on every
 # refresh.
 # gh_binary = "/usr/bin/gh"
+# Several GitHub accounts, each with its own Copilot plan. `gh` already keeps
+# more than one login for a host; these entries just name them, so ai-usagebar
+# still never stores a token itself. `user` is the login name shown by
+# `gh auth status` (not an email), resolved with `gh auth token --user <user>`.
+# Select one with `--account <label>`; each gets its own tab and cache.
+# GITHUB_COPILOT_TOKEN names no account, so combining it with `--account` is an
+# error rather than a guess about which was meant.
+# [[copilot.accounts]]
+# label = "work"
+# user = "my-work-login"
+# [[copilot.accounts]]
+# label = "personal"
+# user = "my-personal-login"
+# Hide the unnamed entry (the account `gh` has active) once every account is
+# named above. Ignored while `accounts` is empty, so Copilot never loses its
+# only tab.
+# show_default_account = true
+# GitHub Enterprise is deliberately unsupported here: `gh` can hold a GHES
+# login, but the quota endpoint is github.com-only, so a `hostname` field would
+# promise something the fetch cannot deliver.
 
 [zai]
 enabled = true

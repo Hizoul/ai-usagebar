@@ -224,6 +224,13 @@ fn build_tabs(config: &Config, desktop_labels: &[String]) -> Vec<TabId> {
             for account in &config.openai.accounts {
                 tabs.push(TabId::account_for(vendor, account.label.clone()));
             }
+        } else if vendor == VendorId::Copilot {
+            if config.copilot.show_default_account || config.copilot.accounts.is_empty() {
+                tabs.push(TabId::vendor(vendor));
+            }
+            for account in &config.copilot.accounts {
+                tabs.push(TabId::account_for(vendor, account.label.clone()));
+            }
         } else {
             tabs.push(TabId::vendor(vendor));
         }
@@ -708,8 +715,12 @@ async fn build_outcome(client: &Client, config: &Config, tab: &TabId) -> Result<
             Ok(outcome.into())
         }
         VendorId::Copilot => {
-            let token = config.copilot.resolve_token()?;
-            let cache = crate::cache::Cache::for_vendor("copilot")?;
+            let label = tab.account.as_deref();
+            let token = config.copilot.resolve_token(label)?;
+            let cache = match label {
+                Some(label) => crate::cache::Cache::for_vendor_account("copilot", label)?,
+                None => crate::cache::Cache::for_vendor("copilot")?,
+            };
             let endpoints = crate::copilot::fetch::Endpoints::default();
             let outcome =
                 crate::copilot::fetch_snapshot(client, &token, &cache, &endpoints, DEFAULT_TTL)
@@ -1292,6 +1303,63 @@ mod tests {
                 TabId::vendor(VendorId::Openai),
                 TabId::account_for(VendorId::Openai, "work"),
             ]
+        );
+    }
+
+    #[test]
+    fn copilot_named_accounts_get_their_own_tabs_and_can_hide_the_default() {
+        let base = || {
+            let mut config = Config::default();
+            config.anthropic.enabled = false;
+            config.openai.enabled = false;
+            config.zai.enabled = false;
+            config.openrouter.enabled = false;
+            config.commandcode.enabled = false;
+            config.copilot.enabled = true;
+            config
+        };
+
+        // No accounts: exactly the pre-#378 single tab.
+        assert_eq!(
+            tabs_from_config(&base()),
+            vec![TabId::vendor(VendorId::Copilot)]
+        );
+
+        // Named accounts follow the default, in config order.
+        let mut config = base();
+        config.copilot.accounts.push(crate::config::CopilotAccount {
+            label: "work".into(),
+            user: "octocat-work".into(),
+        });
+        config.copilot.accounts.push(crate::config::CopilotAccount {
+            label: "personal".into(),
+            user: "octocat".into(),
+        });
+        assert_eq!(
+            tabs_from_config(&config),
+            vec![
+                TabId::vendor(VendorId::Copilot),
+                TabId::account_for(VendorId::Copilot, "work"),
+                TabId::account_for(VendorId::Copilot, "personal"),
+            ]
+        );
+
+        // The ambient active-gh tab is suppressible once every account is named.
+        config.copilot.show_default_account = false;
+        assert_eq!(
+            tabs_from_config(&config),
+            vec![
+                TabId::account_for(VendorId::Copilot, "work"),
+                TabId::account_for(VendorId::Copilot, "personal"),
+            ]
+        );
+
+        // But never when it would leave Copilot with no tab at all.
+        let mut empty = base();
+        empty.copilot.show_default_account = false;
+        assert_eq!(
+            tabs_from_config(&empty),
+            vec![TabId::vendor(VendorId::Copilot)]
         );
     }
 

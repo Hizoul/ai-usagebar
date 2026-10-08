@@ -66,6 +66,10 @@ enabled = true
 [copilot]
 enabled = false           # opt in after `gh auth login --web`
 # Uses `gh auth token`; GITHUB_COPILOT_TOKEN is an optional explicit override.
+# [[copilot.accounts]]     # one entry per GitHub login, each with its own plan
+# label = "work"           # --account work, and the cache subdir
+# user = "my-work-login"   # the login from `gh auth status`, not an email
+# show_default_account = true   # false hides the active-gh entry once named
 
 [zai]
 enabled = true
@@ -392,6 +396,32 @@ Create the second login with `CODEX_HOME=~/.codex-work codex login` and point
 `codex_auth_path` at the file it writes. Select it with `--account work`; each
 account caches separately under `~/.cache/ai-usagebar/openai/<label>`. The
 singular `codex_auth_path` remains the default account and needs no migration.
+
+For more than one GitHub Copilot plan — a personal and a work account, say —
+add `[[copilot.accounts]]`. ai-usagebar stores no token of its own here: `gh`
+already keeps several logins per host, so an entry only needs that login's
+name, as printed by `gh auth status`:
+
+```toml
+[[copilot.accounts]]
+label = "work"
+user = "my-work-login"
+```
+
+Each account resolves through `gh auth token --user <user>`, so signing in
+stays entirely `gh`'s job (`gh auth login`, once per account). Select one with
+`--account work`; each caches separately under
+`~/.cache/ai-usagebar/copilot/<label>`. With no `accounts` array the behavior
+is unchanged: whichever account `gh` has active. `show_default_account = false`
+hides that unnamed entry once every account is named, and is ignored while the
+array is empty.
+
+Two deliberate limits. `GITHUB_COPILOT_TOKEN` names no account, so combining it
+with `--account` is an error rather than a silent choice between the two — the
+alternative is reporting one account's quota under another's label. And there
+is no `hostname` field: `gh` can hold a GitHub Enterprise login, but the quota
+endpoint (`api.github.com/copilot_internal/user`) is github.com-only, so the
+field would promise support the fetch cannot deliver.
 
 `ai-usagebar account add <label> --codex` writes that entry and runs the login
 for you; `ai-usagebar account switch <label> --codex` makes a named login the

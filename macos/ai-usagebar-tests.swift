@@ -1132,6 +1132,58 @@ func testVendorCatalogLifecycle() {
     assertEqual(refreshInvoked, true, "catalog arrival executes refresh when idle")
 }
 
+func testCopilotAccounts() {
+    let config = """
+    [[copilot.accounts]]
+    label = "work"
+    user = "octocat-work"
+    [[openai.accounts]]
+    label = "codex"
+    codex_auth_path = "/fixture/codex/auth.json"
+    [[copilot.accounts]]
+    label = 'personal'
+    user = "octocat"
+    """
+    let labels = accountLabels(inTOML: config, vendor: "copilot")
+    assertEqual(labels, ["work", "personal"],
+                "Copilot labels keep config order and exclude other providers")
+
+    func catalog(enabled: Bool, configured: Bool) -> [VendorCatalogEntry] {
+        [VendorCatalogEntry(id: "copilot", name: "Copilot", shortName: "cop", kind: "oauth",
+            enabled: enabled, configured: configured, needsCredential: true, env: "",
+            login: "gh auth login")]
+    }
+    let ready = catalog(enabled: true, configured: true)
+
+    // Named accounts follow the default entry, in order.
+    let entries = vendorEntries(active: "overview", catalog: ready,
+                                copilotLabels: { labels })
+    assertEqual(entries.map { $0.id }, ["copilot", "copilot@work", "copilot@personal"],
+                "selector lists the active gh account and every named one")
+    assertEqual(entries.map { $0.name }, ["Copilot", "Copilot · work", "Copilot · personal"],
+                "account names come from the catalog name")
+
+    // No accounts: unchanged single entry, exactly as before #378.
+    assertEqual(vendorEntries(active: "overview", catalog: ready, copilotLabels: { [] })
+                    .map { $0.id },
+                ["copilot"], "with no accounts the entry list is unchanged")
+
+    // A disabled provider contributes nothing, accounts or not.
+    assertEqual(vendorEntries(active: "copilot@work", catalog: catalog(enabled: false,
+                                                                      configured: true),
+                              copilotLabels: { labels }).count,
+                0, "disabled Copilot exposes no accounts")
+
+    // Rust's `--account` mapping: the label, not the gh login, reaches argv.
+    assertEqual(vendorArgs(for: "copilot@work"), ["--vendor", "copilot", "--account", "work"],
+                "the pseudo-id selects the label; Rust maps it to the gh login")
+
+    assertEqual(preferenceVendorIds(catalog: ready, claude: [], apiKeyAccounts: [:],
+                                    codex: [], copilot: labels),
+                ["copilot", "copilot@work", "copilot@personal"],
+                "Preferences includes every named Copilot account")
+}
+
 func testCodexAccounts() {
     let config = """
     [[openai.accounts]]
@@ -1247,6 +1299,7 @@ func testDisabledVendorPreferences() {
 @main
 struct TestRunner {
     static func main() {
+        testCopilotAccounts()
         testCodexAccounts()
         testApiKeyAccounts()
         testEnableVendorCommand()

@@ -1012,20 +1012,103 @@ impl Default for OpenAiConfig {
 /// GitHub Copilot quota from the private endpoint used by VS Code. The token
 /// comes from an explicit environment override or the official GitHub CLI;
 /// this app never reads, copies, or writes GitHub credential stores.
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(default)]
 pub struct CopilotConfig {
     pub enabled: bool,
     /// Path to the official GitHub CLI. Unset looks `gh` up on `PATH`, which
     /// is how `gh` is normally installed; set it to pin the executable.
     pub gh_binary: Option<PathBuf>,
+    /// Extra Copilot accounts beyond whichever one `gh` has active, each
+    /// selected with `--account <label>` (issue #378). Empty by default, so an
+    /// existing single-account config behaves exactly as before.
+    pub accounts: Vec<CopilotAccount>,
+    /// Whether the default (unnamed) Copilot account gets its own tab.
+    /// Defaults to `true` for back-compat. Set `false` once every account is
+    /// named, so the ambient active `gh` login does not also appear as a
+    /// duplicate of whichever one it happens to be. Ignored when there are no
+    /// named accounts, so Copilot never loses its only tab.
+    pub show_default_account: bool,
+}
+
+impl Default for CopilotConfig {
+    fn default() -> Self {
+        Self {
+            // Unlike Claude and Codex, Copilot stays opt-in: enabling it
+            // spawns `gh` on every refresh.
+            enabled: false,
+            gh_binary: None,
+            accounts: Vec::new(),
+            show_default_account: true,
+        }
+    }
+}
+
+/// One named Copilot account, resolved through the GitHub CLI's own
+/// multi-account support rather than by storing a token here.
+///
+/// ```toml
+/// [[copilot.accounts]]
+/// label = "work"
+/// user = "my-work-login"
+/// ```
+///
+/// Sign the second account in with `gh auth login` (gh keeps both on the same
+/// host); `gh auth status` lists the login names. `user` is that login name,
+/// not an email, and is validated against GitHub's login grammar before it
+/// reaches the command line.
+///
+/// There is deliberately no `hostname` field yet. `gh` supports GitHub
+/// Enterprise hosts, but the quota endpoint
+/// (`https://api.github.com/copilot_internal/user`) is github.com-only, so
+/// accepting a hostname would promise GHES support the fetch cannot keep.
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq)]
+pub struct CopilotAccount {
+    /// Stable name used on the CLI (`--account <label>`) and as the cache
+    /// subdir (`~/.cache/ai-usagebar/copilot/<label>`).
+    pub label: String,
+    /// The GitHub login this account signs in as, passed to
+    /// `gh auth token --user <user>`.
+    pub user: String,
 }
 
 impl CopilotConfig {
-    pub fn resolve_token(&self) -> Result<String> {
+    /// The GitHub login for `label`, or `None` for the default account.
+    /// An unknown label is an error rather than a silent fall back to the
+    /// active `gh` account, which would report the wrong account's quota.
+    pub fn resolve_user(&self, label: Option<&str>) -> Result<Option<&str>> {
+        let Some(label) = label else {
+            return Ok(None);
+        };
+        self.accounts
+            .iter()
+            .find(|account| account.label == label)
+            .map(|account| Some(account.user.as_str()))
+            .ok_or_else(|| {
+                let known = self
+                    .accounts
+                    .iter()
+                    .map(|account| account.label.as_str())
+                    .collect::<Vec<_>>();
+                AppError::Other(if known.is_empty() {
+                    format!(
+                        "copilot: no account {label:?} — [copilot] has no accounts array; \
+                         add [[copilot.accounts]] with label and user"
+                    )
+                } else {
+                    format!(
+                        "copilot: no account {label:?}; known labels: {}",
+                        known.join(", ")
+                    )
+                })
+            })
+    }
+
+    pub fn resolve_token(&self, label: Option<&str>) -> Result<String> {
         self.resolve_token_with(
             |name| std::env::var_os(name),
             &crate::copilot::credentials::SystemGhAuthTokenRunner,
+            label,
         )
     }
 
@@ -1033,7 +1116,9 @@ impl CopilotConfig {
         &self,
         environment: impl Fn(&str) -> Option<std::ffi::OsString>,
         runner: &impl crate::copilot::credentials::GhAuthTokenRunner,
+        label: Option<&str>,
     ) -> Result<String> {
+        let user = self.resolve_user(label)?;
         if let Some(value) = environment("GITHUB_COPILOT_TOKEN") {
             let token = value.into_string().map_err(|_| {
                 AppError::Credentials(
@@ -1041,10 +1126,20 @@ impl CopilotConfig {
                 )
             })?;
             if !token.is_empty() {
+                // The override names no account, so pairing it with
+                // `--account` would report one account's quota under another
+                // one's label. Refuse instead of guessing which was meant.
+                if let Some(label) = label {
+                    return Err(AppError::Credentials(format!(
+                        "GitHub Copilot: GITHUB_COPILOT_TOKEN is set, so it is unclear whether \
+                         --account {label:?} should use that token or {user:?}'s `gh` login. \
+                         Unset the variable to use named accounts."
+                    )));
+                }
                 return Ok(token);
             }
         }
-        crate::copilot::credentials::resolve_with(runner, self.gh_binary.as_deref())
+        crate::copilot::credentials::resolve_with(runner, self.gh_binary.as_deref(), user)
     }
 }
 
@@ -3730,9 +3825,81 @@ api_key = "synthetic-account"
             .resolve_token_with(
                 |name| (name == "GITHUB_COPILOT_TOKEN").then(|| "from-environment".into()),
                 &NeverRun,
+                None,
             )
             .unwrap();
         assert_eq!(token, "from-environment");
+    }
+
+    /// `--account` names a `gh` login; `GITHUB_COPILOT_TOKEN` names nothing.
+    /// Honoring both would label one account's quota with another's name, so
+    /// the combination is refused rather than silently resolved either way.
+    #[test]
+    fn copilot_rejects_an_environment_override_combined_with_a_named_account() {
+        struct NeverRun;
+        impl crate::copilot::credentials::GhAuthTokenRunner for NeverRun {
+            fn run(
+                &self,
+                _: &crate::copilot::credentials::GhAuthTokenCommand,
+            ) -> std::io::Result<crate::copilot::credentials::GhAuthTokenOutput> {
+                panic!("the conflict must be refused before gh runs")
+            }
+        }
+        let config = CopilotConfig {
+            accounts: vec![CopilotAccount {
+                label: "work".into(),
+                user: "octocat".into(),
+            }],
+            ..CopilotConfig::default()
+        };
+        let error = config
+            .resolve_token_with(
+                |name| (name == "GITHUB_COPILOT_TOKEN").then(|| "from-environment".into()),
+                &NeverRun,
+                Some("work"),
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("GITHUB_COPILOT_TOKEN is set"), "{error}");
+        assert!(error.contains("work"), "{error}");
+    }
+
+    /// An unknown label must not fall back to the active `gh` account: that
+    /// would report some other account's quota under the requested name.
+    #[test]
+    fn copilot_unknown_account_label_errors_listing_the_known_ones() {
+        let config = CopilotConfig {
+            accounts: vec![CopilotAccount {
+                label: "work".into(),
+                user: "octocat".into(),
+            }],
+            ..CopilotConfig::default()
+        };
+        assert_eq!(config.resolve_user(None).unwrap(), None);
+        assert_eq!(config.resolve_user(Some("work")).unwrap(), Some("octocat"));
+        let error = config
+            .resolve_user(Some("personal"))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("personal"), "{error}");
+        assert!(error.contains("work"), "{error}");
+
+        // With no accounts array at all, say so instead of listing nothing.
+        let error = CopilotConfig::default()
+            .resolve_user(Some("work"))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("no accounts array"), "{error}");
+    }
+
+    /// Back-compat: an existing single-account config keeps the default tab
+    /// and resolves exactly as before.
+    #[test]
+    fn copilot_defaults_keep_the_unnamed_account_visible() {
+        let config = CopilotConfig::default();
+        assert!(config.show_default_account);
+        assert!(config.accounts.is_empty());
+        assert!(!config.enabled, "Copilot stays opt-in");
     }
 
     #[test]
@@ -3750,7 +3917,7 @@ api_key = "synthetic-account"
             }
         }
         let error = CopilotConfig::default()
-            .resolve_token_with(|_| None, &FailedGh)
+            .resolve_token_with(|_| None, &FailedGh, None)
             .unwrap_err()
             .to_string();
         assert!(error.contains("gh auth login --web"));

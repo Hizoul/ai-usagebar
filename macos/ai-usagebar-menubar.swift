@@ -1165,14 +1165,25 @@ func codexAccountLabels() -> [String] {
     return accountLabels(inTOML: text, vendor: "openai")
 }
 
+/// Explicit `[[copilot.accounts]]` labels; Rust resolves each one to a GitHub
+/// login and asks `gh` for that account's token (#378).
+func copilotAccountLabels() -> [String] {
+    guard let text = try? String(contentsOfFile: configPathTOML(), encoding: .utf8) else {
+        return []
+    }
+    return accountLabels(inTOML: text, vendor: "copilot")
+}
+
 /// Preferences include enabled providers even before they have credentials.
 func preferenceVendorIds(catalog: [VendorCatalogEntry], claude: [String],
-                         apiKeyAccounts: [String: [String]], codex: [String]) -> [String] {
+                         apiKeyAccounts: [String: [String]], codex: [String],
+                         copilot: [String] = []) -> [String] {
     catalog.filter { $0.enabled }.flatMap { vendor -> [String] in
         let labels: [String]
         switch vendor.id {
         case "anthropic": labels = claude
         case "openai": labels = codex
+        case "copilot": labels = copilot
         default: labels = apiKeyAccounts[vendor.id] ?? []
         }
         return [vendor.id] + labels.map { vendor.id + "@" + $0 }
@@ -1263,6 +1274,7 @@ func vendorEntries(active: String,
                    usageAccounts: [UsageAccount]? = nil,
                    catalog: [VendorCatalogEntry] = vendorCatalog,
                    codexLabels: () -> [String] = codexAccountLabels,
+                   copilotLabels: () -> [String] = copilotAccountLabels,
                    apiKeyLabels: (String) -> [String] = apiKeyAccountLabels) -> [MenuEntry] {
     var out: [MenuEntry] = []
     for v in catalog where v.enabled {
@@ -1289,6 +1301,20 @@ func vendorEntries(active: String,
             }
             out.append(contentsOf: codexLabels().map {
                 MenuEntry(id: "openai@" + $0, name: "\(v.name) · \($0)")
+            })
+        } else if v.id == "copilot" {
+            // Unlike Codex, Copilot does have show_default_account: the
+            // unnamed entry is the active `gh` account, which duplicates
+            // whichever named account happens to be active.
+            let labels = copilotLabels()
+            let showDefault = showDefaultAccount(
+                configValue: configValueTOML("copilot", "show_default_account"),
+                hasAccounts: !labels.isEmpty)
+            if showDefault && (v.id == active || v.configured) {
+                out.append(MenuEntry(id: v.id, name: v.name))
+            }
+            out.append(contentsOf: labels.map {
+                MenuEntry(id: "copilot@" + $0, name: "\(v.name) · \($0)")
             })
         } else if API_KEY_ACCOUNT_VENDORS.contains(v.id) {
             let labels = apiKeyLabels(v.id)
@@ -1763,7 +1789,8 @@ struct SettingsView: View {
     private var vendors: [String] {
         preferenceVendorIds(catalog: vendorCatalog, claude: claudeAccountLabels(),
                             apiKeyAccounts: apiKeyAccountLabelsByVendor(),
-                            codex: codexAccountLabels())
+                            codex: codexAccountLabels(),
+                            copilot: copilotAccountLabels())
     }
 
     var body: some View {

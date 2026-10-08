@@ -2,6 +2,28 @@
 
 ### Added
 
+- **Several GitHub Copilot accounts.** `[[copilot.accounts]]` names the logins
+  `gh` already holds for a host, so a personal and a work plan can be watched
+  side by side:
+
+  ```toml
+  [[copilot.accounts]]
+  label = "work"
+  user = "my-work-login"
+  ```
+
+  Each account resolves through `gh auth token --user <user>` — ai-usagebar
+  still stores no GitHub token of its own — and gets its own tab, its own
+  `--account <label>`, and its own cache. With no array the behavior is
+  unchanged: whichever account `gh` has active. `show_default_account = false`
+  hides that unnamed entry once every account is named.
+
+  Two refusals rather than guesses: `GITHUB_COPILOT_TOKEN` names no account, so
+  pairing it with `--account` is an error instead of reporting one account's
+  quota under another's label; and a login outside GitHub's own grammar is
+  rejected before it reaches the command line, so a config value can never
+  arrive as a flag (#378).
+
 - **Spanish (Español) in the Omarchy panel and the tray popover.** `uiLocale`
   gains `es`, and Auto picks it up from any `es_*` system locale. Settings →
   Appearance → Language gains Español on Windows and macOS, with a full
