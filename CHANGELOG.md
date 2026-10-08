@@ -57,7 +57,8 @@
   drew remaining quota while the menu bar stayed in Used mode (empty bars for
   fresh quota, solid bars for exhausted quota). The chart fractions now
   invert to remaining quota when Left reading is selected, matching the popover
-  meters (#388).
+  meters — including a starred balance row's bar, whose chip text keeps its
+  figure the way the popover's headline does (#388).
 
 - **The Korean Omarchy panel no longer falls back to English for two labels.**
   The `LABELS` table was checked by asserting that a single key existed, so

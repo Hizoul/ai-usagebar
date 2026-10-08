@@ -113,16 +113,17 @@ fn metric_text(metric: &StripMetric, reading: UsageReading) -> &str {
 }
 
 /// The fractions painted by the compact Bars glyph (StatusItemContent::Chart),
-/// honoring the popover's `show_as` reading (Used vs Left).
+/// honoring the popover's `show_as` reading (Used vs Left). Like the popover's
+/// meters, the bars fill with what remains in Left — a value headline's bar
+/// included, whose chip text keeps the figure; a row with no percent draws the
+/// same either way.
 pub(super) fn chart_fractions(content: &StripContent, reading: UsageReading) -> Vec<f64> {
     content
         .bars
         .iter()
         .map(|metric| match reading {
-            UsageReading::Left if metric.left_value.is_some() => {
-                (1.0 - metric.fraction).clamp(0.0, 1.0)
-            }
-            _ => metric.fraction,
+            UsageReading::Left => metric.left_fraction.unwrap_or(metric.fraction),
+            UsageReading::Used => metric.fraction,
         })
         .collect()
 }
@@ -925,6 +926,7 @@ mod tests {
             fraction: 0.0,
             bounded: true,
             left_value: None,
+            left_fraction: None,
             value_headline: false,
             grouped: false,
         }
@@ -1231,8 +1233,9 @@ mod tests {
 
     /// In the popover's Left reading the Chart glyph's bar fractions reflect what
     /// is left, like the popover's meter fill: 40% used becomes 60% fill. In Used
-    /// mode they keep the used fraction (40%). A value headline with no percent
-    /// reads the same either way.
+    /// mode they keep the used fraction (40%). A value headline's bar flips too —
+    /// the popover's meter fills with `leftPercent` there, keeping only the
+    /// headline figure fixed — while its chip text keeps the report value.
     #[test]
     fn chart_fractions_follow_the_left_reading() {
         let report = json!({"primary":null, "entries":[
@@ -1251,6 +1254,34 @@ mod tests {
         assert_eq!(used, vec![0.0, 0.4, 1.0, 0.4]);
 
         let left = chart_fractions(&content, UsageReading::Left);
-        assert_eq!(left, vec![1.0, 0.6, 0.0, 0.4]);
+        assert_eq!(left, vec![1.0, 0.6, 0.0, 0.6]);
+        // The text keeps the figure in Left — only the bar flips.
+        let (_, _, openrouter) = &content.groups[2];
+        assert_eq!(metric_text(&openrouter[0], UsageReading::Left), "$4");
+    }
+
+    /// A row with no percent has no remaining share to fill with: it draws the
+    /// same empty bar in both readings, instead of a full one that a blind
+    /// `1.0 - fraction` would paint.
+    #[test]
+    fn chart_fractions_leave_a_percent_less_row_empty_in_both_readings() {
+        let report = json!({"primary":null, "entries":[
+            {"id":"openrouter", "status":"ready", "sections":[
+                {"type":"metric", "label":"Balance", "value":"$40"},
+                {"type":"metric", "label":"Credits", "value":"$4", "headline":"value"}]},
+        ]});
+        let content = super::super::strip::content_from_payload(
+            &report,
+            &super::super::strip::Stars::new(),
+            &[],
+        );
+        assert_eq!(
+            chart_fractions(&content, UsageReading::Used),
+            vec![0.0, 0.0]
+        );
+        assert_eq!(
+            chart_fractions(&content, UsageReading::Left),
+            vec![0.0, 0.0]
+        );
     }
 }
