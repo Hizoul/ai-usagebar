@@ -7,6 +7,29 @@
   existing LobeHub licence notice. The same mark is used for custom
   providers that declare `brand = "ollama"`.
 
+### Changed
+
+- **Ollama Cloud quota now comes from `/api/balance`.** `/api/usage` returned
+  request and token history rather than quota, so the provider reads the
+  documented balance route instead. Both account shapes are served there —
+  verified against a real capture from a session/weekly account — so existing
+  quota users see no change beyond the source.
+
+### Fixed
+
+- **Ollama Cloud credit-based Pro plans no longer show an empty quota.**
+  Fetch the documented `/api/balance` endpoint instead of `/api/usage`, which
+  now returns request/token history. Automatically detect monthly included
+  credits (such as Pro's $60 allowance) or legacy session/weekly limits.
+  Show remaining/allowance dollars and purchased credits, derive monthly
+  utilization from included credits, and preserve billing resets and actual
+  period lengths. Historical quota caches remain readable; usage-history
+  payloads are rejected rather than silently accepted as empty limits.
+
+## [1.34.0] — 2026-10-08
+
+### Added
+
 - **Several GitHub Copilot accounts.** `[[copilot.accounts]]` names the logins
   `gh` already holds for a host, so a personal and a work plan can be watched
   side by side:
@@ -56,14 +79,14 @@
 
 ### Fixed
 
-- **Ollama Cloud credit-based Pro plans no longer show an empty quota.**
-  Fetch the documented `/api/balance` endpoint instead of `/api/usage`, which
-  now returns request/token history. Automatically detect monthly included
-  credits (such as Pro's $60 allowance) or legacy session/weekly limits.
-  Show remaining/allowance dollars and purchased credits, derive monthly
-  utilization from included credits, and preserve billing resets and actual
-  period lengths. Historical quota caches remain readable; usage-history
-  payloads are rejected rather than silently accepted as empty limits.
+- **The macOS menu bar's compact bars follow "Show Usage As: Left".** The
+  chart glyph previously mapped its bar fractions directly from used quota,
+  ignoring `state.usage_reading`. With Left reading selected, the popover
+  drew remaining quota while the menu bar stayed in Used mode (empty bars for
+  fresh quota, solid bars for exhausted quota). The chart fractions now
+  invert to remaining quota when Left reading is selected, matching the popover
+  meters — including a starred balance row's bar, whose chip text keeps its
+  figure the way the popover's headline does (#388).
 
 - **The Korean Omarchy panel no longer falls back to English for two labels.**
   The `LABELS` table was checked by asserting that a single key existed, so
@@ -4094,7 +4117,8 @@ vendors. Highlights:
 - Live API smoke test suite (`make smoke`) that exercises the real
   undocumented endpoints to detect schema drift before users do.
 
-[Unreleased]: https://github.com/akitaonrails/ai-usagebar/compare/v1.33.0...HEAD
+[Unreleased]: https://github.com/akitaonrails/ai-usagebar/compare/v1.34.0...HEAD
+[1.34.0]: https://github.com/akitaonrails/ai-usagebar/compare/v1.33.0...v1.34.0
 [1.33.0]: https://github.com/akitaonrails/ai-usagebar/compare/v1.32.0...v1.33.0
 [1.32.0]: https://github.com/akitaonrails/ai-usagebar/compare/v1.31.0...v1.32.0
 [1.31.0]: https://github.com/akitaonrails/ai-usagebar/compare/v1.30.0...v1.31.0
