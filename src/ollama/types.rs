@@ -227,6 +227,43 @@ impl BalanceBody {
 
 #[cfg(test)]
 mod tests {
+    /// A real `/api/balance` payload from a session/weekly account, captured by
+    /// a third party on #387. The credits branch of `Included` had a committed
+    /// capture; this one did not, and it is the branch every pre-existing user
+    /// depends on — so the shape is pinned by the bytes the API actually sent
+    /// rather than by a hand-written sample.
+    #[test]
+    fn a_real_quota_account_balance_payload_keeps_its_windows() {
+        let raw = include_str!("../../tests/fixtures/ollama/balance_quota.json");
+        let body: Body = serde_json::from_str(raw).expect("captured payload must parse");
+        let snap = body.into_snapshot("pro".into());
+
+        // `remaining_percent` is what is LEFT, so utilization is its complement:
+        // 100 remaining is 0 used, and 59.19 remaining rounds to 41 used.
+        let session = snap.session.expect("session window");
+        assert_eq!(session.utilization_pct, 0);
+        let weekly = snap.weekly.expect("weekly window");
+        assert_eq!(weekly.utilization_pct, 41);
+
+        // A quota account has no credits block and no monthly window; a zero
+        // purchased balance must not invent one.
+        assert!(
+            snap.monthly.is_none(),
+            "quota accounts report no monthly window"
+        );
+        assert!(snap.credits.is_none(), "a quota account has no credits");
+
+        // The resets travel with the windows rather than being guessed.
+        assert!(
+            session.resets_at.is_some(),
+            "session reset comes from the payload"
+        );
+        assert!(
+            weekly.resets_at.is_some(),
+            "weekly reset comes from the payload"
+        );
+    }
+
     use super::*;
 
     /// Real 200 body captured 2026-09-09 against a Pro account (numbers
